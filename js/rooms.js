@@ -45,17 +45,13 @@ function roomWallCanvases(H, kind) {
 }
 function roomWallMat(H, kind) {
   const [c, e] = roomWallCanvases(H, kind); const map = tex(c), em = tex(e); map.wrapS = em.wrapS = THREE.RepeatWrapping;
-  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.3 });
+  const nm = normalTex(c, kind === 'tile' ? 4 : 2.5); nm.wrapS = THREE.RepeatWrapping;
+  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.3 });
   ROOM_WALL_MATS.push(m); return m;
 }
-const WOOD = (() => {
-  const S = 512, c = cnv(S, S), g = c.getContext('2d'); g.fillStyle = '#4a2e1c'; g.fillRect(0, 0, S, S);
-  const r = mulberry(61);
-  for (let i = 0; i < 220; i++) { const y = r() * S, a = 0.04 + r() * 0.09; g.strokeStyle = r() < 0.5 ? `rgba(18,9,3,${a})` : `rgba(150,98,60,${a})`; g.lineWidth = 0.5 + r() * 2.2; g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= S; x += 32) g.lineTo(x, y + Math.sin(x * 0.012 + i) * 5 + (r() - 0.5) * 2); g.stroke(); }
-  noise(g, S, S, 4000, 0.02, 62);
-  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.4, metalness: 0.05, envMapIntensity: 0.55 });
-})();
+// dark hardwood (ambientCG Wood018, recoloured), world-mapped so the grain runs evenly over every piece of furniture
+const WOOD = triSurface(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0.05, envMapIntensity: 0.55 }),
+  { set: 'wood', metres: 1.1, ns: 0.8, color: true, absRough: true, low: 0, albedo: [0.07, 0.028, 0.014] });
 const CERAMIC = new THREE.MeshStandardMaterial({ color: 0xeeeae4, roughness: 0.22, metalness: 0.02, envMapIntensity: 0.8 });
 const GLASS = new THREE.MeshStandardMaterial({ color: 0xbcd2dc, transparent: true, opacity: 0.16, roughness: 0.04, metalness: 0.85, envMapIntensity: 1.3, depthWrite: false });
 const PANE = new THREE.MeshStandardMaterial({ color: 0x8fa8b8, transparent: true, opacity: 0.05, roughness: 0.02, metalness: 0.6, envMapIntensity: 0.35, depthWrite: false });
@@ -164,7 +160,7 @@ const extStreaks = add(new THREE.LineSegments(extGeo, extMat)); extStreaks.frust
 let cupLiquid, cupGroup;
 {
   const g = roomFrame(3, 0.38);
-  const R = roomShell(g, { xa: -1.0, xb: 3.0, d: 4.6, H: 2.9, mat: roomWarm, floor: MAT.floorCarpet, window: { x0: -0.4, x1: 2.6, y0: 0.95, y1: 2.25 }, light: [1.0, 2.55, 2.6], lightI: 1.0, lightDist: 6.5, label: 'Ready Room' });
+  const R = roomShell(g, { xa: -1.0, xb: 3.0, d: 4.6, H: 2.9, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -0.4, x1: 2.6, y0: 0.95, y1: 2.25 }, light: [1.0, 2.55, 2.6], lightI: 1.0, lightDist: 6.5, label: 'Ready Room' });
   viewport(g, -0.4, 2.6, 0.95, 2.25, 4.6);
   // rug
   { const c = cnv(512, 416), x = c.getContext('2d'); x.fillStyle = '#26303b'; x.fillRect(0, 0, 512, 416); noise(x, 512, 416, 9000, 0.05, 72);
@@ -256,7 +252,7 @@ let cupLiquid, cupGroup;
 // ---------- CONFERENCE ROOM (off the aft wall, starboard of the situation table) ----------
 {
   const g = roomFrame(4, 0.174);
-  roomShell(g, { xa: -3.75, xb: 2.05, d: 4.4, H: 2.9, mat: roomWarm, floor: MAT.floorCarpet, window: { x0: -3.05, x1: 1.35, y0: 1.0, y1: 2.15 }, light: [-0.85, 2.55, 2.3], lightI: 1.1, lightDist: 7.5, label: 'Conference Room' });
+  roomShell(g, { xa: -3.75, xb: 2.05, d: 4.4, H: 2.9, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -3.05, x1: 1.35, y0: 1.0, y1: 2.15 }, light: [-0.85, 2.55, 2.3], lightI: 1.1, lightDist: 7.5, label: 'Conference Room' });
   viewport(g, -3.05, 1.35, 1.0, 2.15, 4.4);
   // table: dark glass top with an underglow and the crest inlaid
   const T = { x: -0.85, z: 2.3, L: 3.4, W: 1.3 };

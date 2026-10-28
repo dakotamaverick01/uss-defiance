@@ -42,7 +42,7 @@ EXPORT_JS = r"""() => {
       if (c[0] + c[1] + c[2] < 0.03) return { kind: 'occ', col: [0.01, 0.01, 0.01], metal: 0, rough: 0.5 };
       return { kind: 'emit', layer: 'W', cat: 'screen', col: c };
     }
-    if (m.isMeshStandardMaterial) return { kind: 'occ', col: mul(m.color, mapAvg(m.map) || [1, 1, 1]), metal: m.metalness, rough: m.roughness };
+    if (m.isMeshStandardMaterial) return { kind: 'occ', col: m.userData.bakeAlbedo || mul(m.color, mapAvg(m.map) || [1, 1, 1]), metal: m.metalnessMap ? 0.5 : m.metalness, rough: Math.min(1, m.roughness * (m.roughnessMap ? 0.6 : 1)) };
     return null;
   };
   const groups = new Map(), spots = [], v = new THREE.Vector3(), nm = new THREE.Matrix3();

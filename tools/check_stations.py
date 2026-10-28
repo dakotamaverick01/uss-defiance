@@ -2,7 +2,7 @@
 # usage: python3 tools/check_stations.py <site_dir>
 import asyncio, sys, os, mimetypes
 from playwright.async_api import async_playwright
-root = sys.argv[1]
+root = sys.argv[1] if len(sys.argv) > 1 else '.'
 THREE_DIR = os.environ.get('THREE_DIR', '/tmp/claude-0/pw/t186/node_modules/three')
 CHROME = os.environ.get('CHROME', '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome')
 async def route(r):
@@ -43,4 +43,4 @@ async def run():
       print(name, res); print('  errors:', errs); print('  warnings:', sorted(set(warns))[:10])
       await ctx.close()
     await b.close()
-asyncio.run(run())
+if __name__ == "__main__": asyncio.run(run())

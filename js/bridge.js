@@ -72,9 +72,9 @@ const byStation = {};
 const SHEEN_MAT = (() => { const c = cnv(256, 256), g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 256, 256); gr.addColorStop(0, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.18, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.32, 'rgba(255,255,255,0.08)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.0)'); gr.addColorStop(0.86, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0.0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); return new THREE.MeshBasicMaterial({ map: tex(c), transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }); })();
 function addScreen(parent, w, h, cw, ch, kind, station, title, code) {
   const c = cnv(cw, ch), g = c.getContext('2d'), t = tex(c);
-  const mat = new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
+  const mat = patchScreen(new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); parent.add(m);
-  if (kind !== 'keys' && w > 0.3) { const sh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), SHEEN_MAT); sh.position.z = 0.003; m.add(sh); }
+  screenGlass(m, w, h); // smudged glass over every display and touch panel
   const s = { c, g, tex: t, mat, w: cw, h: ch, kind, station, title, code, mesh: m, seed: screens.length * 7 + 3 };
   screens.push(s); (byStation[station] = byStation[station] || []).push(s);
   return s;
@@ -110,7 +110,7 @@ function backShape(wb, ws, wt, h, r) {
   return s;
 }
 let _baseGeo = null;
-const CHAIR_BASE_MAT = new THREE.MeshStandardMaterial({ color: 0x45433f, metalness: 0.85, roughness: 0.34, envMapIntensity: 0.6 });
+const CHAIR_BASE_MAT = triSurface(new THREE.MeshStandardMaterial({ color: 0x45433f, metalness: 0.85, roughness: 0.34, envMapIntensity: 0.6 }), { set: 'steel', metres: 0.45, ns: 0.5, rv: 0.7, low: 0.3 });
 function chairBase() {
   if (_baseGeo) return _baseGeo;
   const pts = [[0, 0], [0.36, 0], [0.375, 0.012], [0.36, 0.03], [0.22, 0.06], [0.11, 0.09], [0.075, 0.13], [0.065, 0.33], [0.09, 0.36], [0, 0.36]].map(([x, y]) => new THREE.Vector2(x, y));

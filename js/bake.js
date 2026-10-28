@@ -73,36 +73,37 @@ function buildAtlas() {
 
 // ---------- shaders: add baked light to three.js's standard material ----------
 const BK_IBL_LINE = 'iblIrradiance += getIBLIrradiance( geometryNormal );';
-const BK_FS = {
-  lm: `uniform sampler2D bkLmW, bkLmS; uniform vec2 bkLmMax; uniform vec3 bkW, bkS; uniform float bkIbl; varying vec2 vBkLM;`,
-  pr: `uniform highp sampler3D bkPr; uniform vec3 bkPrMin, bkPrDim, bkW, bkS; uniform float bkPrInv, bkIbl; uniform vec2 bkPrMax; varying vec3 vBkPW;
-vec4 bkCube(vec3 q, float f) { vec4 c = texture(bkPr, vec3((q.x + f * bkPrDim.x) / (6.0 * bkPrDim.x), q.y / bkPrDim.y, q.z / bkPrDim.z)); return c * c; }`,
-};
+const BK_DECL = `uniform sampler2D bkLmW, bkLmS; uniform vec2 bkLmMax; uniform vec3 bkW, bkS; uniform float bkIbl;
+uniform highp sampler3D bkPr; uniform vec3 bkPrMin, bkPrDim; uniform float bkPrInv; uniform vec2 bkPrMax;
+vec4 bkCube(vec3 q, float f) { vec4 c = texture(bkPr, vec3((q.x + f * bkPrDim.x) / (6.0 * bkPrDim.x), q.y / bkPrDim.y, q.z / bkPrDim.z)); return c * c; }
+// ambient cube: one sample per axis, chosen by the sign of the normal, weighted by the normal squared
+vec4 bkProbe(vec3 q, vec3 n) { vec3 n2 = n * n; return n2.x * bkCube(q, n.x >= 0.0 ? 0.0 : 1.0) + n2.y * bkCube(q, n.y >= 0.0 ? 2.0 : 3.0) + n2.z * bkCube(q, n.z >= 0.0 ? 4.0 : 5.0); }
+float bkLum(vec4 e) { return dot(e.rgb, vec3(0.3, 0.55, 0.15)) * bkPrMax.x + e.a * bkPrMax.y * 0.3; }
+`;
 const BK_ADD = {
+  // light map; the probes add direction, so bump detail on floors and walls is lit from where the fixtures really are
   lm: `{ vec3 w = texture2D(bkLmW, vBkLM).rgb; float s = texture2D(bkLmS, vBkLM).r;
-  irradiance += w * w * bkLmMax.x * bkW + s * s * bkLmMax.y * bkS; }`,
-  // ambient cube: one sample per axis, chosen by the sign of the normal, weighted by the normal squared
+  vec3 base = w * w * bkLmMax.x * bkW + s * s * bkLmMax.y * bkS;
+  #ifdef USE_NORMALMAP
+  vec3 nP = normalize((vec4(normal, 0.0) * viewMatrix).xyz), nF = normalize((vec4(flatN, 0.0) * viewMatrix).xyz);
+  vec3 q = clamp((vWP + nF * 0.15 - bkPrMin) * bkPrInv + 0.5, vec3(0.5), bkPrDim - 0.5);
+  base *= clamp((bkLum(bkProbe(q, nP)) + 1e-4) / (bkLum(bkProbe(q, nF)) + 1e-4), 0.35, 2.0);
+  #endif
+  irradiance += base; }`,
   pr: `{ vec3 nW = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
-  vec3 p = (vBkPW + nW * 0.1 - bkPrMin) * bkPrInv + 0.5, q = clamp(p, vec3(0.5), bkPrDim - 0.5);
+  vec3 p = (vWP + nW * 0.1 - bkPrMin) * bkPrInv + 0.5, q = clamp(p, vec3(0.5), bkPrDim - 0.5);
   float inside = 1.0 - smoothstep(0.5, 1.5, distance(p, q));
-  vec3 n2 = nW * nW;
-  vec4 e = n2.x * bkCube(q, nW.x >= 0.0 ? 0.0 : 1.0) + n2.y * bkCube(q, nW.y >= 0.0 ? 2.0 : 3.0) + n2.z * bkCube(q, nW.z >= 0.0 ? 4.0 : 5.0);
+  vec4 e = bkProbe(q, nW);
   irradiance += inside * (e.rgb * bkPrMax.x * bkW + e.a * bkPrMax.y * bkS); }`,
 };
 function bakePatch(m, mode) {
   if (m.userData.bk) return; m.userData.bk = mode;
-  m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, BKU);
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\n' + (mode === 'lm' ? 'attribute vec2 uvLM; varying vec2 vBkLM;' : 'varying vec3 vBkPW;'))
-      .replace('#include <fog_vertex>', '#include <fog_vertex>\n' + (mode === 'lm' ? 'vBkLM = uvLM;' : 'vBkPW = (modelMatrix * vec4(transformed, 1.0)).xyz;'));
-    const chunk = THREE.ShaderChunk.lights_fragment_maps.replace(BK_IBL_LINE, 'iblIrradiance += getIBLIrradiance( geometryNormal ) * bkIbl;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + BK_FS[mode])
-      .replace('#include <lights_fragment_maps>', '#if defined( RE_IndirectDiffuse )\n' + BK_ADD[mode] + '\n#endif\n' + chunk);
-  };
-  m.customProgramCacheKey = () => 'bk-' + mode;
-  m.needsUpdate = true;
+  const chunk = THREE.ShaderChunk.lights_fragment_maps.replace(BK_IBL_LINE, 'iblIrradiance += getIBLIrradiance( geometryNormal ) * bkIbl;');
+  patchMat(m, 'bk-' + mode, {
+    world: true, uniforms: BKU, decl: BK_DECL + (mode === 'lm' ? 'varying vec2 vBkLM;' : ''),
+    vdecl: mode === 'lm' ? 'attribute vec2 uvLM; varying vec2 vBkLM;\n' : '', vert: mode === 'lm' ? 'vBkLM = uvLM;\n' : '',
+    replace: { lights_fragment_maps: '#if defined( RE_IndirectDiffuse )\n' + BK_ADD[mode] + '\n#endif\n' + chunk },
+  });
 }
 
 // ---------- live controls: light level, alert colour, red-alert strip pulse ----------
@@ -134,9 +135,10 @@ function bakeTex(img) { const t = new THREE.Texture(img); t.flipY = false; t.col
 function bakePixels(img) { const c = cnv(img.width, img.height), g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0); return g.getImageData(0, 0, img.width, img.height).data; }
 buildAtlas();
 BAKE.ready = (async () => {
+  await SURF.ready(); // textures first, so every material is final before it is patched
   if (window.DEFIANCE_NO_BAKE) throw new Error('bake disabled');
   const meta = await (await fetch('bake/bake.json')).json();
-  if (meta.atlas.w !== BAKE.atlas.w || meta.atlas.h !== BAKE.atlas.h || meta.atlas.sig !== BAKE.atlas.sig) throw new Error('bake does not match the scene; re-run tools/bake_lighting.py');
+  if (meta.atlas.w !== BAKE.atlas.w || meta.atlas.h !== BAKE.atlas.h || meta.atlas.sig !== BAKE.atlas.sig) throw new Error('bake does not match the scene; re-run the bake (see README)');
   const [lw, ls, pw, ps] = await Promise.all(['lm_w', 'lm_s', 'pr_w', 'pr_s'].map((n) => bakeImg('bake/' + n + '.png')));
   BAKE.meta = meta;
   BKU.bkLmW.value = bakeTex(lw); BKU.bkLmS.value = bakeTex(ls); BKU.bkLmMax.value.set(meta.lm_max[0], meta.lm_max[1]);
@@ -161,7 +163,7 @@ BAKE.ready = (async () => {
   mats.forEach((e, m) => { if (e.o) bakePatch(m, 'pr'); else bakePatch(m, 'lm'); });
   BAKE.receivers.forEach((o) => {
     if (o.material.userData.bk === 'lm') return;
-    let c = lmCopy.get(o.material); if (!c) { c = o.material.clone(); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
+    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
     o.material = c;
   });
   DECALS.forEach((m) => { m.visible = false; });

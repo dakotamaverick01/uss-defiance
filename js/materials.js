@@ -55,7 +55,25 @@ function wallCanvases() {
   ge.fillStyle = '#000'; ge.fillRect(0, 0, W, H);
   ge.fillStyle = 'rgba(255,255,255,0.75)'; ge.fillRect(0, Y(2.62), 2, Y(1.1) - Y(2.62)); ge.fillRect(W - 2, Y(2.62), 2, Y(1.1) - Y(2.62));
   ge.fillStyle = '#fff'; ge.fillRect(0, Y(2.72) - 2, W, 3);
-  return [c, e];
+  // height for the bump map, same layout at twice the resolution: panels inset, seams and louvres cut in, rail and fasteners proud
+  const hc = cnv(W * 2, H * 2), hg = hc.getContext('2d'); hg.scale(2, 2);
+  const hv = (v) => `rgb(${v * 255 | 0},${v * 255 | 0},${v * 255 | 0})`;
+  hg.fillStyle = hv(0.45); hg.fillRect(0, 0, W, Y(2.72));
+  for (let i = 0; i < 6; i++) { hg.fillStyle = hv(0.2); hg.fillRect(24, 18 + i * 11, W - 48, 4); }
+  hg.fillStyle = hv(0.58); hg.fillRect(0, Y(2.72), W, Y(1.02) - Y(2.72));
+  [[2.62, 1.92], [1.86, 1.1]].forEach(([top, bot]) => {
+    const x0 = 14, x1 = W - 14, y0 = Y(top), y1 = Y(bot);
+    hg.fillStyle = hv(0.36); hg.fillRect(x0, y0, x1 - x0, y1 - y0); hg.fillStyle = hv(0.48); hg.fillRect(x0 + 3, y0 + 3, x1 - x0 - 6, y1 - y0 - 6);
+    [[x0 + 8, y0 + 8], [x1 - 8, y0 + 8], [x0 + 8, y1 - 8], [x1 - 8, y1 - 8]].forEach(([fx, fy]) => { hg.fillStyle = hv(0.8); hg.beginPath(); hg.arc(fx, fy, 2.2, 0, 7); hg.fill(); });
+  });
+  hg.fillStyle = hv(0.82); hg.fillRect(0, Y(1.02), W, Y(0.95) - Y(1.02));
+  hg.fillStyle = hv(0.62); hg.fillRect(0, Y(0.95), W, Y(0.12) - Y(0.95));
+  hg.strokeStyle = hv(0.42); hg.lineWidth = 2; hg.strokeRect(10, Y(0.9), W - 20, Y(0.17) - Y(0.9));
+  [[20, Y(0.84)], [W - 20, Y(0.84)], [20, Y(0.24)], [W - 20, Y(0.24)], [W / 2, Y(0.84)], [W / 2, Y(0.24)]].forEach(([x, y]) => { hg.fillStyle = hv(0.85); hg.beginPath(); hg.arc(x, y, 2.6, 0, 7); hg.fill(); });
+  hg.fillStyle = hv(0.5); hg.fillRect(0, Y(0.12), W, H - Y(0.12));
+  hg.fillStyle = hv(0.15); hg.fillRect(0, Y(2.62), 3, Y(1.1) - Y(2.62)); hg.fillRect(W - 3, Y(2.62), 3, Y(1.1) - Y(2.62)); hg.fillRect(0, Y(2.72) - 3, W, 5);
+  const hb = cnv(W * 2, H * 2), hbg = hb.getContext('2d'); hbg.filter = 'blur(1.2px)'; hbg.drawImage(hc, 0, 0);
+  return [c, e, hb];
 }
 function carpetTile() {
   const S = 256, c = cnv(S, S), g = c.getContext('2d');
@@ -131,11 +149,13 @@ function linearTex(top, bottom) { const c = cnv(4, 64), g = c.getContext('2d'); 
 }
 
 // ---------- materials ----------
-const [wallC, wallE] = wallCanvases();
-const wallMap = tex(wallC), wallEm = tex(wallE); wallMap.wrapS = wallEm.wrapS = THREE.RepeatWrapping;
+const [wallC, wallE, wallHt] = wallCanvases();
+const wallMap = tex(wallC), wallEm = tex(wallE), wallN = normalTex(wallHt, 3.5); wallMap.wrapS = wallEm.wrapS = wallN.wrapS = THREE.RepeatWrapping;
+const ceilC = ceilingTile(), daisC = daisTexture();
 function tile(c, m) { const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / m, 1 / m); return t; }
+let MAT_CONSOLE_N = null;
 const MAT = {
-  wall: new THREE.MeshStandardMaterial({ map: wallMap, emissiveMap: wallEm, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.7, roughness: 0.78, metalness: 0.08, envMapIntensity: 0.32 }),
+  wall: new THREE.MeshStandardMaterial({ map: wallMap, emissiveMap: wallEm, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.7, normalMap: wallN, roughness: 1.55, metalness: 0.08, envMapIntensity: 0.32 }),
   gun: new THREE.MeshStandardMaterial({ color: 0x33322f, metalness: 0.78, roughness: 0.38, envMapIntensity: 0.55 }),
   gunDark: new THREE.MeshStandardMaterial({ color: 0x242322, metalness: 0.6, roughness: 0.5, envMapIntensity: 0.7 }),
   steel: new THREE.MeshStandardMaterial({ color: 0x9a948c, metalness: 0.9, roughness: 0.26, envMapIntensity: 1.1 }),
@@ -150,19 +170,36 @@ const MAT = {
     [[14, 14], [242, 14], [14, 286], [242, 286], [270, 14], [498, 14], [270, 286], [498, 286], [14, 316], [242, 316], [270, 316], [498, 316]].forEach(([x, y]) => fastener(g, x, y, 3));
     g.fillStyle = '#1b1917'; g.fillRect(40, 60, 110, 26); g.fillRect(296, 60, 110, 26);
     g.fillStyle = 'rgba(201,214,234,0.55)'; g.font = `600 13px ${MONO}`; g.textBaseline = 'middle'; g.fillText('SVC 14-A', 50, 74); g.fillText('SVC 14-B', 306, 74);
-    const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })(), roughness: 0.48, metalness: 0.4, envMapIntensity: 0.75 }),
+    const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; MAT_CONSOLE_N = normalTex(c, 2.5); MAT_CONSOLE_N.wrapS = MAT_CONSOLE_N.wrapT = THREE.RepeatWrapping; return t; })(), roughness: 0.48, metalness: 0.4, envMapIntensity: 0.75 }),
   cap: new THREE.MeshStandardMaterial({ color: 0x5e5852, roughness: 0.4, metalness: 0.55, envMapIntensity: 0.7 }),
   glassTop: new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.15, metalness: 0.5, envMapIntensity: 1.2 }),
   leather: new THREE.MeshStandardMaterial({ color: 0x4a2416, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.3 }),
   leatherDark: new THREE.MeshStandardMaterial({ color: 0x2a140a, roughness: 0.55, envMapIntensity: 0.2 }),
-  floorCarpet: new THREE.MeshStandardMaterial({ map: tile(carpetTile(), 0.6), roughness: 0.96, metalness: 0, envMapIntensity: 0.25 }),
-  floorPlate: new THREE.MeshStandardMaterial({ map: tile(plateTile(), 1.2), roughness: 0.5, metalness: 0.6, envMapIntensity: 0.8 }),
-  ceiling: new THREE.MeshStandardMaterial({ map: tile(ceilingTile(), 1.2), roughness: 0.85, metalness: 0.2, side: THREE.DoubleSide, envMapIntensity: 0.25 }),
-  dais: new THREE.MeshStandardMaterial({ map: tex(daisTexture()), roughness: 0.9, envMapIntensity: 0.3 }),
+  // Stage 3: photographed surface sets (textures/, from ambientCG) for the floors
+  floorCarpet: uvSet(new THREE.MeshStandardMaterial({ envMapIntensity: 0.25 }), 'carpet', 0.9),
+  floorPlate: uvSet(new THREE.MeshStandardMaterial({ envMapIntensity: 0.8 }), 'plate', 0.6, { metal: true }),
+  roomCarpet: uvSet(new THREE.MeshStandardMaterial({ envMapIntensity: 0.2 }), 'roomcarpet', 0.7),
+  ceiling: new THREE.MeshStandardMaterial({ map: tile(ceilC, 1.2), normalMap: (() => { const t = normalTex(ceilC, 2.5); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 1.2, 1 / 1.2); return t; })(), roughness: 0.85, metalness: 0.2, side: THREE.DoubleSide, envMapIntensity: 0.25 }),
+  dais: new THREE.MeshStandardMaterial({ map: tex(daisC), normalMap: normalTex(daisC, 0.5), roughness: 0.9, envMapIntensity: 0.3 }),
   hazard: null,
   hit: new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
 };
 { const c = cnv(128, 16), g = c.getContext('2d'); g.fillStyle = '#d9a12a'; g.fillRect(0, 0, 128, 16); g.fillStyle = '#1a1714'; for (let x = -16; x < 128; x += 16) { g.beginPath(); g.moveTo(x, 16); g.lineTo(x + 8, 0); g.lineTo(x + 16, 0); g.lineTo(x + 8, 16); g.fill(); } const t = tex(c); t.wrapS = THREE.RepeatWrapping; MAT.hazard = new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 }); }
+MAT.console.normalMap = MAT_CONSOLE_N;
+// world-mapped detail and wear on the hard surfaces (surfaces.js)
+triSurface(MAT.gun, { set: 'paint', metres: 0.7, ns: 0.8, rv: 0.75, edge: 0.6 });
+triSurface(MAT.gunDark, { set: 'paint', metres: 0.7, ns: 0.8, rv: 0.75, edge: 0.5 });
+triSurface(MAT.panel, { set: 'paint', metres: 0.7, ns: 1.0, rv: 0.7, edge: 0.4 });
+triSurface(MAT.console, { set: 'paint', metres: 0.7, ns: 1.0, rv: 0.9, edge: 0.8 });
+triSurface(MAT.cap, { set: 'paint', metres: 0.6, ns: 1.1, rv: 1.0, edge: 1.0 });
+triSurface(MAT.steel, { set: 'steel', metres: 0.45, ns: 0.6, rv: 0.8, low: 0.5 });
+triSurface(MAT.leather, { set: 'leather', metres: 0.25, ns: 2.2, rv: 1.0, low: 0 });
+triSurface(MAT.leatherDark, { set: 'leather', metres: 0.25, ns: 2.2, rv: 1.0, low: 0 });
+// crushed carpet pile and polished tread plate along the walkways
+walkWear(MAT.floorCarpet, { amt: 0.8, rough: 1.0, flat: 0.6, tint: [1.3, 1.27, 1.22] });
+walkWear(MAT.floorPlate, { amt: 0.85, rough: 0.5, flat: 0.25, tint: [1.25, 1.25, 1.25] });
+// painted-metal roughness variation on the bridge walls (wall UVs: one unit per 1.2 m bay across, wall height up)
+TX('paint_orm.jpg', 'orm', (t) => { if (t.isDataTexture) { MAT.wall.roughnessMap = t; return; } const r = t.clone(); r.repeat.set(1.5, 4.1); r.needsUpdate = true; MAT.wall.roughnessMap = r; });
 const stripMats = [], slotMats = [];
 function stripMat() { const m = new THREE.MeshBasicMaterial({ color: ALERTS.green.strip, toneMapped: false }); stripMats.push(m); return m; }
 function slotMat() { const m = new THREE.MeshBasicMaterial({ color: ALERTS.green.slot, toneMapped: false }); slotMats.push(m); return m; }

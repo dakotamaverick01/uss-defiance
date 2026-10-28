@@ -33,8 +33,9 @@ async def run():
     pg.on('console', lambda m: (warns.append(m.text[:200]) if m.type in ('warning','error') else None))
     if os.environ.get('INIT'): await pg.add_init_script(os.environ['INIT'])
     await pg.route('**/*', route); await pg.goto('https://example.test/')
-    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED', timeout=120000)
+    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED && window.DEFIANCE_READY !== false', timeout=180000)
     await pg.wait_for_timeout(1500)
+    if os.environ.get('PRE'): await pg.evaluate(os.environ['PRE'])
     try:
       for n in SHOTS:
         name = await pg.evaluate(f'DEFIANCE_HERO({n})'); await pg.wait_for_timeout(2500)
