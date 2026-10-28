@@ -59,7 +59,7 @@ Everything here is original: the ship, its layout, the interface language, the i
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
 - **Collision:** walls and doors are line segments, and furniture is circles. Walls also block clicks, so you can't use a panel through a wall.
 - **Sound:** generated in the browser with the Web Audio API. There are no sound files.
-- **Hero shots:** six fixed camera positions used to judge each visual stage side by side. Run `DEFIANCE_HERO(1)` through `DEFIANCE_HERO(6)` in the browser console, and `DEFIANCE_HERO(0)` to return to play. Contact sheets are in `docs/`.
+- **Hero shots:** six fixed camera positions used to judge each visual stage side by side. Run `DEFIANCE_HERO(1)` through `DEFIANCE_HERO(6)` in the browser console, and `DEFIANCE_HERO(0)` to return to play. Contact sheets are in `docs/` (`hero-shots-stage1.jpg` is the latest).
 
 ## Status
 
