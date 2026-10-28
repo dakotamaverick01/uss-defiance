@@ -229,7 +229,7 @@ function frame() {
     stripMats.forEach((m) => m.color.setHex(ALERTS.red.strip).multiplyScalar(1.9 * k));
     slotMats.forEach((m) => m.color.setHex(ALERTS.red.slot).multiplyScalar(1.35 * (0.35 + 0.65 * k)));
     MAT.wall.emissiveIntensity = 0.3 + 0.7 * k;
-    bakeLevels(LIGHT_LEVELS[state.light] * 0.6, 'red', ALERTS.red.strip, k);
+    bakeLevels(LIGHT_LEVELS[state.light] * 0.8, 'red', ALERTS.red.strip, k);
   } else MAT.wall.emissiveIntensity = 0.7;
 
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }

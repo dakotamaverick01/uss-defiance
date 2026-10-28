@@ -25,7 +25,7 @@ meta = {'atlas': scn['atlas'], 'exposure': EXPOSURE, 'strip': 1.0, 'env': 1.0, '
 # light map
 lw, ls = np.load(os.path.join(work, 'lm_w.npy')), np.load(os.path.join(work, 'lm_s.npy')).mean(2, keepdims=True)
 mask = lw.sum(2) > 0
-lw = blur_masked(lw, mask); ls = blur_masked(ls, mask)
+lw = blur_masked(lw, mask, 2); ls = blur_masked(ls, mask, 2)
 mw = float(np.percentile(lw[mask], 99.8)) * 1.1; ms = float(np.percentile(ls[mask], 99.8)) * 1.1
 Image.fromarray(enc(lw, mw)).save(os.path.join(out, 'lm_w.png'), optimize=True)
 Image.fromarray(enc(ls[..., 0], ms)).save(os.path.join(out, 'lm_s.png'), optimize=True)

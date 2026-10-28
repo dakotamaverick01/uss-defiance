@@ -210,7 +210,7 @@ function setAlert(a) {
 function applyLights() {
   const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.6 : 1), A = ALERTS[state.alert];
   fallbackApply(k, A);
-  bakeLevels(k, state.alert, A.strip, 1);
+  bakeLevels(LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.8 : 1), state.alert, A.strip, 1);
   const dk = Math.min(1, 0.35 + 0.65 * k);
   lightDiscMat.color.setHex(state.alert === 'red' ? 0xff9a88 : 0xffffff).multiplyScalar(dk * 0.6);
   downlightMat.color.setHex(state.alert === 'red' ? 0xff8070 : 0xfff0dc).multiplyScalar(dk);
