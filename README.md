@@ -1,3 +1,4 @@
+
 # USS Defiance: Deck 1
 
 A walkable 3D bridge deck for an original starship, built to run in a phone or desktop browser with no install.
@@ -56,4 +57,5 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-Deck 1 is complete. Stage 0 of the visual overhaul (engine upgrade, code split, hero shots) is done. Next is Stage 1, lighting, per `docs/visual-overhaul-plan.md`, then camera and color grade, then materials. The exterior model and other decks come later.
+Deck 1 is complete. Stage 0 of the visual overhaul (engine upgrade, code split, hero shots) is done. Stage 1 (lighting) is applied. Stage 2 (camera + grade) is applied. Stage 3 (materials) is applied. Stage 4 (detail) is applied. Stage 5 (lived-in) is applied. Stage 6 (photo mode) is applied. Stage 7 (sound and quality tiers) is now applied: layered positional ambience (ventilation, relays, doors, chirps) and Phone/Desktop/Cinematic quality settings. Visual overhaul complete., per `docs/visual-overhaul-plan.md`. The exterior model and other decks come later.
+

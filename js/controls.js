@@ -68,7 +68,9 @@ window.addEventListener('keydown', (e) => {
   if ((e.code === 'KeyE' || e.code === 'Enter') && $('intro').hidden && target) openStation(target.station);
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; stick.active = false; stick.dx = stick.dy = 0; });
+window.addEventListener('pointerup', (e) => { if (stick.id === e.pointerId) { stick.active = false; stick.dx = stick.dy = 0; } });
+window.addEventListener('pointercancel', (e) => { if (stick.id === e.pointerId) { stick.active = false; stick.dx = stick.dy = 0; } });
 
 const controls = isTouch
   ? [['Look', 'Drag anywhere on the right side'], ['Walk', 'Drag the stick on the left side'], ['Use', 'Tap a station when you are close']]

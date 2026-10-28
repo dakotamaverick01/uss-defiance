@@ -169,13 +169,171 @@ function slotMat() { const m = new THREE.MeshBasicMaterial({ color: ALERTS.green
 const STRIP = stripMat(), SLOT = slotMat();
 const lightDiscMat = new THREE.MeshBasicMaterial({ map: tex(lightDiscTexture()), toneMapped: false });
 const downlightMat = new THREE.MeshBasicMaterial({ color: 0xfff0dc, toneMapped: false });
-const aoTex = radialTex('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
+const aoTex = radialTex('rgba(0,0,0,0.82)', 'rgba(0,0,0,0)');
 const poolTex = radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
 const wallAoTex = linearTex('rgba(0,0,0,0.55)', 'rgba(0,0,0,0)');
 function decal(x, y, z, w, d, map, color, op, additive, rot) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map, color: color || 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, polygonOffset: true, polygonOffsetFactor: -2, toneMapped: false }));
   m.rotation.x = -Math.PI / 2; m.rotation.z = rot || 0; m.position.set(x, y, z); scene.add(m); return m;
 }
-const ao = (x, z, w, d, op, y) => decal(x, (y || 0) + 0.004, z, w, d, aoTex, 0xffffff, op === undefined ? 0.7 : op, false);
+const ao = (x, z, w, d, op, y) => decal(x, (y || 0) + 0.004, z, w, d, aoTex, 0xffffff, op === undefined ? 0.78 : op, false);
 const poolMats = [];
 const pool = (x, z, w, d, color, op, y) => { const m = decal(x, (y || 0) + 0.006, z, w, d, poolTex, color, op, true); poolMats.push({ m, op }); return m; };
+
+// ---------- Stage 3: procedural surface relief, roughness, wear ----------
+function makeNormal(size, draw) {
+  const c = cnv(size, size), g = c.getContext('2d');
+  g.fillStyle = '#8080ff'; g.fillRect(0, 0, size, size);
+  draw(g, size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.NoColorSpace;
+  t.anisotropy = maxAniso;
+  return t;
+}
+function makeRough(size, draw) {
+  const c = cnv(size, size), g = c.getContext('2d');
+  g.fillStyle = '#888'; g.fillRect(0, 0, size, size);
+  draw(g, size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.NoColorSpace;
+  t.anisotropy = maxAniso;
+  return t;
+}
+
+// Brushed steel normal + roughness
+const steelNormal = makeNormal(256, (g, S) => {
+  const r = mulberry(101);
+  for (let y = 0; y < S; y += 1) {
+    const n = 0.5 + (r() - 0.5) * 0.15;
+    g.strokeStyle = `rgb(${128 + (n-0.5)*40|0},${128 + (n-0.5)*20|0},255)`;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(S, y + (r()-0.5)*2); g.stroke();
+  }
+  for (let i = 0; i < 40; i++) {
+    g.fillStyle = `rgba(${100+r()*40|0},${100+r()*30|0},255,0.4)`;
+    g.fillRect(r()*S, r()*S, 2 + r()*8, 1);
+  }
+});
+const steelRough = makeRough(256, (g, S) => {
+  const r = mulberry(102);
+  for (let i = 0; i < 800; i++) {
+    const v = 40 + r()*80|0;
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(r()*S, r()*S, 1 + r()*3, 1);
+  }
+  // edge wear (shinier)
+  g.fillStyle = 'rgba(40,40,40,0.6)';
+  g.fillRect(0, 0, S, 6); g.fillRect(0, S-6, S, 6);
+});
+
+// Leather grain
+const leatherNormal = makeNormal(256, (g, S) => {
+  const r = mulberry(201);
+  for (let i = 0; i < 1200; i++) {
+    const x = r()*S, y = r()*S, rad = 1 + r()*3;
+    g.fillStyle = `rgba(${120+r()*40|0},${110+r()*30|0},255,0.5)`;
+    g.beginPath(); g.ellipse(x, y, rad, rad*0.6, r()*3, 0, 7); g.fill();
+  }
+});
+const leatherRough = makeRough(256, (g, S) => {
+  const r = mulberry(202);
+  for (let i = 0; i < 600; i++) {
+    g.fillStyle = `rgb(${70+r()*60|0},${70+r()*60|0},${70+r()*60|0})`;
+    g.fillRect(r()*S, r()*S, 2, 2);
+  }
+});
+
+// Carpet pile
+const carpetNormal = makeNormal(128, (g, S) => {
+  const r = mulberry(301);
+  for (let i = 0; i < 2000; i++) {
+    g.fillStyle = `rgba(${110+r()*50|0},${100+r()*40|0},255,0.35)`;
+    g.fillRect(r()*S, r()*S, 1.2, 1.2);
+  }
+});
+const carpetRough = makeRough(128, (g, S) => {
+  const r = mulberry(302);
+  for (let i = 0; i < 400; i++) {
+    g.fillStyle = `rgb(${180+r()*40|0},${180+r()*40|0},${180+r()*40|0})`;
+    g.fillRect(r()*S, r()*S, 1, 1);
+  }
+  // walkway scuffs
+  g.fillStyle = 'rgba(60,60,60,0.4)';
+  g.fillRect(S*0.2, S*0.4, S*0.6, 8);
+});
+
+// Panel / painted
+const panelNormal = makeNormal(256, (g, S) => {
+  g.strokeStyle = 'rgba(140,130,255,0.6)';
+  g.lineWidth = 2;
+  g.strokeRect(4, 4, S-8, S-8);
+  g.strokeStyle = 'rgba(120,120,255,0.4)';
+  for (let y = 20; y < S; y += 18) { g.beginPath(); g.moveTo(8, y); g.lineTo(S-8, y); g.stroke(); }
+});
+const panelRough = makeRough(256, (g, S) => {
+  const r = mulberry(401);
+  for (let i = 0; i < 300; i++) {
+    g.fillStyle = `rgb(${90+r()*50|0},${90+r()*50|0},${90+r()*50|0})`;
+    g.fillRect(r()*S, r()*S, 2, 1);
+  }
+  // edge shine
+  g.fillStyle = 'rgba(30,30,30,0.5)';
+  g.fillRect(0, 0, S, 4); g.fillRect(0, S-4, S, 4);
+});
+
+// Glass smudge / fingerprint roughness
+const glassRough = makeRough(256, (g, S) => {
+  g.fillStyle = '#222'; g.fillRect(0, 0, S, S);
+  const r = mulberry(501);
+  // fingerprints
+  for (let i = 0; i < 6; i++) {
+    const cx = r()*S, cy = r()*S;
+    g.fillStyle = `rgba(180,180,180,${0.15+r()*0.2})`;
+    g.beginPath(); g.ellipse(cx, cy, 18+r()*20, 28+r()*16, r()*1.2, 0, 7); g.fill();
+    g.fillStyle = `rgba(160,160,160,0.12)`;
+    for (let k = 0; k < 5; k++) {
+      g.beginPath(); g.arc(cx + (r()-0.5)*16, cy + (r()-0.5)*22, 4+r()*5, 0, 7); g.fill();
+    }
+  }
+  // dust
+  for (let i = 0; i < 80; i++) {
+    g.fillStyle = `rgba(200,200,200,${0.1+r()*0.15})`;
+    g.fillRect(r()*S, r()*S, 1.5, 1.5);
+  }
+});
+
+// Pixel grid for screens
+const pixelGrid = (() => {
+  const S = 64, c = cnv(S, S), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,0)'; g.clearRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(255,255,255,0.08)';
+  g.lineWidth = 0.5;
+  for (let i = 0; i < S; i += 2) {
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i, S); g.stroke();
+    g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke();
+  }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(48, 32);
+  return t;
+})();
+const PIXEL_GRID_MAT = new THREE.MeshBasicMaterial({
+  map: pixelGrid, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending,
+  depthWrite: false, toneMapped: false
+});
+
+const SMUDGE_MAT = new THREE.MeshStandardMaterial({
+  color: 0xffffff, roughnessMap: glassRough, roughness: 0.35, metalness: 0.1,
+  transparent: true, opacity: 0.12, envMapIntensity: 0.8, depthWrite: false
+});
+
+// Apply to materials
+MAT.steel.normalMap = steelNormal; MAT.steel.roughnessMap = steelRough; MAT.steel.normalScale = new THREE.Vector2(0.4, 0.4);
+MAT.panel.normalMap = panelNormal; MAT.panel.roughnessMap = panelRough; MAT.panel.normalScale = new THREE.Vector2(0.25, 0.25);
+MAT.leather.normalMap = leatherNormal; MAT.leather.roughnessMap = leatherRough; MAT.leather.normalScale = new THREE.Vector2(0.6, 0.6);
+MAT.leatherDark.normalMap = leatherNormal; MAT.leatherDark.roughnessMap = leatherRough; MAT.leatherDark.normalScale = new THREE.Vector2(0.5, 0.5);
+MAT.floorCarpet.normalMap = carpetNormal; MAT.floorCarpet.roughnessMap = carpetRough; MAT.floorCarpet.normalScale = new THREE.Vector2(0.8, 0.8);
+MAT.floorPlate.normalMap = steelNormal; MAT.floorPlate.roughnessMap = steelRough; MAT.floorPlate.normalScale = new THREE.Vector2(0.3, 0.3);
+MAT.console.normalMap = panelNormal; MAT.console.roughnessMap = panelRough; MAT.console.normalScale = new THREE.Vector2(0.35, 0.35);
+MAT.glassTop.roughnessMap = glassRough; MAT.glassTop.roughness = 0.22;
+MAT.gun.normalMap = steelNormal; MAT.gun.roughnessMap = steelRough; MAT.gun.normalScale = new THREE.Vector2(0.3, 0.3);
+MAT.wall.normalMap = panelNormal; MAT.wall.normalScale = new THREE.Vector2(0.15, 0.15);

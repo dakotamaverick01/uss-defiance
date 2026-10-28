@@ -1,3 +1,4 @@
+
 # Defiance Bridge Interface
 
 The display and control language of the USS Defiance (EV-0408), a Bastion-class heavy escort built for deep-space interdiction, heavy strike and heavy escort. Every screen, key and station menu on the bridge follows these rules, so the ship reads as one system. New rooms and decks are built from this sheet.

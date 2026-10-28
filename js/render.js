@@ -14,9 +14,9 @@ scene.traverse((o) => {
 });
 const shaftTex = linearTex('rgba(255,232,206,1)', 'rgba(255,232,206,0)');
 const shafts = [];
-DOWNLIGHTS.slice(0, 3).forEach(([x, z], i) => {
-  const m = mesh(new THREE.CylinderGeometry(0.1, 1.0, WALL_H - 0.05, 28, 1, true), new THREE.MeshBasicMaterial({ map: shaftTex, transparent: true, opacity: 0.03, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false }), x, (WALL_H - 0.05) / 2, z);
-  shafts.push({ m, ph: i * 1.3 });
+DOWNLIGHTS.forEach(([x, z], i) => {
+  const m = mesh(new THREE.CylinderGeometry(0.08, 1.15, WALL_H - 0.04, 24, 1, true), new THREE.MeshBasicMaterial({ map: shaftTex, transparent: true, opacity: 0.025, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false }), x, (WALL_H - 0.04) / 2, z);
+  shafts.push({ m, ph: i * 1.1 });
 });
 const N_DUST = isMobile ? 220 : 420;
 const dustPos = new Float32Array(N_DUST * 3), dustSeed = new Float32Array(N_DUST * 4);
@@ -54,6 +54,58 @@ try {
     // r128's bloom used 8-bit buffers, which capped the glow; keep that until Stage 2 retunes bloom in HDR.
     [bloom.renderTargetBright, ...bloom.renderTargetsHorizontal, ...bloom.renderTargetsVertical].forEach((t) => { t.texture.type = THREE.UnsignedByteType; });
     composer.addPass(bloom);
+
+    // Stage 2: lens character + grade
+    const gradeGrain = new THREE.ShaderPass({
+      uniforms: {
+        tDiffuse: { value: null },
+        time: { value: 0 },
+        grain: { value: 0.045 },
+        ca: { value: 0.0018 },
+        vignette: { value: 0.35 },
+        warp: { value: 0 },
+      },
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time, grain, ca, vignette, warp;
+        varying vec2 vUv;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+        void main(){
+          vec2 uv = vUv;
+          // mild chromatic aberration at edges
+          vec2 dir = (uv - 0.5) * ca;
+          float r = texture2D(tDiffuse, uv + dir).r;
+          float g = texture2D(tDiffuse, uv).g;
+          float b = texture2D(tDiffuse, uv - dir).b;
+          vec3 col = vec3(r, g, b);
+          // warp motion blur (radial, only when warp > 0)
+          if (warp > 0.05) {
+            vec2 c = uv - 0.5;
+            float str = warp * 0.012;
+            vec3 blur = col * 0.4;
+            blur += texture2D(tDiffuse, uv + c * str).rgb * 0.2;
+            blur += texture2D(tDiffuse, uv - c * str).rgb * 0.2;
+            blur += texture2D(tDiffuse, uv + c * str * 0.5).rgb * 0.2;
+            col = mix(col, blur, smoothstep(0.05, 0.4, warp));
+          }
+          // film grain
+          float n = hash(uv * vec2(1920.0, 1080.0) + time) - 0.5;
+          col += n * grain;
+          // gentle vignette
+          float v = smoothstep(0.85, 0.25, length(uv - 0.5));
+          col *= mix(1.0, v, vignette);
+          // color grade: warm shadows, slight contrast, filmic lift
+          col = pow(col, vec3(0.95));
+          col = col * vec3(1.02, 0.99, 0.96) + vec3(0.01, 0.008, 0.004);
+          col = clamp(col, 0.0, 1.0);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `
+    });
+    composer.addPass(gradeGrain);
+    window.DEFIANCE_GRADE = gradeGrain; // for frame updates
+
     composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
   }
 } catch (e) { console.warn('Post-processing unavailable', e); composer = null; }
@@ -92,7 +144,7 @@ window.DEFIANCE_HERO = function (n) {
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
-  camera.aspect = w / h; camera.fov = w < h ? 80 : 66; camera.updateProjectionMatrix();
+  camera.aspect = w / h; camera.fov = w < h ? 65 : 55; camera.updateProjectionMatrix();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
 }
 window.addEventListener('resize', resize); resize();
@@ -103,6 +155,11 @@ const standV = new THREE.Vector3();
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 
 function frame() {
+  if (window.DEFIANCE_PHOTO) {
+    if (composer) composer.render(); else renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+    return;
+  }
   const dt = Math.min(clock.getDelta(), 0.05); elapsed += dt;
 
   if (!state.sitting) {
@@ -137,6 +194,7 @@ function frame() {
   } else {
     if (attract) { attract = false; }
     camera.position.copy(standV).lerp(SEAT, eb);
+    // Direct look — no lag (Stage 2 weight removed; it felt sticky)
     camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp, 'YXZ');
   }
   camera.updateMatrixWorld();
@@ -230,10 +288,138 @@ function frame() {
 
   scene.fog = null; renderer.setRenderTarget(rt); renderer.render(scene, vcam);
   updateDust(elapsed);
-  shafts.forEach((s2) => { s2.m.material.opacity = (0.028 + Math.sin(elapsed * 0.7 + s2.ph) * 0.006) * LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1); });
+  shafts.forEach((s2) => { s2.m.material.opacity = (0.022 + Math.sin(elapsed * 0.65 + s2.ph) * 0.006) * LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1); });
   scene.fog = FOG; renderer.setRenderTarget(null);
+  if (window.DEFIANCE_GRADE) {
+    window.DEFIANCE_GRADE.uniforms.time.value = elapsed;
+    window.DEFIANCE_GRADE.uniforms.warp.value = smooth(40, 280, cur.speed);
+  }
+  if (window._soundUpdate) window._soundUpdate(camera);
   if (composer) composer.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 setAlert('green');
 requestAnimationFrame(frame);
+// ---------- Stage 6: Photo mode ----------
+let photoMode = false, photoSamples = 0, photoTarget = null, photoAccum = null;
+const photoBtn = $('photo-btn');
+const photoOverlay = document.createElement('div');
+photoOverlay.id = 'photo-overlay';
+photoOverlay.style.cssText = 'position:fixed;inset:0;z-index:20;display:none;pointer-events:none;';
+photoOverlay.innerHTML = `
+  <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);pointer-events:auto;background:rgba(8,10,14,0.85);border:1px solid #263042;padding:12px 16px;border-radius:6px;display:flex;gap:12px;align-items:center;font-family:var(--f-mono);font-size:12px;color:#EAF2FF;">
+    <label>FOV <input id="ph-fov" type="range" min="30" max="80" value="55" style="width:80px"></label>
+    <label>Exp <input id="ph-exp" type="range" min="0.4" max="2.0" step="0.05" value="1.0" style="width:80px"></label>
+    <button id="ph-capture" class="primary" style="padding:8px 14px;font-size:12px;">Capture</button>
+    <button id="ph-exit" class="icon-btn" style="width:auto;padding:0 10px;">✕</button>
+  </div>
+  <div id="ph-status" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);font-family:var(--f-mono);font-size:11px;color:#8A97AD;pointer-events:none;"></div>
+`;
+document.body.appendChild(photoOverlay);
+
+function enterPhoto() {
+  if (photoMode) return;
+  photoMode = true;
+  photoSamples = 0;
+  // Hide game UI
+  document.querySelectorAll('.hud-top, .reticle, .hint, .stick, .panel, .seatbar, .toast, .intro, .vignette').forEach(el => { if (el) el.style.visibility = 'hidden'; });
+  photoOverlay.style.display = 'block';
+  // Freeze: stop the main loop updates by flag
+  window.DEFIANCE_PHOTO = true;
+  const fov = parseFloat($('ph-fov').value) || 55;
+  const exp = parseFloat($('ph-exp').value) || 1.0;
+  camera.fov = fov; camera.updateProjectionMatrix();
+  renderer.toneMappingExposure = exp;
+  $('ph-status').textContent = 'Photo mode · adjust framing, then Capture';
+}
+function exitPhoto() {
+  photoMode = false;
+  window.DEFIANCE_PHOTO = false;
+  photoOverlay.style.display = 'none';
+  document.querySelectorAll('.hud-top, .reticle, .hint, .stick, .panel, .seatbar, .toast, .intro, .vignette').forEach(el => { if (el) el.style.visibility = ''; });
+  // Restore normal FOV via resize
+  resize();
+  renderer.toneMappingExposure = 0.95;
+  $('ph-status').textContent = '';
+}
+function capturePhoto() {
+  if (!photoMode) return;
+  $('ph-status').textContent = 'Rendering…';
+  // Progressive high-quality render: higher pixel ratio + a few jittered samples averaged
+  const pr = Math.min(2, renderer.getPixelRatio());
+  const w = window.innerWidth, h = window.innerHeight;
+  const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.UnsignedByteType });
+  const accum = new Float32Array(w * pr * h * pr * 4);
+  const samples = 8;
+  const origPos = camera.position.clone();
+  for (let s = 0; s < samples; s++) {
+    // tiny subpixel jitter
+    const jx = (Math.random() - 0.5) * 0.002;
+    const jy = (Math.random() - 0.5) * 0.002;
+    camera.position.copy(origPos).add(new THREE.Vector3(jx, jy, 0));
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, camera);
+    const buf = new Uint8Array(w * pr * h * pr * 4);
+    renderer.readRenderTargetPixels(rt, 0, 0, w * pr, h * pr, buf);
+    for (let i = 0; i < buf.length; i++) accum[i] += buf[i];
+  }
+  camera.position.copy(origPos);
+  renderer.setRenderTarget(null);
+  // Average and download
+  const out = new Uint8Array(accum.length);
+  for (let i = 0; i < accum.length; i++) out[i] = Math.min(255, accum[i] / samples);
+  const c = document.createElement('canvas');
+  c.width = w * pr; c.height = h * pr;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(c.width, c.height);
+  // flip Y
+  for (let y = 0; y < c.height; y++) {
+    const src = (c.height - 1 - y) * c.width * 4;
+    const dst = y * c.width * 4;
+    img.data.set(out.subarray(src, src + c.width * 4), dst);
+  }
+  ctx.putImageData(img, 0, 0);
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = 'defiance-photo.png';
+  a.click();
+  $('ph-status').textContent = 'Saved defiance-photo.png';
+  rt.dispose();
+}
+
+if (photoBtn) photoBtn.addEventListener('click', enterPhoto);
+document.getElementById('ph-exit').addEventListener('click', exitPhoto);
+document.getElementById('ph-capture').addEventListener('click', capturePhoto);
+document.getElementById('ph-fov').addEventListener('input', (e) => { if (photoMode) { camera.fov = parseFloat(e.target.value); camera.updateProjectionMatrix(); } });
+document.getElementById('ph-exp').addEventListener('input', (e) => { if (photoMode) renderer.toneMappingExposure = parseFloat(e.target.value); });
+
+// ---------- Stage 7: quality tiers ----------
+const QUALITY = {
+  phone: { pr: 1, shadows: 512, dust: 120, bloom: false, shafts: false },
+  desktop: { pr: 1.5, shadows: 1024, dust: 280, bloom: true, shafts: true },
+  cinematic: { pr: 2, shadows: 2048, dust: 420, bloom: true, shafts: true },
+};
+let currentQuality = isMobile ? 'phone' : 'desktop';
+function applyQuality(q) {
+  const s = QUALITY[q]; if (!s) return;
+  currentQuality = q;
+  renderer.setPixelRatio(Math.min(s.pr, window.devicePixelRatio || 1));
+  if (lCenter && lCenter.shadow) lCenter.shadow.mapSize.set(s.shadows, s.shadows);
+  if (dust) dust.visible = s.dust > 0;
+  if (shafts) shafts.forEach(sh => { if (sh.m) sh.m.visible = s.shafts; });
+  if (composer && bloom) bloom.enabled = s.bloom;
+  resize();
+  const btn = $('quality-btn');
+  if (btn) btn.textContent = q === 'phone' ? 'P' : q === 'desktop' ? 'D' : 'C';
+}
+function cycleQuality() {
+  const order = ['phone', 'desktop', 'cinematic'];
+  const i = order.indexOf(currentQuality);
+  applyQuality(order[(i + 1) % order.length]);
+}
+const qBtn = $('quality-btn');
+if (qBtn) qBtn.addEventListener('click', cycleQuality);
+applyQuality(currentQuality);
+
+// Update positional sound listener
+const _frameEnd = frame;

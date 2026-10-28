@@ -1,3 +1,4 @@
+
 # Defiance Visual Overhaul Plan
 
 *Plan written October 2026.*
@@ -146,3 +147,4 @@ Every prop and texture stays original to the Defiance, same rule as the rest of 
 - [ ] Give one batch of notes per checkpoint
 
 **Not doing: moving to a game engine.** Unity or Unreal would look better still, but the ship would stop being a link that opens on your phone. It would also need your computer and cost far more than this budget. If the browser version hits its ceiling after Stage 6, we can revisit.
+

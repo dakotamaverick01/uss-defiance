@@ -208,14 +208,18 @@ function setAlert(a) {
   applyLights(); renderPanel(); redrawAll();
 }
 function applyLights() {
-  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.6 : 1), A = ALERTS[state.alert];
-  hemi.intensity = BASE_I.hemi * k * LX_AMB; lCenter.intensity = BASE_I.center * k * LX_PUNCT; lFwd.intensity = BASE_I.fwd * k * LX_PUNCT; lAft.intensity = BASE_I.aft * k * LX_PUNCT;
-  [lCenter, lFwd, lAft].forEach((l) => l.color.setHex(A.light));
-  const dk = Math.min(1, 0.35 + 0.65 * k);
-  lightDiscMat.color.setHex(state.alert === 'red' ? 0xff9a88 : 0xffffff).multiplyScalar(dk * 0.6);
+  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.55 : 1), A = ALERTS[state.alert];
+  hemi.intensity = BASE_I.hemi * k * LX_AMB;
+  lCenter.intensity = BASE_I.center * k * LX_PUNCT;
+  lScreen.intensity = BASE_I.screen * k * LX_PUNCT;
+  downLights.forEach((l) => { l.intensity = BASE_I.down * k * LX_PUNCT; l.color.setHex(A.light); });
+  stripLights.forEach((l) => { l.intensity = BASE_I.strip * k * LX_PUNCT; l.color.setHex(A.slot); });
+  lCenter.color.setHex(A.light);
+  const dk = Math.min(1, 0.3 + 0.7 * k);
+  lightDiscMat.color.setHex(state.alert === 'red' ? 0xff9a88 : 0xffffff).multiplyScalar(dk * 0.55);
   downlightMat.color.setHex(state.alert === 'red' ? 0xff8070 : 0xfff0dc).multiplyScalar(dk);
   poolMats.forEach((p) => { p.m.material.opacity = p.op * k; });
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 0.95;
 }
 function showHolo(i) { state.holo = (i + SYSTEMS.length) % SYSTEMS.length; buildHolo(state.holo); renderPanel(); }
 function sit() { state.sitting = true; closePanel(); ui.seatbar.hidden = false; }

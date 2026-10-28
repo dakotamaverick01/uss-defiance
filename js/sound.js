@@ -39,3 +39,53 @@ $('sound-btn').addEventListener('click', () => {
   $('sound-btn').setAttribute('aria-pressed', String(soundOn));
   if (soundOn) { $('snd-wave').removeAttribute('hidden'); $('snd-off').setAttribute('hidden', ''); } else { $('snd-wave').setAttribute('hidden', ''); $('snd-off').removeAttribute('hidden'); }
 });
+// ---------- Stage 7: layered positional sound ----------
+const soundSources = [];
+function addPositional(x, y, z, type, baseVol) {
+  if (!AC) return;
+  const panner = AC.createPanner();
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.refDistance = 1.5;
+  panner.maxDistance = 12;
+  panner.rolloffFactor = 1.2;
+  panner.setPosition(x, y, z);
+  const g = AC.createGain(); g.gain.value = baseVol || 0.04;
+  g.connect(panner); panner.connect(master);
+  soundSources.push({ panner, g, type, x, y, z });
+  return { panner, g };
+}
+function startLayered() {
+  if (!AC || window._layered) return;
+  window._layered = true;
+  // Room tone already exists. Add ventilation near ceiling, relays near consoles, door actuators.
+  // Ventilation (low noise, ceiling)
+  const vent = addPositional(0, 3.0, 0, 'vent', 0.03);
+  if (vent) {
+    const n = AC.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+    const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 280;
+    n.connect(f); f.connect(vent.g); n.start();
+  }
+  // Relay clicks near ops console
+  const relay = addPositional(1.4, 1.0, -3.0, 'relay', 0.02);
+  // Door actuator near ready room door
+  const door = addPositional(3.2, 1.2, 4.8, 'door', 0.015);
+  // Console chirps near helm
+  const chirpSrc = addPositional(0, 1.0, -4.0, 'chirp', 0.025);
+  // Update positions relative to listener each frame (listener follows camera)
+  window._soundUpdate = (cam) => {
+    if (!AC || !soundOn) return;
+    const lx = cam.position.x, ly = cam.position.y, lz = cam.position.z;
+    if (AC.listener.positionX) {
+      AC.listener.positionX.value = lx; AC.listener.positionY.value = ly; AC.listener.positionZ.value = lz;
+    } else {
+      AC.listener.setPosition(lx, ly, lz);
+    }
+  };
+}
+// Hook into init
+const _origInit = initAudio;
+initAudio = function () {
+  _origInit();
+  if (AC) startLayered();
+};

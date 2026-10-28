@@ -176,6 +176,10 @@ let cupLiquid, cupGroup;
   mesh(RBOX(1.62, 0.015, 0.82, 0.006), MAT.steel, 0, 0.725, 0, desk);
   [-1, 1].forEach((sd) => { mesh(RBOX(0.42, 0.72, 0.7, 0.03), MAT.gun, sd * 0.56, 0.36, 0.02, desk); mesh(BOX(0.36, 0.012, 0.012), SLOT, sd * 0.56, 0.55, -0.335, desk); mesh(BOX(0.3, 0.012, 0.012), SLOT, sd * 0.56, 0.3, -0.335, desk); });
   mesh(RBOX(0.72, 0.5, 0.04, 0.01), MAT.gunDark, 0, 0.45, -0.3, desk);
+  // Stage 5: coffee ring on desk
+  { const r = mesh(new THREE.RingGeometry(0.035, 0.05, 16), new THREE.MeshBasicMaterial({ color: 0x4a3020, transparent: true, opacity: 0.5, side: THREE.DoubleSide }), 0.35, 0.79, 0.15, desk); r.rotation.x = -Math.PI / 2; }
+  // mug on desk
+  { const mg = group(0.5, 0.79, 0.2, 0.2, desk); mesh(CYL(0.03, 0.026, 0.06, 10), new THREE.MeshStandardMaterial({ color: 0x2a170c, roughness: 0.4 }), 0, 0.03, 0, mg); }
   { const s = group(0, 0.79, -0.18, 0, desk); s.rotation.x = -0.45; mesh(RBOX(0.74, 0.44, 0.04, 0.012), MAT.gunDark, 0, 0.2, -0.025, s); addScreen(group(0, 0.2, 0, 0, s), 0.68, 0.38, 640, 358, 'log', 'desk', 'Personal Log', 'CO·01'); }
   [[0.45, 0.25, 0.3], [0.5, 0.18, -0.2]].forEach(([x, z, ry]) => { const p = mesh(RBOX(0.16, 0.012, 0.24, 0.004), MAT.gunDark, x, 0.796, z, desk); p.rotation.y = ry; const sc = mesh(new THREE.PlaneGeometry(0.13, 0.2), new THREE.MeshBasicMaterial({ color: 0x1b2a44, toneMapped: false }), x, 0.803, z, desk); sc.rotation.set(-Math.PI / 2, 0, ry); });
   mesh(lathe([[0, 0], [0.05, 0], [0.05, 0.012], [0.012, 0.03], [0.008, 0.33], [0, 0.33]]), MAT.steel, -0.62, 0.79, 0.2, desk);

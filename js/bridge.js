@@ -74,7 +74,12 @@ function addScreen(parent, w, h, cw, ch, kind, station, title, code) {
   const c = cnv(cw, ch), g = c.getContext('2d'), t = tex(c);
   const mat = new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); parent.add(m);
-  if (kind !== 'keys' && w > 0.3) { const sh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), SHEEN_MAT); sh.position.z = 0.003; m.add(sh); }
+  if (kind !== 'keys' && w > 0.3) {
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), SHEEN_MAT); sh.position.z = 0.003; m.add(sh);
+    // Stage 3: pixel grid + smudge glass
+    const pg = new THREE.Mesh(new THREE.PlaneGeometry(w, h), PIXEL_GRID_MAT); pg.position.z = 0.004; m.add(pg);
+    const sm = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.98, h * 0.98), SMUDGE_MAT); sm.position.z = 0.005; m.add(sm);
+  }
   const s = { c, g, tex: t, mat, w: cw, h: ch, kind, station, title, code, mesh: m, seed: screens.length * 7 + 3 };
   screens.push(s); (byStation[station] = byStation[station] || []).push(s);
   return s;
@@ -196,7 +201,7 @@ function pod(x, z, station, kindA, titleA, codeA) {
   addHit(BOX(1.6, 1.5, 1.0), { station }, g, 0, 0.75, 0);
   const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7);
   ao(x, z, 1.8, 1.2, 0.65); ao(x, z + 0.7, 0.9, 0.9, 0.55);
-  pool(x, z + 0.45, 1.6, 1.0, 0xffe2c8, 0.12);
+  pool(x, z + 0.45, 1.6, 1.0, 0xffe2c8, 0.07);
   return g;
 }
 pod(-1.4, -3.15, 'helm', 'helm', 'Flight', 'FLT·01');
@@ -227,7 +232,7 @@ function post(parent, lx, p, wallW) {
   const cw = new THREE.Vector3(); st.localToWorld(cw.set(0, 0, 1.02));
   const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y;
   ao(cw.x, cw.z, 0.9, 0.9, 0.55); extraObs.push({ x: cw.x, z: cw.z, r: 0.36 });
-  const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.08);
+  const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.05);
   const spill = ({ sci: 0x34e89e, intel: 0x34e89e, ew: 0x34e89e, helm: 0x34e89e, sys: 0xffd21f, env: 0xffd21f, dmg: 0xffd21f, com: 0xffd21f, wpn: 0xff3b30, tac: 0xff3b30, ops: 0x4c8dff })[p.kind] || 0x4c8dff;
   const sp = new THREE.Vector3(); st.localToWorld(sp.set(0, 0, 0.75)); pool(sp.x, sp.z, 1.6, 1.2, spill, 0.07);
   const dl = new THREE.Vector3(); st.localToWorld(dl.set(0, 0, 0.7)); DOWNLIGHTS.push([dl.x, dl.z]);
@@ -292,7 +297,7 @@ mesh(new THREE.PlaneGeometry(VS_W, VS_H), ovMat, 0, VS_Y, VS_Z + 0.01);
   mesh(RBOX(VS_W + 1.2, 0.5, 0.5, 0.05), MAT.gunDark, 0, 0.25, FWD_Z + 0.25);
   mesh(MAT.hazard ? BOX(VS_W + 1.1, 0.04, 0.01) : BOX(1, 1, 1), MAT.hazard, 0, 0.52, FWD_Z + 0.5);
   ao(0, FWD_Z + 0.5, VS_W + 2, 1.4, 0.55);
-  pool(0, FWD_Z + 1.4, VS_W + 1.2, 2.4, 0x8fb0ff, 0.12);
+  pool(0, FWD_Z + 1.4, VS_W + 1.2, 2.4, 0x8fb0ff, 0.07);
 }
 addHit(BOX(VS_W + 1, 3.0, 0.6), { station: 'viewer' }, null, 0, VS_Y, FWD_Z + 0.45);
 // Viewscreen readouts stay out of the picture: a small caption fades in when something changes
@@ -428,6 +433,138 @@ door(5, DOOR_GAPS[5], 'HEAD', 'head', true, true);
 DOWNLIGHTS.forEach(([x, z]) => {
   const d = mesh(new THREE.CircleGeometry(0.13, 24), downlightMat, x, WALL_H - 0.004, z); d.rotation.x = Math.PI / 2;
   const rim = mesh(new THREE.TorusGeometry(0.15, 0.02, 6, 24), MAT.steel, x, WALL_H - 0.01, z); rim.rotation.x = Math.PI / 2;
-  pool(x, z, 2.0, 2.0, 0xffd2a0, 0.14);
+  pool(x, z, 2.0, 2.0, 0xffd2a0, 0.08);
 });
-pool(DAIS.x, DAIS.z, 5.2, 5.2, 0xffcf9a, 0.16, DAIS.h);
+pool(DAIS.x, DAIS.z, 5.2, 5.2, 0xffcf9a, 0.09, DAIS.h);
+// ---------- Stage 4: parts library + signage ----------
+function vent(x, y, z, w, h, rotY, parent) {
+  const g = group(x, y, z, rotY, parent);
+  mesh(RBOX(w, h, 0.03, 0.008), MAT.gunDark, 0, 0, 0, g);
+  const slots = Math.max(3, Math.floor(w / 0.08));
+  for (let i = 0; i < slots; i++) {
+    const sx = -w/2 + 0.04 + i * (w-0.08)/(slots-1);
+    mesh(BOX(0.012, h * 0.7, 0.01), MAT.steel, sx, 0, 0.012, g);
+  }
+  return g;
+}
+function accessPanel(x, y, z, w, h, rotY, parent) {
+  const g = group(x, y, z, rotY, parent);
+  mesh(RBOX(w, h, 0.025, 0.01), MAT.panel, 0, 0, 0, g);
+  [[-w/2+0.03, h/2-0.03], [w/2-0.03, h/2-0.03], [-w/2+0.03, -h/2+0.03], [w/2-0.03, -h/2+0.03]].forEach(([fx, fy]) => {
+    mesh(CYL(0.012, 0.012, 0.008, 8), MAT.steel, fx, fy, 0.014, g);
+  });
+  return g;
+}
+function junctionBox(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY, parent);
+  mesh(RBOX(0.18, 0.14, 0.08, 0.012), MAT.gun, 0, 0, 0, g);
+  mesh(BOX(0.06, 0.02, 0.02), SLOT, 0, 0.04, 0.041, g);
+  return g;
+}
+function fireHead(x, y, z, parent) {
+  const g = group(x, y, z, 0, parent);
+  mesh(CYL(0.04, 0.04, 0.03, 12), MAT.steel, 0, 0, 0, g);
+  mesh(new THREE.SphereGeometry(0.025, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff2015, toneMapped: false }), 0, -0.02, 0, g);
+  return g;
+}
+function emergLight(x, y, z, parent) {
+  const g = group(x, y, z, 0, parent);
+  mesh(BOX(0.12, 0.04, 0.04), MAT.gunDark, 0, 0, 0, g);
+  mesh(BOX(0.08, 0.015, 0.01), new THREE.MeshBasicMaterial({ color: 0xff2015, toneMapped: false }), 0, -0.01, 0.022, g);
+  return g;
+}
+function handhold(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY, parent);
+  mesh(CYL(0.012, 0.012, 0.22, 8), MAT.steel, 0, 0, 0.04, g).rotation.x = Math.PI/2;
+  mesh(CYL(0.01, 0.01, 0.04, 6), MAT.steel, -0.08, 0, 0.02, g);
+  mesh(CYL(0.01, 0.01, 0.04, 6), MAT.steel, 0.08, 0, 0.02, g);
+  return g;
+}
+function cableRun(x, y, z, len, rotY, parent) {
+  const g = group(x, y, z, rotY, parent);
+  mesh(BOX(len, 0.025, 0.018), MAT.gunDark, 0, 0, 0, g);
+  for (let i = 0; i < 3; i++) mesh(BOX(len * 0.9, 0.006, 0.004), MAT.steel, 0, 0.006 - i*0.008, 0.01, g);
+  return g;
+}
+function stencil(text, color) {
+  const c = cnv(256, 64), g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,0,0,0)'; g.clearRect(0, 0, 256, 64);
+  g.font = `700 28px ${MONO}`; g.fillStyle = color || '#C9D6EA'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 32);
+  const t = tex(c); t.anisotropy = maxAniso; return t;
+}
+function placard(text, x, y, z, rotY, parent) {
+  const m = mesh(new THREE.PlaneGeometry(0.32, 0.08), new THREE.MeshBasicMaterial({ map: stencil(text), transparent: true, toneMapped: false }), x, y, z, parent);
+  m.rotation.y = rotY || 0; return m;
+}
+
+// Place parts around the bridge
+// Vents high on walls
+vent(-4.8, 2.4, -1.2, 0.6, 0.22, Math.PI/2);
+vent(4.8, 2.4, 1.0, 0.6, 0.22, -Math.PI/2);
+vent(0.5, 2.55, 4.9, 0.8, 0.2, 0);
+// Access panels
+accessPanel(-5.1, 1.4, -2.4, 0.4, 0.55, Math.PI/2);
+accessPanel(5.1, 1.2, 1.8, 0.38, 0.5, -Math.PI/2);
+accessPanel(-1.8, 1.6, 5.1, 0.45, 0.48, 0);
+// Junction boxes
+junctionBox(-3.8, 1.1, -3.6, 0.4);
+junctionBox(3.6, 1.15, 3.2, -0.5);
+// Fire heads and emergency lights
+fireHead(-2.2, WALL_H - 0.08, -1.5);
+fireHead(2.4, WALL_H - 0.08, 2.0);
+emergLight(-4.2, 2.7, 0.5);
+emergLight(4.2, 2.7, -0.8);
+// Handholds
+handhold(-5.2, 1.0, -0.5, Math.PI/2);
+handhold(5.2, 1.0, 1.2, -Math.PI/2);
+// Cable runs along ceiling edge
+cableRun(-3.5, WALL_H - 0.12, -3.8, 2.2, 0.3);
+cableRun(3.2, WALL_H - 0.12, 3.6, 1.8, -0.4);
+// Signage
+placard('DECK 1', 0, 2.85, 5.15, 0);
+placard('FRAME 14', -5.15, 1.8, -3.0, Math.PI/2);
+placard('HAZARD', 5.15, 1.7, 2.5, -Math.PI/2);
+placard('EV-0408', -0.2, 2.9, -5.05, Math.PI);
+
+// ---------- Stage 5: lived-in crew traces ----------
+function mug(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY || 0, parent);
+  mesh(CYL(0.035, 0.03, 0.07, 12), new THREE.MeshStandardMaterial({ color: 0x2a170c, roughness: 0.4, metalness: 0.1 }), 0, 0.035, 0, g);
+  mesh(new THREE.TorusGeometry(0.018, 0.004, 6, 10), MAT.steel, 0.038, 0.04, 0, g).rotation.y = Math.PI / 2;
+  return g;
+}
+function tablet(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY || 0, parent);
+  mesh(RBOX(0.14, 0.008, 0.2, 0.004), MAT.gunDark, 0, 0, 0, g);
+  mesh(new THREE.PlaneGeometry(0.12, 0.16), new THREE.MeshBasicMaterial({ color: 0x1a2230, toneMapped: false }), 0, 0.005, 0, g).rotation.x = -Math.PI / 2;
+  return g;
+}
+function jacket(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY || 0, parent);
+  mesh(RBOX(0.22, 0.35, 0.08, 0.02), new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.7 }), 0, 0.1, 0, g);
+  mesh(BOX(0.08, 0.12, 0.04), MAT.leather, -0.12, 0.15, 0, g);
+  return g;
+}
+function coffeeRing(x, y, z, parent) {
+  const m = mesh(new THREE.RingGeometry(0.04, 0.055, 16), new THREE.MeshBasicMaterial({ color: 0x4a3020, transparent: true, opacity: 0.45, side: THREE.DoubleSide }), x, y, z, parent);
+  m.rotation.x = -Math.PI / 2;
+  return m;
+}
+function toolCase(x, y, z, rotY, parent) {
+  const g = group(x, y, z, rotY || 0, parent);
+  mesh(RBOX(0.28, 0.12, 0.18, 0.015), MAT.gun, 0, 0.06, 0, g);
+  mesh(BOX(0.22, 0.02, 0.14), MAT.steel, 0, 0.13, 0, g);
+  return g;
+}
+
+// Mug and tablet at Operations
+mug(1.55, 0.82, -2.7, 0.3);
+tablet(1.25, 0.81, -3.0, -0.2);
+// Jacket over a chair (XO area)
+jacket(-0.9, 0.55, 0.9, 0.4);
+// Open panel + tool case (port wall)
+accessPanel(-5.05, 1.3, -0.2, 0.4, 0.5, Math.PI / 2);
+toolCase(-4.7, 0.02, -0.1, 0.6);
+// Slightly different shade panel (replaced)
+{ const g = group(4.95, 1.4, 0.6, -Math.PI / 2); mesh(RBOX(0.36, 0.48, 0.02, 0.008), new THREE.MeshStandardMaterial({ color: 0x8a8074, roughness: 0.65 }), 0, 0, 0, g); }
