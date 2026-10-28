@@ -206,7 +206,7 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
 </script>
 <script type="module">
 // Loads three.js, then the ship's code files in order. The code files are plain scripts that share one scope.
-const FILES = ['core', 'materials', 'bridge', 'space', 'rooms', 'lighting', 'collision', 'screens', 'sound', 'ui', 'controls', 'render'];
+const FILES = ['core', 'materials', 'bridge', 'space', 'rooms', 'lighting', 'bake', 'collision', 'screens', 'sound', 'ui', 'controls', 'render'];
 const fail = () => { window.DEFIANCE_FAILED = true; document.getElementById('nogl').hidden = false; document.getElementById('intro').hidden = true; };
 try {
   const [T, { EffectComposer }, { RenderPass }, { ShaderPass }, { UnrealBloomPass }, { GammaCorrectionShader }] = await Promise.all([

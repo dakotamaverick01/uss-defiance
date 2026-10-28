@@ -7,8 +7,6 @@ const $ = (id) => document.getElementById(id);
 if (typeof THREE === 'undefined') { window.DEFIANCE_FAILED = true; $('nogl').hidden = false; $('intro').hidden = true; throw new Error('three.js failed to load'); }
 // Keep the r128 colour behaviour (hex colours used as-is) until Stage 1 moves the ship to a fully colour-managed pipeline.
 THREE.ColorManagement.enabled = false;
-// three.js now uses physical light units. These factors reproduce the old look; Stage 1 relights the ship properly.
-const LX_AMB = window.LX_A ?? Math.PI, LX_PUNCT = window.LX_P ?? Math.PI * 0.75;
 
 const D2R = Math.PI / 180;
 const WALL_H = 3.3, DAIS = { x: 0, z: 0.4, r: 2.0, h: 0.22 }, PR = 0.3, EYE = 1.62, FWD_Z = -5.2, AFT_Z = 5.4;
@@ -29,13 +27,15 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+// No shadow maps: shadows are baked (bake.js). The fallback light rig turns them back on.
+renderer.shadowMap.enabled = false; renderer.shadowMap.type = THREE.PCFShadowMap;
 const isMobile = isTouch || Math.min(window.innerWidth, window.innerHeight) < 600;
 const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x030305);
-const FOG = new THREE.Fog(0x0d0a08, 9, 26);
+// a faint haze: distant parts of the room soften slightly, and the light shafts (render.js) have something to show in
+const FOG = new THREE.FogExp2(0x221d18, 0.03);
 scene.fog = FOG;
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 900);
 camera.rotation.order = 'YXZ';

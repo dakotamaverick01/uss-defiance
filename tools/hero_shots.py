@@ -33,7 +33,7 @@ async def run():
     pg.on('console', lambda m: (warns.append(m.text[:200]) if m.type in ('warning','error') else None))
     if os.environ.get('INIT'): await pg.add_init_script(os.environ['INIT'])
     await pg.route('**/*', route); await pg.goto('https://example.test/')
-    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function"', timeout=90000)
+    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED', timeout=120000)
     await pg.wait_for_timeout(1500)
     try:
       for n in SHOTS:

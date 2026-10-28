@@ -39,15 +39,22 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `bridge.js` | Bridge geometry: shell, consoles, seating, dais, viewscreen, aft wall |
   | `space.js` | The space scene shown on the viewscreen |
   | `rooms.js` | Ready room, conference room, head, window views |
-  | `lighting.js` | Bridge light rig |
+  | `lighting.js` | The one live light (viewscreen warp glow) and a fallback rig if the bake can't load |
+  | `bake.js` | Loads the baked light and adds it to every interior material |
   | `collision.js` | Walking collision |
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
   | `controls.js` | Movement, touch and mouse input, aiming |
-  | `render.js` | Shadows, light shafts, dust, post-processing, hero shots, frame loop |
+  | `render.js` | Haze light shafts, dust, post-processing, hero shots, frame loop |
 
-- **Rendering:** ACES filmic tone mapping, shadows, an environment map for reflections, bloom, and a vignette.
+- **Lighting (baked):** the ship is lit only by its own fixtures: downlights, ceiling discs, cove slots, deck strips and screens. That light, including light bouncing off floors and walls, is calculated ahead of time in Blender and saved in `bake/`. Floors, walls and ceilings carry a light map (one image laid out like a sewing pattern); everything else reads a grid of light probes, points every 30 cm that recorded the light arriving from six directions. Light level and alert colour still change live. There are no real-time lights apart from the viewscreen's warp glow, which keeps phones fast.
+- **Rendering:** ACES filmic tone mapping, a faint haze, reflections taken from the baked room, bloom, and a vignette.
+- **Re-baking the light** (needed after moving any fixed geometry; the ship warns in the console and falls back to the old light if the bake no longer matches):
+  1. `python3 tools/bake_export.py . <work>`: opens the ship headlessly and writes its geometry and fixtures.
+  2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 15 minutes on two cores at 160 samples.
+  3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`.
+- **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
 - **Collision:** walls and doors are line segments, and furniture is circles. Walls also block clicks, so you can't use a panel through a wall.
@@ -56,4 +63,4 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-Deck 1 is complete. Stage 0 of the visual overhaul (engine upgrade, code split, hero shots) is done. Next is Stage 1, lighting, per `docs/visual-overhaul-plan.md`, then camera and color grade, then materials. The exterior model and other decks come later.
+Deck 1 is complete. Stages 0 (engine upgrade, code split, hero shots) and 1 (baked fixture lighting, contact shadows, bounce light, haze) of the visual overhaul are done. Next is Stage 2, camera and color grade, per `docs/visual-overhaul-plan.md`, then materials. The exterior model and other decks come later.

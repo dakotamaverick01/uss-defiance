@@ -45,7 +45,7 @@ EDGES.forEach((e, ei) => {
   const nb = Math.max(1, Math.floor(e.len / 1.3));
   for (let k = 1; k <= nb; k++) { const t = k / (nb + 1); const b = mesh(BOX(0.06, 0.18, 0.5), MAT.gunDark, e.A[0] + (e.B[0] - e.A[0]) * t + e.nx * 0.27, 3.12, e.A[1] + (e.B[1] - e.A[1]) * t + e.nz * 0.27); b.rotation.y = e.rot; }
   // wall-base contact shadow
-  const g = group(e.mx, 0.005, e.mz, e.rot); const pl = mesh(new THREE.PlaneGeometry(e.len, 0.7), new THREE.MeshBasicMaterial({ map: wallAoTex, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 0, 0, 0.35, g); pl.rotation.x = -Math.PI / 2;
+  const g = group(e.mx, 0.005, e.mz, e.rot); const pl = mesh(new THREE.PlaneGeometry(e.len, 0.7), new THREE.MeshBasicMaterial({ map: wallAoTex, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 0, 0, 0.35, g); pl.rotation.x = -Math.PI / 2; DECALS.push(pl);
 });
 // structural ribs at every corner, carried overhead as beams to the coffer
 ROOM.forEach(([x, z]) => {

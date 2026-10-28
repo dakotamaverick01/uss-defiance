@@ -12,12 +12,25 @@ scene.traverse((o) => {
   o.receiveShadow = true;
   o.castShadow = !pl && !sh && o.position.y < 3.0;
 });
-const shaftTex = linearTex('rgba(255,232,206,1)', 'rgba(255,232,206,0)');
-const shafts = [];
-DOWNLIGHTS.slice(0, 3).forEach(([x, z], i) => {
-  const m = mesh(new THREE.CylinderGeometry(0.1, 1.0, WALL_H - 0.05, 28, 1, true), new THREE.MeshBasicMaterial({ map: shaftTex, transparent: true, opacity: 0.03, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false }), x, (WALL_H - 0.05) / 2, z);
-  shafts.push({ m, ph: i * 1.3 });
+// Light shafts in the haze under each downlight and the coffer. They fade toward their silhouettes and toward the floor,
+// so they read as lit air rather than solid cones.
+const shaftMat = new THREE.ShaderMaterial({
+  uniforms: { col: { value: new THREE.Color(1.0, 0.88, 0.74) }, k: { value: 0.06 } },
+  vertexShader: `varying vec3 vN, vV; varying float vH;
+    void main() { vec4 wp = modelMatrix * vec4(position, 1.0); vN = normalize(mat3(modelMatrix) * normal); vV = cameraPosition - wp.xyz;
+      vH = clamp(wp.y / ${WALL_H.toFixed(2)}, 0.0, 1.0); gl_Position = projectionMatrix * viewMatrix * wp; }`,
+  fragmentShader: `uniform vec3 col; uniform float k; varying vec3 vN, vV; varying float vH;
+    void main() { float f = abs(dot(normalize(vN), normalize(vV)));
+      float a = f * f * f * f * smoothstep(0.05, 0.8, vH) * vH;
+      gl_FragColor = vec4(col * a * k, 1.0); }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false,
 });
+const shafts = [];
+(isMobile ? DOWNLIGHTS.slice(0, 3) : DOWNLIGHTS).forEach(([x, z]) => {
+  shafts.push(mesh(new THREE.CylinderGeometry(0.11, 0.95, WALL_H - 0.02, 28, 1, true), shaftMat, x, (WALL_H - 0.02) / 2, z));
+});
+shafts.push(mesh(new THREE.CylinderGeometry(1.35, 1.9, WALL_H - 0.02, 40, 1, true), shaftMat.clone(), COFFER.x, (WALL_H - 0.02) / 2, COFFER.z));
+shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
 const N_DUST = isMobile ? 220 : 420;
 const dustPos = new Float32Array(N_DUST * 3), dustSeed = new Float32Array(N_DUST * 4);
 {
@@ -165,7 +178,8 @@ function frame() {
   vcam.lookAt(vLook); vcam.updateMatrixWorld();
   updateSpace(dt, fade); updateViewscreen(dt);
   const warpGlow = smooth(20, 300, cur.speed);
-  lScreen.intensity = (0.35 + 0.8 * warpGlow + 0.06 * Math.sin(elapsed * 9) * warpGlow) * LIGHT_LEVELS[state.light] * LX_PUNCT;
+  // the screen's steady glow is baked; this live light adds only the warp flare
+  lScreen.intensity = ((BAKE.ok ? 0 : 0.35) + 0.8 * warpGlow + 0.06 * Math.sin(elapsed * 9) * warpGlow) * LIGHT_LEVELS[state.light] * Math.PI * 0.75;
 
   if (state.scanning) {
     state.scanT += dt;
@@ -195,8 +209,6 @@ function frame() {
       const inside = _lc.x > r.xa && _lc.x < r.xb && _lc.z > 0 && _lc.z < r.d; if (inside) here = r;
       const near = Math.hypot(camera.position.x - r.door[0], camera.position.z - r.door[1]) < 3.2;
       r.k += ((inside ? 1 : near ? 0.75 : 0) - r.k) * Math.min(1, dt * 3);
-      r.light.intensity = r.base * r.k * LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.6 : 1) * LX_PUNCT * 1.25;
-      r.light.color.setHex(state.alert === 'red' ? 0xff9a88 : 0xffdcb8);
     });
     const ll = here ? here.label : 'Main Bridge'; if (ll !== lastLoc) { lastLoc = ll; locNode.nodeValue = ll + ' · Deck 1'; } }
   { const closed = state.shutters === 'closed' || (state.shutters === 'auto' && state.alert === 'red');
@@ -217,6 +229,7 @@ function frame() {
     stripMats.forEach((m) => m.color.setHex(ALERTS.red.strip).multiplyScalar(1.9 * k));
     slotMats.forEach((m) => m.color.setHex(ALERTS.red.slot).multiplyScalar(1.35 * (0.35 + 0.65 * k)));
     MAT.wall.emissiveIntensity = 0.3 + 0.7 * k;
+    bakeLevels(LIGHT_LEVELS[state.light] * 0.6, 'red', ALERTS.red.strip, k);
   } else MAT.wall.emissiveIntensity = 0.7;
 
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }
@@ -230,10 +243,15 @@ function frame() {
 
   scene.fog = null; renderer.setRenderTarget(rt); renderer.render(scene, vcam);
   updateDust(elapsed);
-  shafts.forEach((s2) => { s2.m.material.opacity = (0.028 + Math.sin(elapsed * 0.7 + s2.ph) * 0.006) * LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1); });
+  { const sk = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1) * (1 + Math.sin(elapsed * 0.7) * 0.15); shaftMat.uniforms.k.value = 0.06 * sk; shafts[shafts.length - 1].material.uniforms.k.value = 0.035 * sk; }
   scene.fog = FOG; renderer.setRenderTarget(null);
   if (composer) composer.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 setAlert('green');
 requestAnimationFrame(frame);
+// hand-over to the baked light once its files arrive (or to the fallback rig if they can't)
+BAKE.ready.then((ok) => {
+  if (ok) { renderer.shadowMap.enabled = false; applyLights(); } else { fallbackLights(); DECALS.forEach((m) => { m.visible = true; }); applyLights(); }
+  window.DEFIANCE_BAKED = ok ? 'baked' : 'fallback';
+});

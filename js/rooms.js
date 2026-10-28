@@ -100,8 +100,9 @@ function roomShell(g, o) {
   lseg(g, xa, z0, -0.6, z0, 0.33); lseg(g, 0.6, z0, xb, z0, 0.33);
   lseg(g, xa, d, xb, d, 0.33); lseg(g, xa, z0, xa, d, 0.33); lseg(g, xb, z0, xb, d, 0.33);
   // light
-  const L = new THREE.PointLight(0xffdcb8, 0, o.lightDist || 6, 0.53); const lp3 = new THREE.Vector3(o.light[0], o.light[1], o.light[2]).applyMatrix4(g.matrixWorld); L.position.copy(lp3); scene.add(L);
-  const room = { g, xa, xb, d, label: o.label, light: L, base: o.lightI || 0.9, k: 0, door: W(g, 0, 0) };
+  // the room's ceiling fixtures light it through the bake; this position is only used by the fallback light rig
+  const lightPos = new THREE.Vector3(o.light[0], o.light[1], o.light[2]).applyMatrix4(g.matrixWorld);
+  const room = { g, xa, xb, d, label: o.label, lightPos, base: o.lightI || 0.9, k: 0, door: W(g, 0, 0) };
   ROOMS.push(room); return room;
 }
 // armored viewport with blast shutters, set in a room's back wall
@@ -308,7 +309,7 @@ let cupLiquid, cupGroup;
   plantAt(g, 1.72, 0.62, 1.0); lobs(g, 1.72, 0.62, 0.28);
   plantAt(g, -3.42, 4.05, 1.0); lobs(g, -3.42, 4.05, 0.28);
   // ceiling: a long light panel over the table
-  { const lp = mesh(new THREE.PlaneGeometry(2.8, 0.5), downlightMat, T.x, 2.893, T.z, g); lp.rotation.x = Math.PI / 2; const fr = mesh(RBOX(2.96, 0.04, 0.66, 0.015), MAT.steel, T.x, 2.88, T.z, g);
+  { const lp = mesh(new THREE.PlaneGeometry(2.8, 0.5), downlightMat, T.x, 2.855, T.z, g); lp.rotation.x = Math.PI / 2; const fr = mesh(RBOX(2.96, 0.04, 0.66, 0.015), MAT.steel, T.x, 2.88, T.z, g);
     lpool(g, T.x, T.z, 4.0, 2.4, 0xffd2a0, 0.14); }
   [[-3.2, 1.0], [1.5, 3.8]].forEach(([x, z]) => mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, 2.897, z, g).rotation.x = Math.PI / 2);
 }

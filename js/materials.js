@@ -172,9 +172,11 @@ const downlightMat = new THREE.MeshBasicMaterial({ color: 0xfff0dc, toneMapped: 
 const aoTex = radialTex('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
 const poolTex = radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
 const wallAoTex = linearTex('rgba(0,0,0,0.55)', 'rgba(0,0,0,0)');
+// Painted-on shadow and light-pool decals. Stage 1 bakes real shadows and pools, so these are hidden once the bake loads.
+const DECALS = [];
 function decal(x, y, z, w, d, map, color, op, additive, rot) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map, color: color || 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, polygonOffset: true, polygonOffsetFactor: -2, toneMapped: false }));
-  m.rotation.x = -Math.PI / 2; m.rotation.z = rot || 0; m.position.set(x, y, z); scene.add(m); return m;
+  m.rotation.x = -Math.PI / 2; m.rotation.z = rot || 0; m.position.set(x, y, z); scene.add(m); DECALS.push(m); return m;
 }
 const ao = (x, z, w, d, op, y) => decal(x, (y || 0) + 0.004, z, w, d, aoTex, 0xffffff, op === undefined ? 0.7 : op, false);
 const poolMats = [];
