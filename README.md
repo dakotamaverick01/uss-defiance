@@ -3,7 +3,7 @@
 A walkable 3D bridge deck for an original starship, built to run in a phone or desktop browser with no install.
 
 **Live version:** https://claude.ai/artifact/SyjMcFGoRF6kLtFP77TPSr
-**Run locally:** open `index.html` in any modern browser (it loads three.js from a CDN, so it needs an internet connection).
+**Run locally:** serve the folder with any static web server (for example `python3 -m http.server`) and open it in a browser. Opening `index.html` straight from disk won't work, because browsers block loading the `js/` files that way. It loads three.js from a CDN, so it needs an internet connection.
 
 ## The ship
 
@@ -28,23 +28,32 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## How it's built
 
-One self-contained HTML file using [three.js](https://threejs.org/) r128.
+[three.js](https://threejs.org/) 0.186, loaded from a CDN through an import map. There is no build step.
 
-- **Rendering:** ACES filmic tone mapping, soft shadows, an environment map for reflections, bloom, and a vignette.
+- **Code layout:** `index.html` holds the page, styles and a small loader. The ship's code lives in `js/`, one file per area, loaded in order and sharing one scope:
+
+  | File | What it covers |
+  | --- | --- |
+  | `core.js` | Constants, renderer, shared helpers, ship state |
+  | `materials.js` | Procedural textures, reflections, material library |
+  | `bridge.js` | Bridge geometry: shell, consoles, seating, dais, viewscreen, aft wall |
+  | `space.js` | The space scene shown on the viewscreen |
+  | `rooms.js` | Ready room, conference room, head, window views |
+  | `lighting.js` | Bridge light rig |
+  | `collision.js` | Walking collision |
+  | `screens.js` | Console screen drawing and the instrument widget kit |
+  | `sound.js` | Synthesized ambience and interface sounds |
+  | `ui.js` | Station panels, alerts, HUD |
+  | `controls.js` | Movement, touch and mouse input, aiming |
+  | `render.js` | Shadows, light shafts, dust, post-processing, hero shots, frame loop |
+
+- **Rendering:** ACES filmic tone mapping, shadows, an environment map for reflections, bloom, and a vignette.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
 - **Collision:** walls and doors are line segments, and furniture is circles. Walls also block clicks, so you can't use a panel through a wall.
 - **Sound:** generated in the browser with the Web Audio API. There are no sound files.
-
-## Repository layout
-
-```
-index.html                      the whole experience
-docs/visual-overhaul-plan.md    staged plan for making it look cinematic and real
-docs/interface-style-sheet.md   the ship's original console interface language
-docs/interface-tokens.json      colors, type and spacing for that interface
-```
+- **Hero shots:** six fixed camera positions used to judge each visual stage side by side. Run `DEFIANCE_HERO(1)` through `DEFIANCE_HERO(6)` in the browser console, and `DEFIANCE_HERO(0)` to return to play. Contact sheets are in `docs/`.
 
 ## Status
 
-Deck 1 is complete. Next up is the visual overhaul in `docs/visual-overhaul-plan.md`: lighting, then camera and color grade, then materials. The exterior model and other decks come later.
+Deck 1 is complete. Stage 0 of the visual overhaul (engine upgrade, code split, hero shots) is done. Next is Stage 1, lighting, per `docs/visual-overhaul-plan.md`, then camera and color grade, then materials. The exterior model and other decks come later.
