@@ -1,0 +1,40 @@
+{"name": "Defiance Bridge Interface", "version": 1,
+"color": {"themes": [{"id": "dark", "name": "Bridge glass"}],
+ "tokens": [
+  {"name": "glass", "value": "#000000", "usage": "Every display and menu background. Displays are black glass; nothing sits on a lighter ground."},
+  {"name": "track", "value": "#1A2230", "usage": "Empty bar tracks, unlit keys, the trailing segment of a rail, divider rules between table rows."},
+  {"name": "ink", "value": "#EAF2FF", "usage": "Primary text and values on glass."},
+  {"name": "ink-dim", "value": "#7D8BA3", "usage": "Labels, codes and secondary text on glass (5.6:1 on glass)."},
+  {"name": "ice", "value": "#C9D6EA", "usage": "Neutral key fill, the middle segment of a header rail, secondary bars. Black text on it."},
+  {"name": "command", "value": "#4C8DFF", "usage": "Function color for command stations: Command chair, Operations, Main Viewer, the ship profile, Ready Room, Conference. Also the default accent at Condition Green."},
+  {"name": "navigation", "value": "#34E89E", "usage": "Function color for navigation and sensors: Flight, Science, Intelligence, Electronic Warfare, the situation table. Also the 'ok' status light."},
+  {"name": "systems", "value": "#FFD21F", "usage": "Function color for ship systems: Engineering, Environment, Damage Control, Communications, Lift, Head. Also the 'warn' status light and the accent at Yellow Alert."},
+  {"name": "tactical", "value": "#FF3B30", "usage": "Function color for Tactical and Weapons Control. Also the 'alert' status light and the accent at Red Alert. Never decorative."},
+  {"name": "seam-light", "value": "#FFE6CC", "usage": "Room lighting only: wall seams, coves and downlights. Never used on a display."}
+ ]},
+"type": {"fonts": [],
+ "families": {"display": "Oxanium, 'Arial Narrow', system-ui, sans-serif", "data": "'JetBrains Mono', ui-monospace, Menlo, monospace", "body": "Barlow, system-ui, sans-serif"},
+ "groups": [
+  {"name": "Display", "family": "display", "styles": [
+   {"name": "screen-title", "fontSize": "28px", "lineHeight": "32px", "fontWeight": 700},
+   {"name": "big-readout", "fontSize": "48px", "lineHeight": "52px", "fontWeight": 700},
+   {"name": "sub-panel-tab", "fontSize": "14px", "lineHeight": "16px", "fontWeight": 700},
+   {"name": "value", "fontSize": "16px", "lineHeight": "20px", "fontWeight": 600}]},
+  {"name": "Data", "family": "data", "styles": [
+   {"name": "label", "fontSize": "12px", "lineHeight": "16px", "fontWeight": 500},
+   {"name": "key-code", "fontSize": "12px", "lineHeight": "14px", "fontWeight": 700},
+   {"name": "log-line", "fontSize": "13px", "lineHeight": "18px", "fontWeight": 500}]},
+  {"name": "Menu", "family": "body", "styles": [
+   {"name": "note", "fontSize": "13px", "lineHeight": "19px", "fontWeight": 400}]}]},
+"spacing": {"tokens": [
+  {"name": "pad", "value": "4.5%", "usage": "Display padding, as a share of the screen's short side (min 5px)."},
+  {"name": "gap", "value": "3%", "usage": "Gap between sub-panels, as a share of the content width."},
+  {"name": "space-2", "value": "8px", "usage": "Gap between menu buttons."},
+  {"name": "space-4", "value": "16px", "usage": "Menu padding."}]},
+"radius": {"tokens": [
+  {"name": "radius-none", "value": "0px", "usage": "Everything on a display. Corners are hex-cut, never rounded."},
+  {"name": "radius-frame", "value": "6px", "usage": "Only the outer edge of a station menu panel."}]},
+"shape": {"tokens": [
+  {"name": "hex-cut", "value": "32%", "usage": "A tab's angled end is cut back by 32% of its height (max a third of its width), giving the 60° hex profile used on keys, rails and bars."},
+  {"name": "node-inner", "value": "45%", "usage": "The hex node's black core, as a share of its radius."}]}
+}
