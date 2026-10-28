@@ -158,22 +158,12 @@ function frame() {
   } else streaks.visible = false;
 
   const fade = 1 - smooth(30, 200, cur.speed);
-  planetMat.uniforms.opacity.value = fade; planet.visible = fade > 0.01;
-  haloMat.opacity = 0.7 * fade; halo.visible = planet.visible;
-  nebula.material.opacity = 0.75 * (0.35 + 0.65 * fade);
-  planet.rotation.y += dt * (reduceMotion ? 0.004 : 0.012);
-  moon.visible = platform.visible = fade > 0.01; moonMat.uniforms.opacity.value = fade; moon.rotation.y += dt * 0.004;
-  platform.rotation.y += dt * (reduceMotion ? 0.01 : 0.05);
-  platform.traverse((o) => { if (o.material && !o.isSprite) o.material.opacity = fade; });
-  platformLights.forEach((l) => { const on = ((elapsed * 0.8 + l.ph) % 1) < 0.12; l.sp.material.opacity = (on ? 1 : 0.12) * fade; });
-
   const wantTarget = state.view === 'target' && state.speed !== 'warp';
   const k2 = 1 - Math.exp(-dt * 2.5);
-  vLook.lerp(wantTarget ? PLANET_POS : vFwd, k2);
-  const wantFov = wantTarget ? 13 : 36; if (Math.abs(vcam.fov - wantFov) > 0.01) { vcam.fov += (wantFov - vcam.fov) * k2; vcam.updateProjectionMatrix(); }
+  vLook.lerp(wantTarget ? TARGET_LOOK : vFwd, k2);
+  const wantFov = wantTarget ? TARGET_FOV : 36; if (Math.abs(vcam.fov - wantFov) > 0.01) { vcam.fov += (wantFov - vcam.fov) * k2; vcam.updateProjectionMatrix(); }
   vcam.lookAt(vLook); vcam.updateMatrixWorld();
-  planetMat.uniforms.lightDir.value.copy(SUN).transformDirection(vcam.matrixWorldInverse);
-  moonMat.uniforms.lightDir.value.copy(planetMat.uniforms.lightDir.value);
+  updateSpace(dt, fade); updateViewscreen(dt);
   const warpGlow = smooth(20, 300, cur.speed);
   lScreen.intensity = (0.35 + 0.8 * warpGlow + 0.06 * Math.sin(elapsed * 9) * warpGlow) * LIGHT_LEVELS[state.light] * LX_PUNCT;
 

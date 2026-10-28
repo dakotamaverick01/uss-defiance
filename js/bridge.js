@@ -257,12 +257,26 @@ scene.updateMatrixWorld(true);
 
 // ---------- main viewscreen (armored frame) ----------
 const VS_W = 5.0, VS_H = 2.25, VS_Y = 1.86, VS_Z = FWD_Z + 0.1;
-const rt = new THREE.WebGLRenderTarget(1024, 460, { type: THREE.HalfFloatType, generateMipmaps: false });
+const rt = new THREE.WebGLRenderTarget(isMobile ? 1024 : 1600, isMobile ? 460 : 720, { type: THREE.HalfFloatType, generateMipmaps: false, samples: 4 });
 const vcam = new THREE.PerspectiveCamera(36, VS_W / VS_H, 0.5, 900); vcam.position.set(0, 2, FWD_Z); vcam.layers.set(1);
 const vLook = new THREE.Vector3(0, 2, -300), vFwd = new THREE.Vector3(0, 2, -300);
 mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: rt.texture }), 0, VS_Y, VS_Z);
 const ovC = cnv(1024, 460), ovG = ovC.getContext('2d'), ovTex = tex(ovC);
-mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: ovTex, transparent: true, toneMapped: false, depthWrite: false }), 0, VS_Y, VS_Z + 0.01);
+const ovMat = new THREE.MeshBasicMaterial({ map: ovTex, transparent: true, toneMapped: false, depthWrite: false, opacity: 0 });
+mesh(new THREE.PlaneGeometry(VS_W, VS_H), ovMat, 0, VS_Y, VS_Z + 0.01);
+// rounded picture edge with a soft inner falloff, so the image sits inside the bezel like a window rather than a decal
+{
+  const c = cnv(1024, 460), g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 460);
+  g.globalCompositeOperation = 'destination-out';
+  // draw the hole far off-canvas and let only its blurred shadow land in place: a soft inner edge, no bleed past the corners
+  g.shadowColor = '#000'; g.shadowBlur = 18; g.shadowOffsetX = 4000; g.beginPath(); g.roundRect(44 - 4000, 40, 936, 380, 40); g.fill(); g.shadowOffsetX = 0;
+  g.globalCompositeOperation = 'source-over'; g.shadowBlur = 0;
+  const top = g.createLinearGradient(0, 24, 0, 90); top.addColorStop(0, 'rgba(0,0,0,0.45)'); top.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = top; g.fillRect(0, 0, 1024, 90);
+  mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: tex(c), transparent: true, toneMapped: false, depthWrite: false }), 0, VS_Y, VS_Z + 0.02);
+  // the glass: only its reflections show (black albedo, additive), catching the bridge lights as you move
+  mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.06, metalness: 0, envMapIntensity: 0.9, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false }), 0, VS_Y, VS_Z + 0.03);
+}
 {
   const fz = FWD_Z + 0.2;
   mesh(RBOX(VS_W + 0.9, 0.36, 0.34, 0.05), MAT.gun, 0, VS_Y + VS_H / 2 + 0.18, fz);
@@ -281,26 +295,31 @@ mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: ovT
   pool(0, FWD_Z + 1.4, VS_W + 1.2, 2.4, 0x8fb0ff, 0.12);
 }
 addHit(BOX(VS_W + 1, 3.0, 0.6), { station: 'viewer' }, null, 0, VS_Y, FWD_Z + 0.45);
+// Viewscreen readouts stay out of the picture: a small caption fades in when something changes
+// (view, speed, system) and fades out again; the magnify reticle stays while magnified.
+let ovSig = '', ovUntil = 7;
 function drawOverlay() {
   const g = ovG, W = 1024, H = 460, P = pal();
+  const sig = `${state.view}|${state.speed}|${state.cur}|${state.alert}`;
+  if (sig !== ovSig) { ovSig = sig; ovUntil = elapsed + 5; }
   g.clearRect(0, 0, W, H);
-  g.strokeStyle = P.acc; g.globalAlpha = 0.75; g.lineWidth = 3;
-  const L = 40, m = 16;
-  [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]].forEach(([x, y, sx, sy]) => { g.beginPath(); g.moveTo(x + sx * L, y); g.lineTo(x, y); g.lineTo(x, y + sy * L); g.stroke(); });
-  g.globalAlpha = 1; g.font = `500 18px ${MONO}`; g.textBaseline = 'top';
-  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(m + 8, m + 8, 330, 30); g.fillRect(W - m - 8 - 330, m + 8, 330, 30);
-  g.fillStyle = P.acc; g.textAlign = 'left';
-  g.fillText(state.view === 'target' ? `MAGNIFIED · ${sysCur().planet.toUpperCase()}` : 'FORWARD VIEW', m + 16, m + 14);
-  g.textAlign = 'right'; g.fillStyle = '#f0e8dc';
-  g.fillText(state.speed === 'warp' ? `EN ROUTE · ${sysDest().star.toUpperCase()}` : `${sysCur().star.toUpperCase()} SYSTEM`, W - m - 16, m + 14);
-  g.textAlign = 'left'; g.textBaseline = 'bottom'; g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(m + 8, H - m - 38, 240, 30);
-  g.fillStyle = P.acc; g.fillText(SPEEDS[state.speed].screen, m + 16, H - m - 14);
+  g.font = `500 15px ${MONO}`; g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  const line1 = state.speed === 'warp' ? `EN ROUTE · ${sysDest().star.toUpperCase()}` : `${sysCur().star.toUpperCase()} SYSTEM · ${sysCur().planet.toUpperCase()}`;
+  const line2 = `${state.view === 'target' ? 'MAGNIFIED' : 'FORWARD VIEW'} · ${SPEEDS[state.speed].screen}`;
+  const x = 58, y = H - 62, w = Math.max(g.measureText(line1).width, g.measureText(line2).width) + 28;
+  g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x - 14, y - 22, w, 52);
+  g.fillStyle = P.acc; g.fillRect(x - 14, y - 22, 3, 52);
+  g.fillStyle = '#e9e2d6'; g.fillText(line1, x, y); g.fillStyle = P.acc; g.fillText(line2, x, y + 20);
   if (state.view === 'target') {
-    g.strokeStyle = P.acc; g.lineWidth = 2; g.globalAlpha = 0.6; g.beginPath(); g.arc(W / 2, H / 2, 150, 0, 7); g.stroke();
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; g.beginPath(); g.moveTo(W / 2 + Math.cos(a) * 160, H / 2 + Math.sin(a) * 160); g.lineTo(W / 2 + Math.cos(a) * 185, H / 2 + Math.sin(a) * 185); g.stroke(); }
+    g.strokeStyle = P.acc; g.lineWidth = 1.5; g.globalAlpha = 0.55;
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; g.beginPath(); g.moveTo(W / 2 + Math.cos(a) * 70, H / 2 + Math.sin(a) * 70); g.lineTo(W / 2 + Math.cos(a) * 96, H / 2 + Math.sin(a) * 96); g.stroke(); }
     g.globalAlpha = 1;
   }
   ovTex.needsUpdate = true;
+}
+function updateViewscreen(dt) {
+  const want = (elapsed < ovUntil || state.view === 'target' || state.open === 'viewer') ? 0.95 : 0;
+  ovMat.opacity += (want - ovMat.opacity) * Math.min(1, dt * 2.5);
 }
 function rail(ei, t0, t1, y) {
   const e = EDGES[ei], len = e.len * (t1 - t0), tm = (t0 + t1) / 2;
