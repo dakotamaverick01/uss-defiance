@@ -7,7 +7,7 @@ from PIL import Image
 work, site = sys.argv[1], sys.argv[2]
 out = os.path.join(site, 'bake'); os.makedirs(out, exist_ok=True)
 scn = json.load(open(os.path.join(work, 'scene.json'))); pj = json.load(open(os.path.join(work, 'probes.json')))
-EXPOSURE = float(os.environ.get('EXPOSURE', 3.14159))
+EXPOSURE = float(os.environ.get('EXPOSURE', 7.0))  # brightness the ship was tuned at
 
 def blur_masked(a, mask, it=1):
   # light smoothing that never pulls in empty (unbaked) pixels; evens out the remaining render noise

@@ -55,8 +55,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 - **Rendering:** ACES filmic tone mapping, a faint haze, reflections taken from the baked room, bloom, and a vignette.
 - **Re-baking the light** (needed after moving any fixed geometry; the ship warns in the console and falls back to the old light if the bake no longer matches):
   1. `python3 tools/bake_export.py . <work>`: opens the ship headlessly and writes its geometry and fixtures.
-  2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 15 minutes on two cores at 160 samples.
-  3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`.
+  2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 12 minutes on two cores at 160 samples.
+  3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`. It stores the light at exposure 7.0, the brightness the ship was tuned at (set `EXPOSURE` to change it).
 - **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
 - **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. One amber accent on near-black, ice blue as the secondary, status colors only for status (see `docs/interface-style-sheet.md`). Only screens near the player redraw, to keep phones smooth.

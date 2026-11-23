@@ -257,8 +257,8 @@ let cupLiquid, cupGroup;
   plantAt(g, XA + 0.4, D - 0.4, 0.9); lobs(g, XA + 0.4, D - 0.4, 0.26);
   plantAt(g, XB - 0.4, D - 0.4, 0.85); lobs(g, XB - 0.4, D - 0.4, 0.26);
   // ceiling: a central light disc, downlights over the desk, the settee and the meal table
-  { const dc = mesh(new THREE.CircleGeometry(0.6, 40), lightDiscMat, MX, H - 0.005, MZ, g); dc.rotation.x = Math.PI / 2; const rim = mesh(new THREE.TorusGeometry(0.61, 0.025, 8, 48), MAT.steel, MX, H - 0.01, MZ, g); rim.rotation.x = Math.PI / 2; }
-  [[DK.x, DK.z + 0.25], [ST.x + 0.2, ST.z], [3.95, 1.75], [0.9, 6.0]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.1); });
+  { const dc = mesh(new THREE.CircleGeometry(0.7, 40), lightDiscMat, MX, H - 0.005, MZ, g); dc.rotation.x = Math.PI / 2; const rim = mesh(new THREE.TorusGeometry(0.71, 0.025, 8, 48), MAT.steel, MX, H - 0.01, MZ, g); rim.rotation.x = Math.PI / 2; }
+  [[DK.x, DK.z + 0.25], [ST.x + 0.2, ST.z], [3.95, 1.75], [0.9, 6.0], [XB - 0.8, CZ], [0.3, 1.3], [ST.x + 0.2, 5.6], [4.2, 6.0]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.1); });
 }
 
 // ---------- CONFERENCE ROOM (straight aft of the bridge, door on the starboard side of the aft wall) ----------
@@ -319,10 +319,11 @@ let cupLiquid, cupGroup;
   plantAt(g, XB - 0.4, 0.62, 1.0); lobs(g, XB - 0.4, 0.62, 0.28);
   plantAt(g, XA + 0.4, D - 0.4, 1.0); lobs(g, XA + 0.4, D - 0.4, 0.28);
   plantAt(g, XB - 0.4, D - 0.4, 0.9); lobs(g, XB - 0.4, D - 0.4, 0.26);
-  // ceiling: a long light panel over the table, downlights in the corners
-  { const lp = mesh(new THREE.PlaneGeometry(3.8, 0.5), downlightMat, T.x, H - 0.045, T.z, g); lp.rotation.x = Math.PI / 2; mesh(RBOX(3.96, 0.04, 0.66, 0.015), MAT.steel, T.x, H - 0.02, T.z, g);
+  // ceiling: a long light panel over the table, rows of downlights over the walkways on both sides
+  { const lp = mesh(new THREE.PlaneGeometry(4.0, 0.6), downlightMat, T.x, H - 0.045, T.z, g); lp.rotation.x = Math.PI / 2; mesh(RBOX(4.16, 0.04, 0.76, 0.015), MAT.steel, T.x, H - 0.02, T.z, g);
     lpool(g, T.x, T.z, 5.2, 2.6, 0xffd2a0, 0.14); }
-  [[XA + 0.8, 1.0], [XB - 0.8, 1.0], [XA + 0.8, D - 0.8], [XB - 0.8, D - 0.8]].forEach(([x, z]) => mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2);
+  [-2.6, 0, 2.6].forEach((x) => [1.25, D - 1.0].forEach((z) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.08); }));
+  [[XA + 0.7, T.z], [XB - 0.7, T.z]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; });
 }
 
 // ---------- HEAD (off the aft-port wall) ----------
