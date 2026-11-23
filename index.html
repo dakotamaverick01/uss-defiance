@@ -10,14 +10,14 @@
 <style>
 /* Layout: one full-screen 3D view; thin HUD pinned to the edges; station panel as a chamfered glass sheet (bottom on phones, right card on wide screens). Single warm-dark look by design. */
 :root {
-  --void: #06070a;
-  --glass: rgba(8, 10, 14, 0.9);
-  --rule: #263042;
-  --ink: #EAF2FF;
-  --ink-dim: #8A97AD;
-  --signal: #4C8DFF;
-  --signal-rgb: 76, 141, 255;
-  --teal: #34E89E;
+  --void: #07090C;
+  --glass: rgba(7, 9, 12, 0.9);
+  --rule: #1C2229;
+  --ink: #EEF2F5;
+  --ink-dim: #7F8994;
+  --signal: #E3A23B;
+  --signal-rgb: 227, 162, 59;
+  --ice: #8FC3E0;
   --f-display: 'Oxanium', 'Arial Narrow', system-ui, sans-serif;
   --f-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --f-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
@@ -76,14 +76,14 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
   left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
   bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   max-height: 48%; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  background: #000; border: 1px solid #1A2230; border-radius: 6px;
+  background: #07090C; border: 1px solid #1C2229; border-radius: 6px;
   padding: 16px 16px 18px; user-select: text; -webkit-user-select: text;
   box-shadow: 0 10px 40px rgba(0,0,0,.6);
 }
 .panel-bar { display: flex; gap: 6px; margin: 10px 0 0; }
-.panel-bar span { height: 10px; background: #1A2230; flex: 1; clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%); }
+.panel-bar span { height: 10px; background: #1C2229; flex: 1; clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%); }
 .panel-bar span:first-child { flex: 0 0 42%; background: var(--fn, var(--signal)); clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 0 100%); }
-.panel-bar span:nth-child(2) { flex: 0 0 16%; background: #C9D6EA; }
+.panel-bar span:nth-child(2) { flex: 0 0 16%; background: var(--ice); }
 .panel-head { position: relative; padding-left: 46px; }
 .panel-head::before { content: ""; position: absolute; left: 0; top: 2px; width: 36px; height: 32px; background: var(--fn, var(--signal)); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
 .panel-head::after { content: ""; position: absolute; left: 11px; top: 11px; width: 14px; height: 14px; background: #000; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
@@ -93,7 +93,7 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .eyebrow { margin: 0; font-family: var(--f-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
 .panel h2 { margin: 2px 0 0; font-family: var(--f-display); font-weight: 700; font-size: 24px; letter-spacing: .08em; text-transform: uppercase; text-wrap: balance; }
-.close { flex: none; width: 48px; height: 32px; border: 0; border-radius: 0; clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); background: #C9D6EA; color: #000; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
+.close { flex: none; width: 48px; height: 32px; border: 0; border-radius: 0; clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); background: var(--ice); color: #000; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
 .readouts { display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px; margin: 14px 0 0; }
 .readouts dt { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--signal); padding-top: 2px; }
 .readouts dd { margin: 0; font-family: var(--f-display); font-weight: 500; font-size: 15px; letter-spacing: .02em; color: var(--ink); min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -101,13 +101,13 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
 .actions:empty { display: none; }
 .act {
   position: relative; font-family: var(--f-display); font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase;
-  color: #000; background: #C9D6EA; border: 0; border-radius: 0;
+  color: #000; background: var(--ice); border: 0; border-radius: 0;
   clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%);
   padding: 18px 26px 10px; cursor: pointer; min-height: 52px; min-width: 110px; text-align: left;
 }
 .act::after { content: attr(data-num); position: absolute; right: 22px; top: 5px; font-family: var(--f-mono); font-size: 10px; font-weight: 500; opacity: .7; }
 .act:first-child { background: var(--fn, var(--signal)); }
-.act.on { background: #fff; }
+.act.on { background: #EEF2F5; }
 .act.on::before { content: ""; position: absolute; left: 22px; top: 7px; width: 10px; height: 9px; background: #000; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
 .act:active { filter: brightness(1.2); }
 .act:disabled { opacity: .35; cursor: default; }
@@ -126,7 +126,7 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
 }
 .toast b { color: var(--signal); font-weight: 500; }
 .vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 55%, rgba(0,0,0,.42) 100%); }
-.flash { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(circle at 50% 40%, rgba(220,240,255,.8), rgba(120,190,255,0) 70%); opacity: 0; }
+.flash { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(circle at 50% 40%, rgba(238,242,245,.8), rgba(143,195,224,0) 70%); opacity: 0; }
 .flash.go { animation: flash .9s ease-out; }
 @keyframes flash { 0% { opacity: 0 } 15% { opacity: 1 } 100% { opacity: 0 } }
 
@@ -136,7 +136,7 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
   background: radial-gradient(ellipse at 50% 55%, rgba(8,7,6,.35), rgba(8,7,6,.9) 75%);
 }
 .intro-card { width: 100%; max-width: 380px; }
-.reg { margin: 0; font-family: var(--f-mono); font-size: 11px; letter-spacing: .18em; color: var(--teal); }
+.reg { margin: 0; font-family: var(--f-mono); font-size: 11px; letter-spacing: .18em; color: var(--ice); }
 .intro h1 { margin: 6px 0 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(32px, 9vw, 46px); line-height: 1; letter-spacing: .12em; text-wrap: balance; }
 .intro .deck { margin: 8px 0 0; font-family: var(--f-display); font-weight: 500; font-size: 16px; letter-spacing: .18em; text-transform: uppercase; color: var(--signal); }
 .intro .lore { margin: 14px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink-dim); max-width: 36ch; }
@@ -144,7 +144,11 @@ body { font-family: var(--f-body); font-size: 14px; -webkit-user-select: none; u
 .controls li { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: baseline; font-size: 15px; line-height: 1.4; }
 .controls b { font-family: var(--f-mono); font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
 .nogl { position: fixed; inset: 0; z-index: 11; display: grid; place-items: center; padding: 24px; text-align: center; background: var(--void); font-size: 15px; line-height: 1.5; }
-@media (prefers-reduced-motion: reduce) { .flash.go { animation: none; } .reticle { transition: none; } }
+/* Yellow alert: the one accent pulses brighter. Red alert: it turns red and the ice blue dims. */
+html.alert-yellow .chip { animation: amber-pulse 1.6s ease-in-out infinite; }
+@keyframes amber-pulse { 50% { color: #FFCB73; border-color: rgba(255, 203, 115, .9); } }
+html.alert-red { --ice: #5D7F92; }
+@media (prefers-reduced-motion: reduce) { .flash.go { animation: none; } .reticle { transition: none; } html.alert-yellow .chip { animation: none; } }
 </style>
 </head>
 <body>

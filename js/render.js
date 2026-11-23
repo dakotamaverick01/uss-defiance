@@ -117,8 +117,12 @@ let wasWarp = false, rr = 0, rrTimer = 0, panelTimer = 0, ovTimer = 0, bobT = 0,
 const standV = new THREE.Vector3();
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 
+let simLast = performance.now(), livePanelT = 0;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05); elapsed += dt;
+  // the ship model runs on real time (not the capped frame time) so it keeps pace on slow phones
+  { const now = performance.now(); simUpdate(Math.min(1, (now - simLast) / 1000)); simLast = now; drainSimEvents(dt); }
+  if (state.open) { livePanelT += dt; if (livePanelT > 0.25) { livePanelT = 0; renderPanel(); } }
 
   if (!state.sitting) {
     let f = 0, s = 0;

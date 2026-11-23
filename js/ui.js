@@ -24,16 +24,18 @@ let commsIdx = 0;
 
 const STATIONS = {
   helm: { title: 'Flight', role: 'Helm and navigation', panel: () => ({
-    read: [['Speed', SPEEDS[state.speed].name], ['Location', `${sysCur().star} system`], ['Destination', `${sysDest().star} · ${sysDest().heading}`], ['Inertial dampers', '100%'], ['Nacelles', state.speed === 'warp' ? 'Field at 94%' : 'Standby']],
-    note: state.speed === 'warp' ? 'At warp. Drop to impulse or all stop to arrive at your destination.' : 'Pick a different destination at the situation table aft.',
+    read: [['Speed', SPEEDS[state.speed].name], ['Location', `${sysCur().star} system`], ['Destination', `${sysDest().star} · ${sysDest().heading}`], ['Nacelles', `Port ${pct(sim.zones.portNac)} · Starboard ${pct(sim.zones.stbdNac)}`], ['Impulse limit', pct(maxImpulse() * 100)]],
+    note: !simCanWarp() ? 'Both nacelles are below 25%. Warp is unavailable until Damage Control repairs one.' : state.speed === 'warp' ? 'At warp. Drop to impulse or all stop to arrive at your destination.' : 'Pick a different destination at the situation table aft.',
     acts: [
       { label: 'All stop', on: state.speed === 'stop', fn: () => setSpeed('stop') },
       { label: 'Impulse', on: state.speed === 'impulse', fn: () => setSpeed('impulse') },
-      { label: 'Engage warp', on: state.speed === 'warp', fn: () => setSpeed('warp') },
+      { label: 'Engage warp', on: state.speed === 'warp', disabled: !simCanWarp() && state.speed !== 'warp', fn: () => setSpeed('warp') },
     ] }) },
   ops: { title: 'Operations', role: 'Crew, convoy and resources', panel: () => ({
-    read: [['Crew aboard', '140'], ['Convoy', '3 freighters in formation'], ['Shuttles', '2 of 2 docked'], ['Stores', '86%']],
-    acts: [{ label: 'Ship-wide announcement', fn: () => { beep([660, 990, 1320], 0.09, 0.05); toast('All hands, this is the captain. Stay sharp. We see the convoy home.', 'Ship-wide'); } }],
+    read: [['Power preset', cap(sim.preset)], ['Reactor', `${Math.round(reactorOut())} units`], ['Weapons · shields', `${sim.alloc.weapons} · ${sim.alloc.shields}`], ['Engines · sensors', `${sim.alloc.engines} · ${sim.alloc.sensors}`], ['Convoy', '3 freighters in formation']],
+    note: 'Presets split the reactor between weapons, shields, engines and sensors. Life support always keeps 5.',
+    acts: ['balanced', 'attack', 'defend', 'speed'].map((p) => ({ label: cap(p), on: sim.preset === p, fn: () => order('Operations', `Power to ${p === 'balanced' ? 'balanced' : p} preset. Aye.`, () => setPreset(p)) }))
+      .concat([{ label: 'Ship-wide announcement', fn: () => { beep([660, 990, 1320], 0.09, 0.05); toast('All hands, this is the captain. Stay sharp. We see the convoy home.', 'Ship-wide'); } }]),
   }) },
   viewer: { title: 'Main Viewer', role: 'Forward viewscreen', panel: () => ({
     read: [['View', state.view === 'target' ? `Magnified on ${sysCur().planet}` : 'Forward'], ['Range', state.speed === 'warp' ? 'At warp' : sysCur().dist]],
@@ -48,16 +50,17 @@ const STATIONS = {
       acts: [{ label: state.scanning ? 'Scanning…' : state.scanned ? 'Scan again' : 'Scan planet', on: state.scanning, disabled: away || state.scanning, fn: startScan }],
     }; } },
   engineering: { title: 'Engineering', role: 'Warp core and propulsion', panel: () => ({
-    read: [['Warp core', state.speed === 'warp' ? '98.4% output' : '62% idle'], ['Antimatter reserve', '91%'], ['Deuterium', '88%'], ['Field coils', state.speed === 'warp' ? 'Energized' : 'Idle'], ['Injectors', '2 of 2 online'], ['Breach margin', '412%']],
-    acts: [],
+    read: [['Reactor output', `${Math.round(reactorOut())} of ${SIM.reactor} units`], ['Engines zone', pct(sim.zones.engines)], ['Emergency power', sim.emergency.boost > 0 ? `To shields · ${Math.ceil(sim.emergency.boost)} s` : sim.emergency.penalty > 0 ? `Recovering · ${Math.ceil(sim.emergency.penalty)} s` : 'Ready'], ['Containment', sim.breach !== null ? `FAILING · breach in ${Math.ceil(sim.breach)} s` : 'Stable'], ['Field coils', state.speed === 'warp' ? 'Energized' : 'Idle']],
+    note: 'Emergency power boosts shield recovery by 40% for 20 seconds, then the reactor runs 20% low for 30 seconds.',
+    acts: [{ label: 'Emergency power to shields', disabled: sim.emergency.boost > 0 || sim.emergency.penalty > 0, fn: () => order('Engineering', 'Emergency power to the shields. Twenty seconds, Captain.', emergencyPower) }],
   }) },
   env: { title: 'Environment', role: 'Life support and bridge lighting', panel: () => ({
     read: [['Atmosphere', '21.4% O2 · 101 kPa'], ['Temperature', '21.5 °C'], ['Gravity', '1.00 g'], ['CO2 scrubbers', 'Nominal'], ['Bridge lighting', state.light[0].toUpperCase() + state.light.slice(1)]],
     acts: ['dim', 'standard', 'bright'].map((l) => ({ label: l === 'dim' ? 'Dim' : l === 'bright' ? 'Bright' : 'Standard', on: state.light === l, fn: () => setLight(l) })),
   }) },
   weapons: { title: 'Weapons Control', role: 'Beam arrays and torpedoes', panel: () => ({
-    read: [['Dorsal array', state.alert === 'red' ? 'Charged' : 'Safe'], ['Ventral array', state.alert === 'red' ? 'Charged' : 'Safe'], ['Torpedo bay 1', state.alert === 'red' ? 'Loaded · 12 of 12' : '12 of 12'], ['Torpedo bay 2', state.alert === 'red' ? 'Loaded · 12 of 12' : '12 of 12'], ['Target lock', state.alert === 'red' ? 'Track 0417' : 'None']],
-    note: 'Weapons readiness follows the alert condition set at Tactical.',
+    read: weaponRows(pal()).map(([k, v]) => [cap(k.toLowerCase()), cap(v.toLowerCase())]),
+    note: 'Beams charge and tubes load at Red Alert. Weapons power comes from Operations.',
     acts: [],
   }) },
   ew: { title: 'Electronic Warfare', role: 'Jamming, decoys and emission control', panel: () => ({
@@ -107,16 +110,22 @@ const STATIONS = {
     note: 'Four engagements, four convoys brought home. The crew reads the plaque on the way into every briefing.',
     acts: [] }) },
   damage: { title: 'Damage Control', role: 'Hull and structure', panel: () => ({
-    read: [['Hull integrity', '100%'], ['Structural field', state.alert === 'red' ? 'Reinforced' : 'Nominal'], ['Damage reports', 'None'], ['Repair teams', state.alert === 'green' ? 'Standing down' : 'At stations']],
-    note: 'Every section of the ship reports here. The grid lights up deck by deck as the sweep passes.',
-    acts: [],
+    read: [['Hull integrity', pct(hullIntegrity())]].concat(ZONES.filter((z) => sim.zones[z.id] < 100).slice(0, 4).map((z) => [z.name, pct(sim.zones[z.id])])).concat(sim.teams.map((tm, i) => [`Team ${i + 1}`, tm.to ? `Moving to ${ZONE_NAME[tm.to]}` : tm.at ? `${ZONE_NAME[tm.at]}${sim.zones[tm.at] < SIM.repair.cap ? ', repairing' : ', done'}` : 'Standing by'])),
+    note: sim.breach !== null ? `Core breach in ${Math.ceil(sim.breach)} s. Send a team to the engines.` : 'Each team takes 10 seconds to move, then repairs 1% a second, up to 80% in the field.',
+    acts: sim.teams.map((tm, i) => {
+      const covered = sim.teams.filter((t, j) => j !== i).map((t) => t.to || t.at), wz = sim.breach !== null && !covered.includes('engines') ? ZONES.find((z) => z.id === 'engines') : worstZone(covered);
+      return { label: wz ? `Team ${i + 1} to ${wz.name}` : `Team ${i + 1}: no work`, disabled: !wz || tm.at === wz.id || tm.to === wz.id, fn: () => order('Damage Control', `Team ${i + 1} on the way to the ${wz.name.toLowerCase()}.`, () => sendTeam(i, wz.id)) };
+    }).concat([{ label: 'Reset after drill', disabled: sim.drill.on || hullIntegrity() >= 100, fn: () => { simReset(); toast('Ship restored. All sections at full.', 'Damage Control'); renderPanel(); redrawAll(); } }]),
   }) },
   defense: { title: 'Tactical', role: 'Weapons, deflectors and alert status', panel: () => ({
-    read: [['Condition', ALERTS[state.alert].label], ['Deflector', state.alert === 'green' ? 'Navigational' : 'Raised'], ['Beam arrays', state.alert === 'red' ? 'Charged' : 'Safe'], ['Torpedoes', state.alert === 'red' ? 'Loaded, 24 of 24' : '24 of 24']],
+    read: [['Condition', ALERTS[state.alert].label], ['Shields', sim.shields.up < 0.01 ? 'Down (navigational field)' : ARCS.map((a) => `${ARC_NAMES[a][0]} ${Math.round(shieldNow(a))}`).join(' · ')], ['Reinforced arc', sim.shields.reinforce ? ARC_NAMES[sim.shields.reinforce] : 'None, even spread'], ['Hull', pct(hullIntegrity())], ['Torpedoes', `${torpsLeft()} of ${SIM.torp.perBay * 2}`]],
+    note: sim.drill.on ? `Combat drill running: ${Math.ceil(sim.drill.t)} seconds left. Watch the shields, then send repair teams from Damage Control.` : 'The combat drill throws simulated hits at the ship for 60 seconds.',
     acts: [
       { label: 'Green', on: state.alert === 'green', fn: () => setAlert('green') },
       { label: 'Yellow', on: state.alert === 'yellow', fn: () => setAlert('yellow') },
       { label: 'Red', on: state.alert === 'red', fn: () => setAlert('red') },
+      { label: `Reinforce: ${sim.shields.reinforce ? ARC_NAMES[sim.shields.reinforce] : 'even'}`, on: !!sim.shields.reinforce, fn: () => { const seq = [null, 'fwd', 'port', 'stbd', 'aft'], nx = seq[(seq.indexOf(sim.shields.reinforce) + 1) % seq.length]; order('Tactical', nx ? `Reinforcing ${ARC_NAMES[nx].toLowerCase()} shields.` : 'Shields back to an even spread.', () => reinforceArc(nx)); } },
+      sim.drill.on ? { label: 'Stop drill', on: true, fn: () => { stopDrill(); renderPanel(); } } : { label: 'Combat drill', disabled: sim.lost, fn: () => { startDrill(); renderPanel(); } },
     ] }) },
   comms: { title: 'Communications', role: 'Subspace relay', panel: () => ({
     read: state.comms.slice(-3).reverse().map((m) => [shipTime(m.at), `${m.who}: ${m.text}`]),
@@ -125,7 +134,7 @@ const STATIONS = {
       { label: 'Clear log', disabled: !state.comms.length, fn: () => { state.comms = []; renderPanel(); } },
     ] }) },
   command: { title: 'Command Chair', role: 'Captain’s station', panel: () => ({
-    read: [['Condition', ALERTS[state.alert].label], ['Speed', SPEEDS[state.speed].name], ['Location', `${sysCur().star} system`]],
+    read: [['Condition', ALERTS[state.alert].label], ['Speed', SPEEDS[state.speed].name], ['Hull', pct(hullIntegrity())], ['Power', `${cap(sim.preset)} · ${Math.round(reactorOut())} units`], ['Location', `${sysCur().star} system`]],
     acts: [state.sitting ? { label: 'Stand up', fn: stand } : { label: 'Take the chair', fn: sit }],
   }) },
   carto: { title: 'Situation Table', role: 'Navigation and tactical plot', panel: () => {
@@ -157,6 +166,11 @@ const STATIONS = {
   }) },
 };
 
+const pct = (v) => Math.round(v) + '%';
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+// An order: the crew acknowledges it, the ship model changes, and the screens update.
+function order(who, ack, fn) { const ok = fn(); if (ok !== false) toast(ack, who); renderPanel(); redrawStation(state.open); }
+let curActs = [];
 function renderPanel() {
   const id = state.open; if (!id) return;
   const st = STATIONS[id], p = st.panel();
@@ -164,18 +178,26 @@ function renderPanel() {
   if (p.read.length) ui.read.replaceChildren(...p.read.flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
   else { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = 'Log'; dd.textContent = 'No messages.'; ui.read.replaceChildren(dt, dd); }
   ui.note.hidden = !p.note; ui.note.textContent = p.note || '';
+  curActs = p.acts;
+  const btns = ui.acts.querySelectorAll('button');
+  if (btns.length === p.acts.length && ui.acts.dataset.station === id) { // live refresh: update in place so a press in progress isn't lost
+    p.acts.forEach((a, i) => { const b = btns[i]; if (b.textContent !== a.label) b.textContent = a.label; b.className = 'act' + (a.on ? ' on' : ''); b.disabled = !!a.disabled; });
+    return;
+  }
+  ui.acts.dataset.station = id;
   const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.idx : undefined;
   ui.acts.replaceChildren(...p.acts.map((a, i) => {
     const b = document.createElement('button'); b.className = 'act' + (a.on ? ' on' : ''); b.textContent = a.label; b.disabled = !!a.disabled; b.dataset.idx = String(i); b.dataset.num = String(10 + ((id.length * 7 + i * 13) % 89)) + '-' + String(100 + i * 37);
-    b.addEventListener('click', () => { beep([1046], 0.05, 0.035); a.fn(); }); return b;
+    b.addEventListener('click', () => { beep([1046], 0.05, 0.035); if (curActs[i]) curActs[i].fn(); }); return b;
   }));
   if (focused !== undefined) { const b = ui.acts.querySelector(`[data-idx="${focused}"]`); if (b && !b.disabled) b.focus({ preventScroll: true }); }
 }
 function openStation(id) { state.open = id; ui.panel.style.setProperty('--fn', FUNC_CSS[FUNC[id] || 'acc']); ui.panel.hidden = false; ui.seatbar.hidden = true; beep([880, 1175], 0.05, 0.035); renderPanel(); updateHighlights(); }
-function closePanel() { state.open = null; ui.panel.hidden = true; ui.seatbar.hidden = !state.sitting; updateHighlights(); }
+function closePanel() { state.open = null; ui.acts.dataset.station = ''; ui.panel.hidden = true; ui.seatbar.hidden = !state.sitting; updateHighlights(); }
 $('p-close').addEventListener('click', closePanel);
 
 function setSpeed(s) {
+  if (s === 'warp' && state.speed !== 'warp' && !simCanWarp()) { toast('Unable, Captain. Both nacelles are too badly damaged to hold a warp field.', 'Flight'); renderPanel(); return; }
   if (s === 'warp' && state.speed !== 'warp') {
     ui.flash.classList.remove('go'); void ui.flash.offsetWidth; if (!reduceMotion) ui.flash.classList.add('go');
     toast(`Warp engaged. Heading for ${sysDest().star}.`, 'Flight'); whoosh(true); state.view = 'forward';
@@ -202,6 +224,7 @@ function setAlert(a) {
   MAT.wall.emissive.setHex(A.slot); ROOM_WALL_MATS.forEach((m) => m.emissive.setHex(A.slot));
   document.documentElement.style.setProperty('--signal', A.acc);
   document.documentElement.style.setProperty('--signal-rgb', A.rgb);
+  document.documentElement.classList.remove('alert-green', 'alert-yellow', 'alert-red'); document.documentElement.classList.add('alert-' + a);
   ui.chip.textContent = A.label; $('alert-chip-s').textContent = A.short[0] + A.short.slice(1).toLowerCase();
   if (a === 'red' && prev !== 'red') beep([880, 660, 880, 660], 0.16, 0.05);
   if (a === 'yellow' && prev !== 'yellow') beep([740, 740], 0.14, 0.04);
@@ -222,3 +245,18 @@ function showHolo(i) { state.holo = (i + SYSTEMS.length) % SYSTEMS.length; build
 function sit() { state.sitting = true; closePanel(); ui.seatbar.hidden = false; }
 function stand() { state.sitting = false; player.x = 0; player.z = 1.6; player.y = DAIS.h + EYE; closePanel(); }
 $('stand-btn').addEventListener('click', stand);
+
+// ---------- ship model messages ----------
+// The ship model reports what the crew says in sim.events; show them one at a time so none are lost.
+const simQueue = []; let simToastT = 0, lostT = 0;
+function drainSimEvents(dt) {
+  for (const ev of sim.events) { if (ev.alert) { if (state.alert !== ev.alert) setAlert(ev.alert); } else simQueue.push(ev); }
+  sim.events.length = 0;
+  simToastT -= dt;
+  if (simQueue.length && simToastT <= 0) { const ev = simQueue.shift(); toast(ev.text, ev.who); beep([990, 1320], 0.05, 0.03); simToastT = simQueue.length ? 1.6 : 0.4; }
+  if (sim.lost) {
+    lostT += dt;
+    if (lostT > 3 && lostT - dt <= 3) toast('The Defiance has been lost. This was a drill: restoring the sim.', 'Ship');
+    if (lostT > 7) { lostT = 0; simReset(); setAlert('green'); redrawAll(); }
+  }
+}

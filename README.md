@@ -15,7 +15,7 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 | Area | What you can do |
 | --- | --- |
-| **Bridge** | Sit at any station (helm, ops, tactical, science, engineering, comms, command chairs) and work its displays; trigger red alert; watch the viewscreen. |
+| **Bridge** | Sit at any station and work its displays. The ship is a working system: set alert levels, split reactor power at Operations, reinforce a shield arc at Tactical, send repair teams from Damage Control, and run a combat drill to watch it all react. |
 | **Captain's ready room** | Read the captain's log at the desk, use the synthesizer, inspect the ship model, open or close the armored window shutters. |
 | **Officer conference room** | Step through the briefing slides, read the battle honors plaque. |
 | **Head** | Yes, the ship has a restroom. |
@@ -34,7 +34,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 
   | File | What it covers |
   | --- | --- |
-  | `core.js` | Constants, renderer, shared helpers, ship state |
+  | `core.js` | Constants, renderer, shared helpers, display palette, scene state |
+  | `sim.js` | The ship model: power, shields by arc, weapons, eight damage zones, repair teams, combat drill. Runs on a fixed 10-per-second tick |
   | `surfaces.js` | Surface detail: texture loading, world-mapped detail, wear, screen pixel grid and smudged glass |
   | `materials.js` | Procedural textures, reflections, material library |
   | `bridge.js` | Bridge geometry: shell, consoles, seating, dais, viewscreen, aft wall |
@@ -57,7 +58,8 @@ Everything here is original: the ship, its layout, the interface language, the i
   2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 15 minutes on two cores at 160 samples.
   3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`.
 - **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
-- **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots). Only screens near the player redraw, to keep phones smooth.
+- **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
+- **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. One amber accent on near-black, ice blue as the secondary, status colors only for status (see `docs/interface-style-sheet.md`). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
 - **Collision:** walls and doors are line segments, and furniture is circles. Walls also block clicks, so you can't use a panel through a wall.
 - **Sound:** generated in the browser with the Web Audio API. There are no sound files.
@@ -65,4 +67,6 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-Deck 1 is complete. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stage 2 (camera and colour grade) is next, per `docs/visual-overhaul-plan.md`, then detail. The exterior model and other decks come later.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Next: orders and pause, then the tactical plot.
+
+Deck 1 is complete. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.

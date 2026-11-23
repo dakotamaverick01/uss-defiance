@@ -1,8 +1,8 @@
 // USS Defiance · sim.js
 // The ship as a working system: power, shields by arc, weapons, damage zones and repair teams.
 // It advances on a fixed tick (a small time step, 10 per second), separate from drawing, so it keeps
-// running when no screen is redrawn. Screens and panels only read `ship` and call the order functions.
-// It never touches the page: crew messages go into ship.events, which ui.js turns into toasts.
+// running when no screen is redrawn. Screens and panels only read `sim` and call the order functions.
+// It never touches the page: crew messages go into sim.events, which ui.js turns into toasts.
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
@@ -49,9 +49,9 @@ const ZONES = [
 const ZONE_NAME = Object.fromEntries(ZONES.map((z) => [z.id, z.name]));
 const SYS_KEYS = ['weapons', 'shields', 'engines', 'sensors'];
 
-let ship = null;
+let sim = null;
 function simReset() {
-  ship = {
+  sim = {
     preset: 'balanced', alloc: Object.assign({}, SIM.presets.balanced),
     emergency: { boost: 0, penalty: 0 },
     shields: { up: 0, reinforce: null, arc: { fwd: 100, port: 100, stbd: 100, aft: 100 } },
@@ -63,117 +63,117 @@ function simReset() {
     drill: { on: false, t: 0, next: 0, hits: 0 },
     hitLog: [], events: [], acc: 0, time: 0,
   };
-  return ship;
+  return sim;
 }
 simReset();
 
-function say(who, text) { ship.events.push({ who, text }); }
+function say(who, text) { sim.events.push({ who, text }); }
 function wpick(list) { let r = Math.random() * list.reduce((a, [, w]) => a + w, 0); for (const [v, w] of list) { r -= w; if (r <= 0) return v; } return list[list.length - 1][0]; }
 
 // ---------- derived values ----------
-function zoneFactor(id) { const z = ship.zones[id]; return z <= 0 ? 0 : z < 50 ? 0.5 : 1; }
-function zoneStatus(id) { const z = ship.zones[id]; return z <= 0 ? 'off' : z < 50 ? 'alert' : z < 90 ? 'warn' : 'ok'; }
-function hullIntegrity() { return ZONES.reduce((a, z) => a + ship.zones[z.id], 0) / ZONES.length; }
+function zoneFactor(id) { const z = sim.zones[id]; return z <= 0 ? 0 : z < 50 ? 0.5 : 1; }
+function zoneStatus(id) { const z = sim.zones[id]; return z <= 0 ? 'off' : z < 50 ? 'alert' : z < 90 ? 'warn' : 'ok'; }
+function hullIntegrity() { return ZONES.reduce((a, z) => a + sim.zones[z.id], 0) / ZONES.length; }
 function reactorOut() {
-  const z = ship.zones.engines / 100, base = SIM.reactor * (SIM.reactorFloor + (1 - SIM.reactorFloor) * z);
-  return ship.emergency.penalty > 0 ? base * (1 - SIM.emergency.penalty) : base;
+  const z = sim.zones.engines / 100, base = SIM.reactor * (SIM.reactorFloor + (1 - SIM.reactorFloor) * z);
+  return sim.emergency.penalty > 0 ? base * (1 - SIM.emergency.penalty) : base;
 }
-function eff(sys) { return Math.min(SIM.effCap, (ship.alloc[sys] * reactorOut() / SIM.reactor) / SIM.presets.balanced[sys]); }
-function shieldMax(arc) { const r = ship.shields.reinforce; return r ? (r === arc ? SIM.shield.reinforced : SIM.shield.others) : SIM.shield.max; }
-function shieldNow(arc) { return ship.shields.arc[arc] * ship.shields.up; }
+function eff(sys) { return Math.min(SIM.effCap, (sim.alloc[sys] * reactorOut() / SIM.reactor) / SIM.presets.balanced[sys]); }
+function shieldMax(arc) { const r = sim.shields.reinforce; return r ? (r === arc ? SIM.shield.reinforced : SIM.shield.others) : SIM.shield.max; }
+function shieldNow(arc) { return sim.shields.arc[arc] * sim.shields.up; }
 function shieldRegen(arc) {
   const emit = arc === 'port' ? zoneFactor('port') : arc === 'stbd' ? zoneFactor('stbd') : 1;
-  return SIM.shield.regen * eff('shields') * emit * (ship.emergency.boost > 0 ? 1 + SIM.emergency.boost : 1);
+  return SIM.shield.regen * eff('shields') * emit * (sim.emergency.boost > 0 ? 1 + SIM.emergency.boost : 1);
 }
-function simCanWarp() { return ship.zones.portNac > SIM.nacelleWarpMin || ship.zones.stbdNac > SIM.nacelleWarpMin; }
+function simCanWarp() { return sim.zones.portNac > SIM.nacelleWarpMin || sim.zones.stbdNac > SIM.nacelleWarpMin; }
 function beamStrength(which) { return zoneFactor(which) * Math.min(1, eff('weapons')); }
-function torpsLeft() { return ship.bays[0].torps + ship.bays[1].torps; }
+function torpsLeft() { return sim.bays[0].torps + sim.bays[1].torps; }
 function maxImpulse() { return zoneFactor('engines') * Math.min(1, eff('engines')); }
 function worstZone(exclude) {
   const ex = new Set(exclude || []);
-  return ZONES.filter((z) => !ex.has(z.id) && ship.zones[z.id] < SIM.repair.cap).sort((a, b) => ship.zones[a.id] - ship.zones[b.id])[0] || null;
+  return ZONES.filter((z) => !ex.has(z.id) && sim.zones[z.id] < SIM.repair.cap).sort((a, b) => sim.zones[a.id] - sim.zones[b.id])[0] || null;
 }
 function simStats() { return { hull: hullIntegrity(), reactor: reactorOut(), shields: ARCS.map(shieldNow), torps: torpsLeft() }; }
 
 // ---------- orders ----------
-function setPreset(name) { if (!SIM.presets[name]) return; ship.preset = name; ship.alloc = Object.assign({}, SIM.presets[name]); }
+function setPreset(name) { if (!SIM.presets[name]) return; sim.preset = name; sim.alloc = Object.assign({}, SIM.presets[name]); }
 function emergencyPower() {
-  if (ship.emergency.boost > 0 || ship.emergency.penalty > 0) return false;
-  ship.emergency.boost = SIM.emergency.time; return true;
+  if (sim.emergency.boost > 0 || sim.emergency.penalty > 0) return false;
+  sim.emergency.boost = SIM.emergency.time; return true;
 }
 function reinforceArc(arc) {
-  ship.shields.reinforce = arc || null;
-  ARCS.forEach((a) => { ship.shields.arc[a] = Math.min(ship.shields.arc[a], shieldMax(a)); });
+  sim.shields.reinforce = arc || null;
+  ARCS.forEach((a) => { sim.shields.arc[a] = Math.min(sim.shields.arc[a], shieldMax(a)); });
 }
 function sendTeam(i, zoneId) {
-  const tm = ship.teams[i]; if (!tm || !ship.zones.hasOwnProperty(zoneId)) return false;
+  const tm = sim.teams[i]; if (!tm || !sim.zones.hasOwnProperty(zoneId)) return false;
   if (tm.at === zoneId || tm.to === zoneId) return false;
   tm.at = null; tm.to = zoneId; tm.t = SIM.repair.move; return true;
 }
 function startDrill() {
-  ship.drill = { on: true, t: SIM.drill.time, next: 1.5, hits: 0 };
-  ship.events.push({ alert: 'red' });
+  sim.drill = { on: true, t: SIM.drill.time, next: 1.5, hits: 0 };
+  sim.events.push({ alert: 'red' });
   say('Tactical', 'Combat drill. Simulated fire incoming for sixty seconds.');
 }
-function stopDrill(quiet) { if (!ship.drill.on) return; ship.drill.on = false; if (!quiet) say('Tactical', `Drill complete. ${ship.drill.hits} hits taken, hull at ${Math.round(hullIntegrity())}%.`); }
+function stopDrill(quiet) { if (!sim.drill.on) return; sim.drill.on = false; if (!quiet) say('Tactical', `Drill complete. ${sim.drill.hits} hits taken, hull at ${Math.round(hullIntegrity())}%.`); }
 
 // A hit through one arc: the shield on that arc absorbs what it can, the rest damages a zone behind it.
 function simHit(arc, dmg) {
   const cap = shieldNow(arc), absorbed = Math.min(cap, dmg), rest = dmg - absorbed;
-  if (ship.shields.up > 0 && absorbed > 0) ship.shields.arc[arc] = Math.max(0, ship.shields.arc[arc] - absorbed / ship.shields.up);
+  if (sim.shields.up > 0 && absorbed > 0) sim.shields.arc[arc] = Math.max(0, sim.shields.arc[arc] - absorbed / sim.shields.up);
   let zone = null;
-  if (rest > 0.01) { zone = wpick(SIM.hitZones[arc]); ship.zones[zone] = Math.max(0, ship.zones[zone] - rest); }
-  ship.hitLog.push({ at: ship.time, arc, dmg, absorbed, zone, rest });
-  if (ship.hitLog.length > 12) ship.hitLog.shift();
+  if (rest > 0.01) { zone = wpick(SIM.hitZones[arc]); sim.zones[zone] = Math.max(0, sim.zones[zone] - rest); }
+  sim.hitLog.push({ at: sim.time, arc, dmg, absorbed, zone, rest });
+  if (sim.hitLog.length > 12) sim.hitLog.shift();
   return { absorbed, zone, rest };
 }
 
 // ---------- the tick ----------
 function simStep(dt) {
-  ship.time += dt;
+  sim.time += dt;
   const alert = state.alert, up = alert !== 'green';
   // shields rise or fall over SIM.shield.rise seconds; arcs regenerate only while raised
-  ship.shields.up = Math.min(1, Math.max(0, ship.shields.up + (up ? 1 : -1) * dt / SIM.shield.rise));
-  if (up) ARCS.forEach((a) => { ship.shields.arc[a] = Math.min(shieldMax(a), ship.shields.arc[a] + shieldRegen(a) * dt); });
+  sim.shields.up = Math.min(1, Math.max(0, sim.shields.up + (up ? 1 : -1) * dt / SIM.shield.rise));
+  if (up) ARCS.forEach((a) => { sim.shields.arc[a] = Math.min(shieldMax(a), sim.shields.arc[a] + shieldRegen(a) * dt); });
   // emergency power: boost, then a reactor penalty
-  if (ship.emergency.boost > 0) { ship.emergency.boost -= dt; if (ship.emergency.boost <= 0) { ship.emergency.boost = 0; ship.emergency.penalty = SIM.emergency.penaltyTime; say('Engineering', 'Emergency power spent. Reactor recovering.'); } }
-  else if (ship.emergency.penalty > 0) { ship.emergency.penalty = Math.max(0, ship.emergency.penalty - dt); if (!ship.emergency.penalty) say('Engineering', 'Reactor back to full output.'); }
+  if (sim.emergency.boost > 0) { sim.emergency.boost -= dt; if (sim.emergency.boost <= 0) { sim.emergency.boost = 0; sim.emergency.penalty = SIM.emergency.penaltyTime; say('Engineering', 'Emergency power spent. Reactor recovering.'); } }
+  else if (sim.emergency.penalty > 0) { sim.emergency.penalty = Math.max(0, sim.emergency.penalty - dt); if (!sim.emergency.penalty) say('Engineering', 'Reactor back to full output.'); }
   // beams charge at red alert, drain to safe otherwise; torpedoes load at red
   const red = alert === 'red';
   ['dorsal', 'ventral'].forEach((b) => {
     const rate = beamStrength(b) / SIM.beam.charge;
-    ship.beams[b] = red ? Math.min(1, ship.beams[b] + rate * dt) : Math.max(0, ship.beams[b] - dt / 2);
+    sim.beams[b] = red ? Math.min(1, sim.beams[b] + rate * dt) : Math.max(0, sim.beams[b] - dt / 2);
   });
   const bayRate = 1 / (SIM.torp.reload / Math.max(0.25, zoneFactor('prow')));
-  ship.bays.forEach((bay) => {
+  sim.bays.forEach((bay) => {
     if (!red || bay.torps <= 0) { bay.ready = false; bay.reload = 0; return; }
     if (!bay.ready) { bay.reload += bayRate * dt; if (bay.reload >= 1) { bay.ready = true; bay.reload = 1; } }
   });
   // repair teams move, then repair up to the field cap
-  ship.teams.forEach((tm, i) => {
+  sim.teams.forEach((tm, i) => {
     if (tm.to) { tm.t -= dt; if (tm.t <= 0) { tm.at = tm.to; tm.to = null; tm.t = 0; say('Damage Control', `Team ${i + 1} on station: ${ZONE_NAME[tm.at]}.`); } }
-    else if (tm.at && ship.zones[tm.at] < SIM.repair.cap) ship.zones[tm.at] = Math.min(SIM.repair.cap, ship.zones[tm.at] + SIM.repair.rate * dt);
+    else if (tm.at && sim.zones[tm.at] < SIM.repair.cap) sim.zones[tm.at] = Math.min(SIM.repair.cap, sim.zones[tm.at] + SIM.repair.rate * dt);
   });
   // reactor breach: engines zone at 0 with nobody there
-  const teamOnEngines = ship.teams.some((tm) => tm.at === 'engines');
-  if (ship.zones.engines <= 0 && !teamOnEngines && !ship.lost) {
-    if (ship.breach === null) { ship.breach = SIM.breach; say('Engineering', 'Containment failing! Core breach in twenty seconds. Get a team to the engines!'); }
-    else { ship.breach -= dt; if (ship.breach <= 0) { ship.breach = 0; ship.lost = true; ship.drill.on = false; say('Engineering', 'Core breach.'); } }
-  } else if (ship.breach !== null && !ship.lost) { ship.breach = null; say('Engineering', 'Containment holding. Breach averted.'); }
+  const teamOnEngines = sim.teams.some((tm) => tm.at === 'engines');
+  if (sim.zones.engines <= 0 && !teamOnEngines && !sim.lost) {
+    if (sim.breach === null) { sim.breach = SIM.breach; say('Engineering', 'Containment failing! Core breach in twenty seconds. Get a team to the engines!'); }
+    else { sim.breach -= dt; if (sim.breach <= 0) { sim.breach = 0; sim.lost = true; sim.drill.on = false; say('Engineering', 'Core breach.'); } }
+  } else if (sim.breach !== null && !sim.lost) { sim.breach = null; say('Engineering', 'Containment holding. Breach averted.'); }
   // combat drill: simulated hits on random arcs
-  if (ship.drill.on && !ship.lost) {
-    ship.drill.t -= dt; ship.drill.next -= dt;
-    if (ship.drill.next <= 0) {
+  if (sim.drill.on && !sim.lost) {
+    sim.drill.t -= dt; sim.drill.next -= dt;
+    if (sim.drill.next <= 0) {
       const d = SIM.drill, arc = wpick(d.arcs), r = simHit(arc, d.dmgMin + Math.random() * (d.dmgMax - d.dmgMin));
-      ship.drill.hits++; ship.drill.next = d.gapMin + Math.random() * (d.gapMax - d.gapMin);
-      if (r.zone && r.rest > 4) say('Damage Control', `Hit through the ${ARC_NAMES[arc].toLowerCase()} arc. ${ZONE_NAME[r.zone]} at ${Math.round(ship.zones[r.zone])}%.`);
+      sim.drill.hits++; sim.drill.next = d.gapMin + Math.random() * (d.gapMax - d.gapMin);
+      if (r.zone && r.rest > 4) say('Damage Control', `Hit through the ${ARC_NAMES[arc].toLowerCase()} arc. ${ZONE_NAME[r.zone]} at ${Math.round(sim.zones[r.zone])}%.`);
     }
-    if (ship.drill.t <= 0) stopDrill();
+    if (sim.drill.t <= 0) stopDrill();
   }
 }
 // Called once per frame with the frame time; runs whole ticks and never more than one second of catch-up.
 function simUpdate(dt) {
-  ship.acc = Math.min(ship.acc + dt, SIM.maxCatchUp);
-  let n = 0; while (ship.acc >= SIM.tick - 1e-9) { ship.acc -= SIM.tick; simStep(SIM.tick); n++; }
+  sim.acc = Math.min(sim.acc + dt, SIM.maxCatchUp);
+  let n = 0; while (sim.acc >= SIM.tick - 1e-9) { sim.acc -= SIM.tick; simStep(SIM.tick); n++; }
   return n;
 }

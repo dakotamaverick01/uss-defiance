@@ -4,7 +4,7 @@
 
 **Goal:** A live ship model drives every console and station panel, a Combat Drill at Tactical lets you watch shields, damage zones and repair teams react, and all displays use the decided amber/ice palette.
 
-**Architecture:** New `js/sim.js` (loaded right after `core.js`) holds the ship model and its rules and advances on a fixed 0.1 s tick, independent of drawing. It never touches the DOM; it reports crew messages through `ship.events`, which `ui.js` drains into toasts. Screens (`screens.js`) and panels (`ui.js`) only read the model and call its order functions.
+**Architecture:** New `js/sim.js` (loaded right after `core.js`) holds the ship model and its rules and advances on a fixed 0.1 s tick, independent of drawing. It never touches the DOM; it reports crew messages through `sim.events`, which `ui.js` drains into toasts. Screens (`screens.js`) and panels (`ui.js`) only read the model and call its order functions.
 
 **Tech Stack:** three.js 0.186 via import map, plain scripts sharing one scope, no build step. Tests (`node --test tests/sim.test.js`): Node built-in test runner loading `sim.js` in a `vm` context; Playwright smoke checks in `tools/`.
 
@@ -32,7 +32,7 @@
 **Files:** Create `js/sim.js`, `tests/sim.test.js`; modify `index.html` FILES list (add `'sim'` after `'core'`).
 
 **Interfaces — Produces:**
-`SIM` (tuning table), `ARCS = ['fwd','port','stbd','aft']`, `ZONES` (`[{id,name}]` for prow, dorsal, ventral, port, stbd, portNac, stbdNac, engines), `ship`, `simReset()`, `simUpdate(dt)`, `simStep(dt)`, `reactorOut()`, `eff(sys)`, `zoneFactor(id)`, `zoneStatus(id) -> 'ok'|'warn'|'alert'|'off'`, `hullIntegrity()`, `shieldMax(arc)`, `shieldNow(arc)`, `simCanWarp()`, orders `setPreset(name)`, `emergencyPower()`, `reinforceArc(arc|null)`, `sendTeam(i, zoneId)`, `worstZone(excludeIds)`, `startDrill()`, `stopDrill()`, `simHit(arc, dmg)`. Reads only `state.alert`.
+`SIM` (tuning table), `ARCS = ['fwd','port','stbd','aft']`, `ZONES` (`[{id,name}]` for prow, dorsal, ventral, port, stbd, portNac, stbdNac, engines), `sim`, `simReset()`, `simUpdate(dt)`, `simStep(dt)`, `reactorOut()`, `eff(sys)`, `zoneFactor(id)`, `zoneStatus(id) -> 'ok'|'warn'|'alert'|'off'`, `hullIntegrity()`, `shieldMax(arc)`, `shieldNow(arc)`, `simCanWarp()`, orders `setPreset(name)`, `emergencyPower()`, `reinforceArc(arc|null)`, `sendTeam(i, zoneId)`, `worstZone(excludeIds)`, `startDrill()`, `stopDrill()`, `simHit(arc, dmg)`. Reads only `state.alert`.
 
 - [ ] Tests (node --test): balanced preset gives `eff` 1 for all; Attack gives weapons 1.5; shields reach 100 within 4.1 s of `state.alert='yellow'`; reinforce fwd sets max 140/others 85; a 150 hit on a full forward arc leaves 0 shield and 50 damage on a forward zone; engines at 0 with no team starts a 20 s breach and `ship.lost` after it; with a team on engines no breach; repair stops at 80; `simUpdate(10)` runs at most 10 ticks; both nacelles at 20 → `simCanWarp()` false.
 - [ ] Implement until green. Commit.
@@ -48,11 +48,11 @@
 
 **Files:** `js/screens.js` DRAW: `helm`, `ops`, `sys`, `tac`, `wpn`, `dmg`, `status`, `msd`, `drawCmd`; new widget `zonesW(g, r, P)`.
 
-- [ ] Every value listed in the spec's systems section is read from `ship` (power shares, reactor output, shield arcs, beam charge, torpedo counts and reload, eight zones, hull, teams, breach countdown, drill). No hard-coded readiness values remain on these screens. Commit.
+- [ ] Every value listed in the spec's systems section is read from `sim` (power shares, reactor output, shield arcs, beam charge, torpedo counts and reload, eight zones, hull, teams, breach countdown, drill). No hard-coded readiness values remain on these screens. Commit.
 
 ### Task 4: Orders and panels
 
-**Files:** `js/ui.js` (STATIONS: ops presets, engineering emergency power, defense reinforce arc + Combat Drill, damage teams + reset, weapons/helm/command readouts from `ship`; `setSpeed` refuses warp when `!simCanWarp()`; `drainSimEvents()`), `js/render.js` (call `simUpdate(dt)` and `drainSimEvents()` each frame; refresh open panel ~4×/s).
+**Files:** `js/ui.js` (STATIONS: ops presets, engineering emergency power, defense reinforce arc + Combat Drill, damage teams + reset, weapons/helm/command readouts from `sim`; `setSpeed` refuses warp when `!simCanWarp()`; `drainSimEvents()`), `js/render.js` (call `simUpdate(dt)` and `drainSimEvents()` each frame; refresh open panel ~4×/s).
 
 - [ ] `check_stations.py` passes at desktop and phone. Drill run in the browser shows shields dropping, zones taking damage, teams repairing. Commit.
 

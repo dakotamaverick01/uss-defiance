@@ -118,10 +118,11 @@ const SPEEDS = {
   impulse: { speed: 12, len: 0.6, name: 'Impulse, one quarter', screen: 'IMPULSE ¼' },
   warp: { speed: 420, len: 48, name: 'Warp 6', screen: 'WARP 6' },
 };
+// Alerts swap the one accent: amber at Condition Green, a brighter pulsing amber at Yellow, red at Red. Room strips stay cool ice at Green.
 const ALERTS = {
-  green: { label: 'Condition Green', short: 'GREEN', acc: '#4C8DFF', rgb: '76, 141, 255', line: '#1A2230', strip: 0x3d7bff, slot: 0xffe6cc, light: 0xffe6cc },
-  yellow: { label: 'Yellow Alert', short: 'YELLOW', acc: '#FFD21F', rgb: '255, 210, 31', line: '#1A2230', strip: 0xffc800, slot: 0xffe08a, light: 0xffe8b8 },
-  red: { label: 'Red Alert', short: 'RED', acc: '#FF3B30', rgb: '255, 59, 48', line: '#1A2230', strip: 0xff2015, slot: 0xff3020, light: 0xff8a74 },
+  green: { label: 'Condition Green', short: 'GREEN', acc: '#E3A23B', rgb: '227, 162, 59', line: '#1C2229', strip: 0x8fc3e0, slot: 0xffe6cc, light: 0xffe6cc },
+  yellow: { label: 'Yellow Alert', short: 'YELLOW', acc: '#F2B650', rgb: '242, 182, 80', line: '#1C2229', strip: 0xe3a23b, slot: 0xffe08a, light: 0xffe8b8 },
+  red: { label: 'Red Alert', short: 'RED', acc: '#E04848', rgb: '224, 72, 72', line: '#1C2229', strip: 0xe04848, slot: 0xff3020, light: 0xff8a74 },
 };
 const LIGHT_LEVELS = { dim: 0.55, standard: 1, bright: 1.35 };
 const state = {
@@ -136,4 +137,13 @@ const cur = { speed: 0, len: 0 };
 let elapsed = 0;
 const sysCur = () => SYSTEMS[state.cur];
 const sysDest = () => SYSTEMS[state.dest];
-const pal = () => { const a = ALERTS[state.alert]; return { acc: a.acc, green: '#34E89E', yel: '#FFD21F', red: '#FF3B30', ice: '#C9D6EA', sec: '#34E89E', sand: '#C9D6EA', rust: '#FF3B30', line: '#1A2230', dim: '#7D8BA3', txt: '#EAF2FF', key: state.alert }; };
+// Display palette. One accent (amber, pulsing brighter at Yellow, red at Red), ice blue as the secondary, hero white for values.
+// green / yel / red are muted status colors and are used for status only.
+const COLORS = { bg: '#07090C', frame: '#1C2229', amber: '#E3A23B', amberDim: '#9C6B22', amberHot: '#FFCB73', ice: '#8FC3E0', iceDim: '#5D7F92', white: '#EEF2F5', dim: '#7F8994', ok: '#5FA97A', warn: '#D19A3E', bad: '#D2504B', red: '#E04848' };
+function mixHex(a, b, t) { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
+const pal = () => {
+  const C = COLORS, a = state.alert;
+  const acc = a === 'red' ? C.red : a === 'yellow' ? mixHex(C.amber, C.amberHot, 0.5 + 0.5 * Math.sin(elapsed * 4)) : C.amber;
+  const ice = a === 'red' ? C.iceDim : C.ice;
+  return { acc, accDim: a === 'red' ? '#7A2A2A' : C.amberDim, ice, sand: ice, green: C.ok, yel: C.warn, red: C.bad, sec: ice, rust: C.bad, line: C.frame, bg: C.bg, dim: C.dim, txt: C.white, key: a };
+};

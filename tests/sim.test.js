@@ -7,10 +7,10 @@ const vm = require('vm');
 const path = require('path');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'js', 'sim.js'), 'utf8');
-const EXPORTS = 'SIM, ARCS, ZONES, ship, simReset, simUpdate, simStep, reactorOut, eff, zoneFactor, zoneStatus, hullIntegrity, shieldMax, shieldNow, simCanWarp, setPreset, emergencyPower, reinforceArc, sendTeam, worstZone, startDrill, stopDrill, simHit, simStats';
+const EXPORTS = 'SIM, ARCS, ZONES, simReset, simUpdate, simStep, reactorOut, eff, zoneFactor, zoneStatus, hullIntegrity, shieldMax, shieldNow, simCanWarp, setPreset, emergencyPower, reinforceArc, sendTeam, worstZone, startDrill, stopDrill, simHit, simStats';
 function load() {
   const ctx = vm.createContext({ state: { alert: 'green', speed: 'stop' }, Math, console });
-  const api = vm.runInContext(SRC + `\n;({ ${EXPORTS}, get ship() { return ship; } })`, ctx);
+  const api = vm.runInContext(SRC + `\n;({ ${EXPORTS}, get sim() { return sim; } })`, ctx);
   api.state = ctx.state;
   return api;
 }
@@ -50,28 +50,28 @@ test('a hit larger than the arc drains it and the rest lands on a zone for that 
   const r = S.simHit('fwd', 150);
   assert.ok(Math.abs(r.absorbed - 100) < 0.5, 'absorbed ' + r.absorbed);
   assert.ok(['prow', 'dorsal', 'ventral'].includes(r.zone), r.zone);
-  assert.ok(Math.abs(S.ship.zones[r.zone] - 50) < 0.5);
+  assert.ok(Math.abs(S.sim.zones[r.zone] - 50) < 0.5);
   assert.ok(S.shieldNow('fwd') < 0.5);
   assert.ok(S.hullIntegrity() < before);
 });
 
 test('engines at zero with no team starts a 20 s breach that loses the ship', () => {
-  const S = load(); S.ship.zones.engines = 0; S.simStep(0.1);
-  assert.ok(S.ship.breach > 19 && S.ship.breach <= 20);
+  const S = load(); S.sim.zones.engines = 0; S.simStep(0.1);
+  assert.ok(S.sim.breach > 19 && S.sim.breach <= 20);
   run(S, 20.2);
-  assert.strictEqual(S.ship.lost, true);
+  assert.strictEqual(S.sim.lost, true);
 });
 
 test('a team already on the engines prevents the breach', () => {
   const S = load(); S.sendTeam(0, 'engines'); run(S, 10.1);
-  S.ship.zones.engines = 0; S.simStep(0.1);
-  assert.strictEqual(S.ship.breach, null);
+  S.sim.zones.engines = 0; S.simStep(0.1);
+  assert.strictEqual(S.sim.breach, null);
 });
 
 test('repair teams stop at 80%', () => {
-  const S = load(); S.ship.zones.prow = 60; S.sendTeam(1, 'prow');
-  run(S, 10); assert.ok(S.ship.zones.prow <= 60.5, 'no repair while moving');
-  run(S, 40); assert.strictEqual(S.ship.zones.prow, 80);
+  const S = load(); S.sim.zones.prow = 60; S.sendTeam(1, 'prow');
+  run(S, 10); assert.ok(S.sim.zones.prow <= 60.5, 'no repair while moving');
+  run(S, 40); assert.strictEqual(S.sim.zones.prow, 80);
 });
 
 test('catch-up after a long frame gap is capped at 10 ticks', () => {
@@ -81,19 +81,19 @@ test('catch-up after a long frame gap is capped at 10 ticks', () => {
 
 test('warp needs at least one nacelle above 25%', () => {
   const S = load(); assert.strictEqual(S.simCanWarp(), true);
-  S.ship.zones.portNac = 20; assert.strictEqual(S.simCanWarp(), true);
-  S.ship.zones.stbdNac = 20; assert.strictEqual(S.simCanWarp(), false);
+  S.sim.zones.portNac = 20; assert.strictEqual(S.simCanWarp(), true);
+  S.sim.zones.stbdNac = 20; assert.strictEqual(S.simCanWarp(), false);
 });
 
 test('engines damage cuts reactor output; emergency power boosts then penalizes', () => {
-  const S = load(); S.ship.zones.engines = 50; assert.ok(S.reactorOut() < 100);
-  const S2 = load(); S2.emergencyPower(); assert.ok(S2.ship.emergency.boost > 0);
+  const S = load(); S.sim.zones.engines = 50; assert.ok(S.reactorOut() < 100);
+  const S2 = load(); S2.emergencyPower(); assert.ok(S2.sim.emergency.boost > 0);
   run(S2, 20.1); assert.ok(S2.reactorOut() < 100 && S2.reactorOut() >= 79);
   run(S2, 30.1); assert.strictEqual(S2.reactorOut(), 100);
 });
 
 test('drill lands hits over 60 s and then ends', () => {
   const S = load(); S.startDrill(); run(S, 61);
-  assert.ok(S.ship.drill.hits >= 10, 'hits ' + S.ship.drill.hits);
-  assert.strictEqual(S.ship.drill.on, false);
+  assert.ok(S.sim.drill.hits >= 10, 'hits ' + S.sim.drill.hits);
+  assert.strictEqual(S.sim.drill.on, false);
 });
