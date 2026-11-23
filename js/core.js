@@ -9,9 +9,13 @@ if (typeof THREE === 'undefined') { window.DEFIANCE_FAILED = true; $('nogl').hid
 THREE.ColorManagement.enabled = false;
 
 const D2R = Math.PI / 180;
-const WALL_H = 3.3, DAIS = { x: 0, z: 0.4, r: 2.0, h: 0.22 }, PR = 0.3, EYE = 1.62, FWD_Z = -5.2, AFT_Z = 5.4;
-// Faceted room plan (x, z), forward is -z.
-const ROOM = [[-3.2, -5.2], [3.2, -5.2], [5.6, -2.6], [5.6, 2.6], [3.6, 5.4], [-3.6, 5.4], [-5.6, 2.6], [-5.6, -2.6]];
+const WALL_H = 3.3, DAIS = { x: 0, z: 0.4, r: 2.0, h: 0.22 }, PR = 0.3, EYE = 1.62, FWD_Z = -6.0, AFT_Z = 6.2;
+// Faceted room plan (x, z), forward is -z. Every wall sits 0.8 m further out than the first build, for wider walkways;
+// the dais, flight and ops pods and the situation table stay where they were.
+const ROOM = [[-3.55, -6.0], [3.55, -6.0], [6.4, -2.913], [6.4, 2.856], [4.012, 6.2], [-4.012, 6.2], [-6.4, 2.856], [-6.4, -2.913]];
+const SIDE_X = 6.4; // the side walls, where the console runs stand
+// Ceiling height in the rooms off the bridge (the bridge itself is WALL_H)
+const ROOM_H = 3.1;
 const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const DISP = "Oxanium, 'Arial Narrow', sans-serif";

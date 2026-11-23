@@ -10,7 +10,7 @@ const obstacles = [
 ];
 [-1.4, 1.4].forEach((x) => { obstacles.push({ x: x - 0.38, z: -3.15, r: 0.38 }, { x: x + 0.38, z: -3.15, r: 0.38 }, { x, z: -2.45, r: 0.36 }); });
 extraObs.forEach((o) => obstacles.push(o));
-[[-4.94, -2.4, -4.94, 2.4], [4.94, -2.4, 4.94, 2.4], [-3.0, FWD_Z + 0.5, 3.0, FWD_Z + 0.5]].forEach(([a, b, c, d]) => addSeg(a, b, c, d, PR));
+[[-(SIDE_X - 0.66), -2.4, -(SIDE_X - 0.66), 2.4], [SIDE_X - 0.66, -2.4, SIDE_X - 0.66, 2.4], [-3.0, FWD_Z + 0.5, 3.0, FWD_Z + 0.5]].forEach(([a, b, c, d]) => addSeg(a, b, c, d, PR));
 function pushSeg(x, z, ax, az, bx, bz, r) {
   const vx = bx - ax, vz = bz - az, t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz), 0, 1);
   const px = ax + vx * t, pz = az + vz * t, dx = x - px, dz = z - pz, d = Math.hypot(dx, dz);

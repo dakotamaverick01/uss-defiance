@@ -16,8 +16,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 | Area | What you can do |
 | --- | --- |
 | **Bridge** | Sit at any station and work its displays. The ship is a working system: set alert levels, split reactor power at Operations, reinforce a shield arc at Tactical, send repair teams from Damage Control, and run a combat drill to watch it all react. |
-| **Captain's ready room** | Read the captain's log at the desk, use the synthesizer, inspect the ship model, open or close the armored window shutters. |
-| **Officer conference room** | Step through the briefing slides, read the battle honors plaque. |
+| **Captain's ready room** | About 6 x 6.5 m. Read the captain's log at the desk, use the synthesizer, inspect the ship model, open or close the armored window shutters. |
+| **Officer conference room** | About 8 x 6.5 m, with room to walk around the table. Step through the briefing slides, read the battle honors plaque. |
 | **Head** | Yes, the ship has a restroom. |
 | **Turbolift** | Door and controls (other decks are not built yet). |
 
@@ -67,6 +67,6 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Next: orders and pause, then the tactical plot.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out: next come a working Lift 1 car and Deck 2.
 
-Deck 1 is complete. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.
+Deck 1 is complete. In the build-out (gameplay paused), Stage 1 gave it more room: every bridge wall moved out 0.8 m for wider walkways (consoles moved with the walls; the dais, pods and situation table stayed put), the ready room and conference room grew to about 6 x 6.5 m and 8 x 6.5 m with 3.1 m ceilings, and the light was re-baked at 160 samples. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.

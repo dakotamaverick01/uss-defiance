@@ -133,15 +133,15 @@ function linearTex(top, bottom) { const c = cnv(4, 64), g = c.getContext('2d'); 
 {
   const env = new THREE.Scene(); env.background = new THREE.Color(0x15110d);
   const eb = (col, k, w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(x, y, z); env.add(m); };
-  eb(0x2a241e, 1, 14, 0.2, 14, 0, -1, 0);
-  eb(0x4a4038, 1, 14, 0.2, 14, 0, 3.4, 0);
+  eb(0x2a241e, 1, 16, 0.2, 16, 0, -1, 0);
+  eb(0x4a4038, 1, 16, 0.2, 16, 0, 3.4, 0);
   eb(0xffd6a8, 3, 3.4, 0.1, 3.4, 0, 3.3, 0);
-  eb(0x86a8e0, 2.2, 5, 2.2, 0.1, 0, 1.8, -5);
-  eb(0xffe2c8, 3, 12, 0.08, 0.3, 0, 3.1, 5.2);
-  eb(0xffe2c8, 3, 0.3, 0.08, 10, 5.4, 3.1, 0);
-  eb(0xffe2c8, 3, 0.3, 0.08, 10, -5.4, 3.1, 0);
-  eb(0x6a5e52, 1, 0.2, 3, 12, 5.8, 1.5, 0);
-  eb(0x6a5e52, 1, 0.2, 3, 12, -5.8, 1.5, 0);
+  eb(0x86a8e0, 2.2, 5, 2.2, 0.1, 0, 1.8, FWD_Z + 0.2);
+  eb(0xffe2c8, 3, 13.6, 0.08, 0.3, 0, 3.1, AFT_Z - 0.2);
+  eb(0xffe2c8, 3, 0.3, 0.08, 11.6, SIDE_X - 0.2, 3.1, 0);
+  eb(0xffe2c8, 3, 0.3, 0.08, 11.6, -(SIDE_X - 0.2), 3.1, 0);
+  eb(0x6a5e52, 1, 0.2, 3, 13.6, SIDE_X + 0.2, 1.5, 0);
+  eb(0x6a5e52, 1, 0.2, 3, 13.6, -(SIDE_X + 0.2), 1.5, 0);
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(env, 0.04).texture;
   scene.environmentIntensity = window.ENV_I ?? 0.65; // the newer reflection prefilter comes out brighter than r128's

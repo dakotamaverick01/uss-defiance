@@ -59,7 +59,7 @@ const POT = new THREE.MeshStandardMaterial({ color: 0x24211f, roughness: 0.45, m
 const LEAF = new THREE.MeshStandardMaterial({ color: 0x3f6b3a, roughness: 0.7, side: THREE.DoubleSide });
 const FABRIC = new THREE.MeshStandardMaterial({ color: 0x3e5658, roughness: 0.95 });
 const BRASS = new THREE.MeshStandardMaterial({ color: 0xb08850, metalness: 0.85, roughness: 0.3, envMapIntensity: 1.1 });
-const roomWarm = roomWallMat(2.9, 'fabric'), roomTile = roomWallMat(2.6, 'tile');
+const roomWarm = roomWallMat(ROOM_H, 'fabric'), roomTile = roomWallMat(2.6, 'tile');
 
 // wall with an optional rectangular opening, in a room frame
 function wallH(g, mat, A, dir, nrm, len, H, hole) {
@@ -157,18 +157,22 @@ const extMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: tr
 const extStreaks = add(new THREE.LineSegments(extGeo, extMat)); extStreaks.frustumCulled = false; extStreaks.visible = false;
 
 // ---------- READY ROOM (off the aft-starboard wall) ----------
+// About 6 x 6.5 m inside. The room runs forward from its door along the outside of the starboard bridge wall,
+// which keeps it clear of the conference room aft.
 let cupLiquid, cupGroup;
 {
-  const g = roomFrame(3, 0.38);
-  const R = roomShell(g, { xa: -1.0, xb: 3.0, d: 4.6, H: 2.9, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -0.4, x1: 2.6, y0: 0.95, y1: 2.25 }, light: [1.0, 2.55, 2.6], lightI: 1.0, lightDist: 6.5, label: 'Ready Room' });
-  viewport(g, -0.4, 2.6, 0.95, 2.25, 4.6);
-  // rug
+  const g = roomFrame(3, DOOR_GAPS[3]);
+  const XA = -0.85, XB = 5.15, D = 6.7, H = ROOM_H, MX = (XA + XB) / 2, MZ = (0.2 + D) / 2;
+  roomShell(g, { xa: XA, xb: XB, d: D, H, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: 0.15, x1: 4.15, y0: 0.95, y1: 2.35 }, light: [MX, H - 0.35, MZ], lightI: 1.0, label: 'Ready Room' });
+  viewport(g, 0.15, 4.15, 0.95, 2.35, D);
+  // rug under the sitting area and the front of the desk
   { const c = cnv(512, 416), x = c.getContext('2d'); x.fillStyle = '#26303b'; x.fillRect(0, 0, 512, 416); noise(x, 512, 416, 9000, 0.05, 72);
     x.strokeStyle = 'rgba(201,182,140,0.75)'; x.lineWidth = 6; x.strokeRect(18, 18, 476, 380); x.lineWidth = 2; x.strokeRect(34, 34, 444, 348);
     x.strokeStyle = 'rgba(201,182,140,0.16)'; x.lineWidth = 1.5; for (let yy = 60; yy < 370; yy += 36) for (let xx = 60 + ((yy / 36) % 2) * 18; xx < 460; xx += 36) { hexNode(x, xx, yy, 12); x.stroke(); }
-    const rug = mesh(new THREE.PlaneGeometry(3.0, 2.44), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -1 }), 0.9, 0.004, 2.95, g); rug.rotation.x = -Math.PI / 2; }
-  // desk: walnut top on two steel-trimmed pedestals, facing the door
-  const desk = group(1.6, 0, 3.15, 0, g);
+    const rug = mesh(new THREE.PlaneGeometry(3.6, 2.92), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -1 }), 1.3, 0.004, 3.75, g); rug.rotation.x = -Math.PI / 2; }
+  // desk: walnut top on two steel-trimmed pedestals, facing the door, the captain's back to the viewport
+  const DK = { x: 2.8, z: 4.6 };
+  const desk = group(DK.x, 0, DK.z, 0, g);
   mesh(RBOX(1.6, 0.06, 0.8, 0.025), WOOD, 0, 0.76, 0, desk);
   mesh(RBOX(1.62, 0.015, 0.82, 0.006), MAT.steel, 0, 0.725, 0, desk);
   [-1, 1].forEach((sd) => { mesh(RBOX(0.42, 0.72, 0.7, 0.03), MAT.gun, sd * 0.56, 0.36, 0.02, desk); mesh(BOX(0.36, 0.012, 0.012), SLOT, sd * 0.56, 0.55, -0.335, desk); mesh(BOX(0.3, 0.012, 0.012), SLOT, sd * 0.56, 0.3, -0.335, desk); });
@@ -178,37 +182,39 @@ let cupLiquid, cupGroup;
   mesh(lathe([[0, 0], [0.05, 0], [0.05, 0.012], [0.012, 0.03], [0.008, 0.33], [0, 0.33]]), MAT.steel, -0.62, 0.79, 0.2, desk);
   { const sh = mesh(lathe([[0.012, 0], [0.07, -0.06], [0.072, -0.065], [0.014, -0.004]], 24), MAT.gun, -0.62, 1.15, 0.2, desk); sh.rotation.x = 0.3; mesh(new THREE.CircleGeometry(0.06, 20), downlightMat, -0.62, 1.098, 0.215, desk).rotation.x = Math.PI / 2 + 0.3; }
   addHit(BOX(1.7, 1.2, 0.9), { station: 'desk' }, desk, 0, 0.6, 0);
-  lpool(g, 1.0, 3.3, 1.2, 1.2, 0xffd2a0, 0.12);
-  lrect(g, 1.6, 3.15, 1.6, 0.8, PR); lao(g, 1.6, 3.15, 2.0, 1.2, 0.55);
+  lpool(g, DK.x - 0.6, DK.z + 0.15, 1.2, 1.2, 0xffd2a0, 0.12);
+  lrect(g, DK.x, DK.z, 1.6, 0.8, PR); lao(g, DK.x, DK.z, 2.0, 1.2, 0.55);
   // chairs: captain behind the desk, two guests in front
-  { const c = group(1.6, 0, 3.85, 0, g); makeChair(c, 'captain'); lobs(g, 1.6, 3.85, 0.32); lao(g, 1.6, 3.85, 0.9, 0.9, 0.55); }
-  [1.15, 2.05].forEach((x) => { const c = group(x, 0, 2.25, Math.PI, g); makeChair(c, 'station'); lobs(g, x, 2.25, 0.3); lao(g, x, 2.25, 0.8, 0.8, 0.5); });
-  // settee against the aft wall, with a low table
-  { const s = group(-0.6, 0, 2.9, 0, g);
+  { const c = group(DK.x, 0, DK.z + 0.7, 0, g); makeChair(c, 'captain'); lobs(g, DK.x, DK.z + 0.7, 0.32); lao(g, DK.x, DK.z + 0.7, 0.9, 0.9, 0.55); }
+  [DK.x - 0.45, DK.x + 0.45].forEach((x) => { const c = group(x, 0, DK.z - 0.9, Math.PI, g); makeChair(c, 'station'); lobs(g, x, DK.z - 0.9, 0.3); lao(g, x, DK.z - 0.9, 0.8, 0.8, 0.5); });
+  // settee against the aft side wall, with a low table
+  const ST = { x: XA + 0.4, z: 3.75 };
+  { const s = group(ST.x, 0, ST.z, 0, g);
     mesh(RBOX(0.72, 0.36, 1.96, 0.04), MAT.leatherDark, 0, 0.2, 0, s);
     [-0.45, 0.45].forEach((z) => mesh(RBOX(0.62, 0.14, 0.9, 0.06), MAT.leather, 0.05, 0.44, z, s));
     mesh(RBOX(0.2, 0.5, 1.96, 0.06), MAT.leather, -0.28, 0.6, 0, s);
     [-1, 1].forEach((sd) => mesh(RBOX(0.72, 0.52, 0.16, 0.05), MAT.leatherDark, 0, 0.3, sd * 1.02, s));
     const pil = mesh(RBOX(0.12, 0.34, 0.36, 0.06), FABRIC, -0.12, 0.66, -0.62, s); pil.rotation.z = -0.25; pil.rotation.y = 0.2;
-    lrect(g, -0.6, 2.9, 0.74, 2.2, PR); lao(g, -0.6, 2.9, 1.2, 2.6, 0.6); }
-  { const t = group(0.3, 0, 2.9, 0, g); mesh(RBOX(0.58, 0.035, 1.0, 0.012), MAT.glassTop, 0, 0.42, 0, t); mesh(RBOX(0.46, 0.38, 0.86, 0.03), MAT.gun, 0, 0.2, 0, t);
+    lrect(g, ST.x, ST.z, 0.74, 2.2, PR); lao(g, ST.x, ST.z, 1.2, 2.6, 0.6); }
+  { const t = group(ST.x + 0.9, 0, ST.z, 0, g); mesh(RBOX(0.58, 0.035, 1.0, 0.012), MAT.glassTop, 0, 0.42, 0, t); mesh(RBOX(0.46, 0.38, 0.86, 0.03), MAT.gun, 0, 0.2, 0, t);
     const cr = mesh(new THREE.OctahedronGeometry(0.07, 0), new THREE.MeshStandardMaterial({ color: 0x9fd4ff, transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.3, emissive: 0x1a3a5a }), 0, 0.51, 0.22, t); cr.scale.set(1, 1.6, 1);
     mesh(RBOX(0.2, 0.03, 0.28, 0.006), new THREE.MeshStandardMaterial({ color: 0x6b2a22, roughness: 0.7 }), 0.02, 0.453, -0.2, t);
-    lrect(g, 0.3, 2.9, 0.58, 1.0, PR); }
+    lrect(g, ST.x + 0.9, ST.z, 0.58, 1.0, PR); }
   // shelves above the settee: books and keepsakes
-  { const s = group(-0.86, 0, 2.9, 0, g); const BOOK = ['#4a1c17', '#1a2638', '#2b3520', '#5a4b33', '#221f1c', '#3b2640', '#5e3d1d'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }));
-    [1.55, 2.0].forEach((y, k) => {
+  { const s = group(XA + 0.14, 0, ST.z, 0, g); const BOOK = ['#4a1c17', '#1a2638', '#2b3520', '#5a4b33', '#221f1c', '#3b2640', '#5e3d1d'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 }));
+    [1.6, 2.08].forEach((y, k) => {
       mesh(RBOX(0.26, 0.035, 1.7, 0.01), WOOD, 0, y, 0, s);
       const r = mulberry(300 + k); let z = -0.78;
       while (z < (k ? 0.2 : 0.05)) { const th = 0.025 + r() * 0.03, hh = 0.2 + r() * 0.08; const b = mesh(BOX(0.18, hh, th), BOOK[(r() * BOOK.length) | 0], 0, y + 0.0175 + hh / 2, z + th / 2, s); if (r() < 0.12) { b.rotation.x = 0.2; } z += th + 0.004; }
     });
-    mesh(CYL(0.035, 0.05, 0.12, 16), BRASS, 0.0, 1.627, 0.45, s); mesh(new THREE.SphereGeometry(0.045, 16, 12), BRASS, 0.0, 1.72, 0.45, s);
-    mesh(RBOX(0.03, 0.2, 0.26, 0.006), MAT.gunDark, 0.02, 2.12, 0.5, s);
+    mesh(CYL(0.035, 0.05, 0.12, 16), BRASS, 0.0, 1.677, 0.45, s); mesh(new THREE.SphereGeometry(0.045, 16, 12), BRASS, 0.0, 1.77, 0.45, s);
+    mesh(RBOX(0.03, 0.2, 0.26, 0.006), MAT.gunDark, 0.02, 2.2, 0.5, s);
     const ph = cnv(128, 100); { const x = ph.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 100); gr.addColorStop(0, '#5a7aa0'); gr.addColorStop(0.55, '#c9b28a'); gr.addColorStop(1, '#4a5a3a'); x.fillStyle = gr; x.fillRect(0, 0, 128, 100); x.fillStyle = 'rgba(40,40,50,0.6)'; x.beginPath(); x.moveTo(0, 62); x.lineTo(30, 44); x.lineTo(58, 56); x.lineTo(92, 36); x.lineTo(128, 52); x.lineTo(128, 100); x.lineTo(0, 100); x.fill(); }
-    const pic = mesh(new THREE.PlaneGeometry(0.22, 0.17), new THREE.MeshStandardMaterial({ map: tex(ph), roughness: 0.5 }), 0.037, 2.12, 0.5, s); pic.rotation.y = Math.PI / 2; }
+    const pic = mesh(new THREE.PlaneGeometry(0.22, 0.17), new THREE.MeshStandardMaterial({ map: tex(ph), roughness: 0.5 }), 0.037, 2.2, 0.5, s); pic.rotation.y = Math.PI / 2; }
   // forward wall: ship status display over a credenza with the ship's model
-  { const dsp = group(2.97, 1.85, 2.5, -Math.PI / 2, g); display(dsp, 1.5, 0.92, 520, 320, 'status', 'ship', 'Ship Status', 'SYS·00'); }
-  { const cz = group(2.78, 0, 2.5, -Math.PI / 2, g);
+  const CZ = 3.95;
+  { const dsp = group(XB - 0.03, 1.9, CZ, -Math.PI / 2, g); display(dsp, 1.5, 0.92, 520, 320, 'status', 'ship', 'Ship Status', 'SYS·00'); }
+  { const cz = group(XB - 0.22, 0, CZ, -Math.PI / 2, g);
     mesh(RBOX(2.0, 0.66, 0.42, 0.03), MAT.gun, 0, 0.35, 0, cz); mesh(RBOX(2.04, 0.04, 0.46, 0.012), WOOD, 0, 0.7, 0, cz);
     [-0.5, 0.5].forEach((x) => mesh(BOX(0.9, 0.01, 0.01), SLOT, x, 0.12, 0.215, cz));
     // display case with the Defiance model
@@ -226,8 +232,8 @@ let cupLiquid, cupGroup;
     const blue = new THREE.MeshBasicMaterial({ color: 0x6aa8ff, toneMapped: false });
     [-1, 1].forEach((sd) => { const n = mesh(CYL(0.07, 0.06, 0.72, 14), HULL, sd * 0.55, -0.1, 0.55, m); n.rotation.x = Math.PI / 2; mesh(BOX(0.02, 0.02, 0.5), blue, sd * 0.55 + sd * 0.07, -0.1, 0.55, m); mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff5040, toneMapped: false }), sd * 0.08, 0.0, -1.0, m); });
     addHit(BOX(0.8, 0.5, 0.4), { station: 'ship' }, cs, 0, 0.2, 0);
-    lrect(g, 2.78, 2.5, 0.44, 2.04, PR); lao(g, 2.75, 2.5, 0.9, 2.4, 0.55); }
-  // synthesizer niche beside the door
+    lrect(g, XB - 0.22, CZ, 0.44, 2.04, PR); lao(g, XB - 0.25, CZ, 0.9, 2.4, 0.55); }
+  // synthesizer niche beside the door, with a small round table and two chairs for a meal
   { const sn = group(2.1, 0, 0.2, 0, g);
     [-1, 1].forEach((sd) => mesh(RBOX(0.08, 0.82, 0.16, 0.02), MAT.gun, sd * 0.29, 1.25, 0.08, sn));
     mesh(RBOX(0.66, 0.08, 0.16, 0.02), MAT.gun, 0, 1.62, 0.08, sn); mesh(RBOX(0.66, 0.08, 0.16, 0.02), MAT.gun, 0, 0.88, 0.08, sn);
@@ -242,45 +248,53 @@ let cupLiquid, cupGroup;
     cupLiquid = new THREE.MeshStandardMaterial({ color: 0x3a2214, roughness: 0.15 });
     mesh(new THREE.CircleGeometry(0.037, 20), cupLiquid, 0, 0.08, 0, cupGroup).rotation.x = -Math.PI / 2;
     addHit(BOX(0.7, 0.9, 0.4), { station: 'synth' }, sn, 0, 1.25, 0.2); }
-  plantAt(g, -0.62, 0.68, 1.0); lobs(g, -0.62, 0.68, 0.28);
-  plantAt(g, 2.72, 3.95, 0.85); lobs(g, 2.72, 3.95, 0.26);
-  // ceiling: a central light disc, downlights over desk and settee
-  { const dc = mesh(new THREE.CircleGeometry(0.55, 40), lightDiscMat, 1.0, 2.895, 2.6, g); dc.rotation.x = Math.PI / 2; const rim = mesh(new THREE.TorusGeometry(0.56, 0.025, 8, 48), MAT.steel, 1.0, 2.89, 2.6, g); rim.rotation.x = Math.PI / 2; }
-  [[1.6, 3.4], [-0.4, 2.9], [2.5, 1.2]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, 2.897, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.1); });
+  { const RT = { x: 3.95, z: 1.75 }, t = group(RT.x, 0, RT.z, 0, g);
+    mesh(CYL(0.46, 0.46, 0.04, 40), WOOD, 0, 0.74, 0, t); mesh(new THREE.TorusGeometry(0.46, 0.008, 6, 48), MAT.steel, 0, 0.72, 0, t).rotation.x = Math.PI / 2;
+    mesh(CYL(0.05, 0.06, 0.7, 16), MAT.gun, 0, 0.37, 0, t); mesh(CYL(0.3, 0.32, 0.03, 32), MAT.gun, 0, 0.015, 0, t);
+    lobs(g, RT.x, RT.z, 0.48); lao(g, RT.x, RT.z, 1.2, 1.2, 0.55);
+    [[-1, -Math.PI / 2], [1, Math.PI / 2]].forEach(([sd, ry]) => { const x = RT.x + sd * 0.72; const c = group(x, 0, RT.z, ry, g); makeChair(c, 'station'); lobs(g, x, RT.z, 0.3); lao(g, x, RT.z, 0.8, 0.8, 0.5); }); }
+  plantAt(g, XA + 0.38, 0.68, 1.0); lobs(g, XA + 0.38, 0.68, 0.28);
+  plantAt(g, XA + 0.4, D - 0.4, 0.9); lobs(g, XA + 0.4, D - 0.4, 0.26);
+  plantAt(g, XB - 0.4, D - 0.4, 0.85); lobs(g, XB - 0.4, D - 0.4, 0.26);
+  // ceiling: a central light disc, downlights over the desk, the settee and the meal table
+  { const dc = mesh(new THREE.CircleGeometry(0.6, 40), lightDiscMat, MX, H - 0.005, MZ, g); dc.rotation.x = Math.PI / 2; const rim = mesh(new THREE.TorusGeometry(0.61, 0.025, 8, 48), MAT.steel, MX, H - 0.01, MZ, g); rim.rotation.x = Math.PI / 2; }
+  [[DK.x, DK.z + 0.25], [ST.x + 0.2, ST.z], [3.95, 1.75], [0.9, 6.0]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.1); });
 }
 
-// ---------- CONFERENCE ROOM (off the aft wall, starboard of the situation table) ----------
+// ---------- CONFERENCE ROOM (straight aft of the bridge, door on the starboard side of the aft wall) ----------
+// About 8 x 6.5 m inside, with room to walk all the way around the table.
 {
-  const g = roomFrame(4, 0.174);
-  roomShell(g, { xa: -3.75, xb: 2.05, d: 4.4, H: 2.9, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -3.05, x1: 1.35, y0: 1.0, y1: 2.15 }, light: [-0.85, 2.55, 2.3], lightI: 1.1, lightDist: 7.5, label: 'Conference Room' });
-  viewport(g, -3.05, 1.35, 1.0, 2.15, 4.4);
+  const g = roomFrame(4, DOOR_GAPS[4]);
+  const XA = -4.0, XB = 4.0, D = 6.7, H = ROOM_H;
+  roomShell(g, { xa: XA, xb: XB, d: D, H, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -3.0, x1: 3.0, y0: 1.0, y1: 2.3 }, light: [0, H - 0.35, 3.5], lightI: 1.1, label: 'Conference Room' });
+  viewport(g, -3.0, 3.0, 1.0, 2.3, D);
   // table: dark glass top with an underglow and the crest inlaid
-  const T = { x: -0.85, z: 2.3, L: 3.4, W: 1.3 };
-  const ts = new THREE.Shape(); { const hw = T.L / 2, hd = T.W / 2, r = 0.55; ts.moveTo(-hw + r, -hd); ts.lineTo(hw - r, -hd); ts.quadraticCurveTo(hw, -hd, hw, -hd + r); ts.lineTo(hw, hd - r); ts.quadraticCurveTo(hw, hd, hw - r, hd); ts.lineTo(-hw + r, hd); ts.quadraticCurveTo(-hw, hd, -hw, hd - r); ts.lineTo(-hw, -hd + r); ts.quadraticCurveTo(-hw, -hd, -hw + r, -hd); }
+  const T = { x: 0, z: 3.5, L: 4.4, W: 1.4 };
+  const ts = new THREE.Shape(); { const hw = T.L / 2, hd = T.W / 2, r = 0.6; ts.moveTo(-hw + r, -hd); ts.lineTo(hw - r, -hd); ts.quadraticCurveTo(hw, -hd, hw, -hd + r); ts.lineTo(hw, hd - r); ts.quadraticCurveTo(hw, hd, hw - r, hd); ts.lineTo(-hw + r, hd); ts.quadraticCurveTo(-hw, hd, -hw, hd - r); ts.lineTo(-hw, -hd + r); ts.quadraticCurveTo(-hw, -hd, -hw + r, -hd); }
   const topG = new THREE.ExtrudeGeometry(ts, { depth: 0.03, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 2, curveSegments: 16 }); topG.rotateX(-Math.PI / 2);
   mesh(topG, MAT.glassTop, T.x, 0.72, T.z, g);
-  const glowS = new THREE.Shape(ts.getPoints(16).map((p) => new THREE.Vector2(p.x * 1.012, p.y * 1.03)));
+  const glowS = new THREE.Shape(ts.getPoints(16).map((p) => new THREE.Vector2(p.x * 1.01, p.y * 1.03)));
   const glowG = new THREE.ExtrudeGeometry(glowS, { depth: 0.012, bevelEnabled: false }); glowG.rotateX(-Math.PI / 2);
   mesh(glowG, SLOT, T.x, 0.69, T.z, g);
   const rimG = new THREE.ExtrudeGeometry(new THREE.Shape(ts.getPoints(16).map((p) => new THREE.Vector2(p.x * 0.96, p.y * 0.9))), { depth: 0.1, bevelEnabled: false }); rimG.rotateX(-Math.PI / 2);
   mesh(rimG, MAT.gun, T.x, 0.6, T.z, g);
-  [-1, 1].forEach((sd) => { mesh(RBOX(0.5, 0.6, 0.7, 0.05), MAT.gun, T.x + sd * 0.95, 0.3, T.z, g); mesh(BOX(0.4, 0.012, 0.012), SLOT, T.x + sd * 0.95, 0.08, T.z - 0.355, g); mesh(BOX(0.4, 0.012, 0.012), SLOT, T.x + sd * 0.95, 0.08, T.z + 0.355, g); });
-  { const c = cnv(256, 256), x = c.getContext('2d'); drawCrest(x, 128, 128, 90, 'rgba(201,214,234,0.75)', 5); const cr = mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), transparent: true, toneMapped: false, depthWrite: false }), T.x, 0.772, T.z, g); cr.rotation.x = -Math.PI / 2; }
+  [-1, 1].forEach((sd) => { mesh(RBOX(0.5, 0.6, 0.7, 0.05), MAT.gun, T.x + sd * 1.25, 0.3, T.z, g); mesh(BOX(0.4, 0.012, 0.012), SLOT, T.x + sd * 1.25, 0.08, T.z - 0.355, g); mesh(BOX(0.4, 0.012, 0.012), SLOT, T.x + sd * 1.25, 0.08, T.z + 0.355, g); });
+  { const c = cnv(256, 256), x = c.getContext('2d'); drawCrest(x, 128, 128, 90, 'rgba(201,214,234,0.75)', 5); const cr = mesh(new THREE.PlaneGeometry(0.56, 0.56), new THREE.MeshBasicMaterial({ map: tex(c), transparent: true, toneMapped: false, depthWrite: false }), T.x, 0.772, T.z, g); cr.rotation.x = -Math.PI / 2; }
   lrect(g, T.x, T.z, T.L, T.W, PR); lao(g, T.x, T.z, T.L + 1.4, T.W + 1.4, 0.6);
   // seven seats: three a side, the captain's at the head facing the briefing display
   const seats = [];
-  [-1.95, -0.85, 0.25].forEach((x) => { seats.push([x, T.z - 1.0, Math.PI]); seats.push([x, T.z + 1.0, 0]); });
-  seats.push([T.x + T.L / 2 + 0.55, T.z, Math.PI / 2]);
+  [-1.5, 0, 1.5].forEach((x) => { seats.push([x, T.z - 1.05, Math.PI]); seats.push([x, T.z + 1.05, 0]); });
+  seats.push([T.x + T.L / 2 + 0.6, T.z, Math.PI / 2]);
   seats.forEach(([x, z, ry], i) => {
     const c = group(x, 0, z, ry, g); makeChair(c, i === 6 ? 'captain' : 'xo'); lobs(g, x, z, 0.3); lao(g, x, z, 0.8, 0.8, 0.5);
-    const fx = x + (T.x - x) * (i === 6 ? 0.42 : 0), fz = i === 6 ? z : z + (T.z - z) * 0.55;
+    const fx = x + (T.x - x) * (i === 6 ? 0.36 : 0), fz = i === 6 ? z : z + (T.z - z) * 0.55;
     const sp = group(fx, 0.774, fz, ry, g); const sc = group(0, 0, 0, 0, sp); sc.rotation.x = -Math.PI / 2; addScreen(sc, 0.34, 0.18, 200, 106, 'keys', 'brief', '', '');
   });
   // briefing display on the port end wall
-  { const d = group(-3.72, 1.62, T.z, Math.PI / 2, g); display(d, 2.3, 1.3, 1024, 579, 'brief', 'brief', 'Briefing · Convoy Route', 'BRF·01');
-    const ledge = group(-3.6, 0, T.z, Math.PI / 2, g); mesh(RBOX(2.4, 0.06, 0.24, 0.02), MAT.gun, 0, 0.86, 0, ledge); mesh(BOX(2.2, 0.012, 0.012), SLOT, 0, 0.84, 0.12, ledge); }
+  { const d = group(XA + 0.03, 1.68, T.z, Math.PI / 2, g); display(d, 2.8, 1.58, 1024, 579, 'brief', 'brief', 'Briefing · Convoy Route', 'BRF·01');
+    const ledge = group(XA + 0.15, 0, T.z, Math.PI / 2, g); mesh(RBOX(2.9, 0.06, 0.24, 0.02), MAT.gun, 0, 0.8, 0, ledge); mesh(BOX(2.7, 0.012, 0.012), SLOT, 0, 0.78, 0.12, ledge); }
   // sideboard: water and fruit
-  { const sb = group(-2.35, 0, 0.45, 0, g);
+  { const sb = group(-2.45, 0, 0.45, 0, g);
     mesh(RBOX(1.9, 0.82, 0.48, 0.03), MAT.gun, 0, 0.42, 0, sb); mesh(RBOX(1.94, 0.04, 0.52, 0.012), WOOD, 0, 0.85, 0, sb);
     [-0.47, 0.47].forEach((x) => mesh(BOX(0.85, 0.01, 0.01), SLOT, x, 0.12, 0.245, sb));
     mesh(lathe([[0, 0], [0.06, 0], [0.065, 0.02], [0.07, 0.16], [0.055, 0.22], [0.05, 0.26], [0.064, 0.27], [0, 0.27]]), GLASS, -0.55, 0.87, 0, sb);
@@ -288,7 +302,7 @@ let cupLiquid, cupGroup;
     [[-0.32, 0.08], [-0.22, -0.06], [-0.12, 0.09], [-0.02, -0.05]].forEach(([x, z]) => mesh(lathe([[0, 0], [0.032, 0], [0.036, 0.11], [0.033, 0.11], [0, 0.004]], 20), GLASS, x, 0.87, z, sb));
     mesh(lathe([[0, 0], [0.08, 0.005], [0.17, 0.07], [0.165, 0.075], [0, 0.012]], 32), MAT.steel, 0.45, 0.87, 0, sb);
     [['#a3241c', -0.05, 0.02], ['#6f9a2a', 0.06, -0.04], ['#d9781e', 0.02, 0.07], ['#a3241c', -0.07, -0.06], ['#d9781e', 0.08, 0.05]].forEach(([c, x, z], i) => mesh(new THREE.SphereGeometry(0.042, 14, 10), new THREE.MeshStandardMaterial({ color: c, roughness: 0.45 }), 0.45 + x, 0.92 + (i > 2 ? 0.04 : 0), z, sb));
-    lrect(g, -2.35, 0.45, 1.94, 0.52, PR); }
+    lrect(g, -2.45, 0.45, 1.94, 0.52, PR); }
   // battle honors on the starboard end wall
   { const pt = plaqueTex((x) => {
       drawCrest(x, 110, 120, 70, '#f3dcb4', 5);
@@ -299,15 +313,16 @@ let cupLiquid, cupGroup;
       });
       x.font = `italic 500 24px ${MONO}`; x.fillStyle = 'rgba(247,230,200,0.85)'; x.fillText('“STEADY UNDER FIRE.”', 70, 538);
     }, 1024, 580);
-    const hp = group(2.03, 1.72, T.z, -Math.PI / 2, g); mesh(RBOX(1.28, 0.76, 0.04, 0.01), MAT.gunDark, 0, 0, -0.02, hp);
+    const hp = group(XB - 0.02, 1.72, T.z, -Math.PI / 2, g); mesh(RBOX(1.28, 0.76, 0.04, 0.01), MAT.gunDark, 0, 0, -0.02, hp);
     mesh(new THREE.PlaneGeometry(1.2, 0.68), new THREE.MeshStandardMaterial({ map: pt, metalness: 0.75, roughness: 0.35, envMapIntensity: 1.2 }), 0, 0, 0.002, hp);
     addHit(BOX(1.3, 0.8, 0.3), { station: 'honors' }, hp, 0, 0, 0.1); }
-  plantAt(g, 1.72, 0.62, 1.0); lobs(g, 1.72, 0.62, 0.28);
-  plantAt(g, -3.42, 4.05, 1.0); lobs(g, -3.42, 4.05, 0.28);
-  // ceiling: a long light panel over the table
-  { const lp = mesh(new THREE.PlaneGeometry(2.8, 0.5), downlightMat, T.x, 2.855, T.z, g); lp.rotation.x = Math.PI / 2; const fr = mesh(RBOX(2.96, 0.04, 0.66, 0.015), MAT.steel, T.x, 2.88, T.z, g);
-    lpool(g, T.x, T.z, 4.0, 2.4, 0xffd2a0, 0.14); }
-  [[-3.2, 1.0], [1.5, 3.8]].forEach(([x, z]) => mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, 2.897, z, g).rotation.x = Math.PI / 2);
+  plantAt(g, XB - 0.4, 0.62, 1.0); lobs(g, XB - 0.4, 0.62, 0.28);
+  plantAt(g, XA + 0.4, D - 0.4, 1.0); lobs(g, XA + 0.4, D - 0.4, 0.28);
+  plantAt(g, XB - 0.4, D - 0.4, 0.9); lobs(g, XB - 0.4, D - 0.4, 0.26);
+  // ceiling: a long light panel over the table, downlights in the corners
+  { const lp = mesh(new THREE.PlaneGeometry(3.8, 0.5), downlightMat, T.x, H - 0.045, T.z, g); lp.rotation.x = Math.PI / 2; mesh(RBOX(3.96, 0.04, 0.66, 0.015), MAT.steel, T.x, H - 0.02, T.z, g);
+    lpool(g, T.x, T.z, 5.2, 2.6, 0xffd2a0, 0.14); }
+  [[XA + 0.8, 1.0], [XB - 0.8, 1.0], [XA + 0.8, D - 0.8], [XB - 0.8, D - 0.8]].forEach(([x, z]) => mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2);
 }
 
 // ---------- HEAD (off the aft-port wall) ----------

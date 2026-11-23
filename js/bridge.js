@@ -235,7 +235,7 @@ function post(parent, lx, p, wallW) {
 const DOWNLIGHTS = [[-1.4, -3.15], [1.4, -3.15], [0, 3.55]];
 RUNS.forEach((run) => {
   const rot = -run.side * Math.PI / 2;
-  const g = group(run.side * 5.6 - run.side * 0.34, 0, 0, rot);
+  const g = group(run.side * SIDE_X - run.side * 0.34, 0, 0, rot);
   consoleBody(g, 4.7);
   mesh(RBOX(4.9, 0.36, 0.3, 0.03), MAT.gun, 0, 2.9, -0.18, g);
   mesh(BOX(4.7, 0.02, 0.02), SLOT, 0, 2.71, -0.03, g);

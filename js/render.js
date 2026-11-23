@@ -82,10 +82,10 @@ const HERO_SHOTS = [
   { name: 'Bridge wide', p: [-2.9, 1.8, 4.3], t: [1.0, 1.15, -4.6] },
   { name: "Captain's view", p: [0, DAIS.h + 1.16, 0.48], t: [0, 1.62, -5.2] },
   { name: 'Port stations', p: [1.7, 1.62, -0.5], t: [-5.2, 1.05, 0.4] },
-  { name: 'Ready room', room: 'Ready Room', p: [2.6, 1.62, 0.45], t: [0.4, 1.05, 4.3] },
-  { name: 'Conference room', room: 'Conference Room', p: [-3.35, 1.65, 0.55], t: [0.9, 0.9, 3.3] },
+  { name: 'Ready room', room: 'Ready Room', p: [4.75, 1.62, 0.6], t: [0.2, 1.0, 4.4] },
+  { name: 'Conference room', room: 'Conference Room', p: [-3.6, 1.65, 0.6], t: [1.4, 0.9, 4.2] },
   { name: 'Red alert', alert: 'red', p: [4.3, 1.7, -1.9], t: [-2.2, 1.0, 3.2] },
-  { name: 'Console close-up', p: [-4.05, 1.42, -1.05], t: [-5.15, 0.92, -1.62] },
+  { name: 'Console close-up', p: [-4.85, 1.42, -1.05], t: [-5.95, 0.92, -1.62] },
   { name: 'Chair close-up', p: [-0.85, 1.2, -0.55], t: [0, 0.68, 0.42] },
 ];
 let heroCam = null;
