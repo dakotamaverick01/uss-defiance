@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defiance Ship Display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* VOICE: a working warship's master systems display: dense, calm, exact.
+   IDEA: the backlit cutaway panel mounted aft on the bridge, read deck by deck.
+   PICTURE: an original side-profile cutaway of the USS Defiance, 12 decks, every compartment tappable; plan view for the side zones.
+   COLOUR and TYPE: the ship's own interface: near-black glass, amber linework, ice-blue secondary, red at Red Alert. Oxanium, JetBrains Mono, Barlow.
+   LAYOUT: cutaway full width; below it deck list and deck detail side by side, stacking on phones. */
+:root { color-scheme: dark; --bg: #07090C; --frame: #1C2229; --acc: #E3A23B; --acc-dim: #9C6B22; --ice: #8FC3E0; --ink: #EEF2F5; --dim: #7F8994; --ok: #5FA97A; --warn: #D19A3E; --bad: #D2504B; }
+:root.red { --acc: #E04848; --acc-dim: #7A2A2A; --ice: #5D7F92; }
+* { box-sizing: border-box; min-width: 0; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 Barlow, system-ui, sans-serif; overflow-x: clip; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: clamp(14px, 3vw, 32px) max(4vw, 14px) 40px; }
+header { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; }
+.node { width: 34px; height: 30px; background: var(--acc); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); position: relative; flex: none; }
+.node::after { content: ""; position: absolute; inset: 9px 11px; background: var(--bg); clip-path: inherit; }
+.title { display: flex; gap: 14px; align-items: center; }
+h1 { margin: 0; font: 700 clamp(22px, 4vw, 36px)/1.05 Oxanium, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.sub { margin: 4px 0 0; color: var(--dim); font: 500 12px/1.4 'JetBrains Mono', monospace; letter-spacing: .06em; }
+.rail { display: flex; gap: 6px; margin: 14px 0 0; }
+.rail span { height: 8px; background: var(--frame); flex: 1; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 4px 100%, 0 50%); }
+.rail span:first-child { flex: 0 0 42%; background: var(--acc); } .rail span:nth-child(2) { flex: 0 0 14%; background: var(--ice); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg { display: flex; border: 1px solid var(--frame); }
+.seg button, .key { font: 700 13px Oxanium, sans-serif; letter-spacing: .08em; text-transform: uppercase; background: transparent; color: var(--dim); border: 0; padding: 0 14px; min-height: 44px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--acc); color: #000; }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; background: var(--frame); border: 1px solid var(--frame); margin: 16px 0 0; }
+.stats div { background: var(--bg); padding: 8px 12px; }
+.stats b { display: block; font: 600 20px Oxanium, sans-serif; white-space: nowrap; }
+.stats span { color: var(--dim); font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .06em; }
+.panel { border: 1px solid var(--frame); background: linear-gradient(#0B0E12, var(--bg)); margin: 16px 0 0; position: relative; }
+.ptitle { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px 0; font: 600 12px 'JetBrains Mono', monospace; letter-spacing: .08em; color: var(--dim); }
+.ptitle b { color: var(--acc); font-weight: 600; }
+#profile { display: block; width: 100%; height: auto; }
+#profile .cell { cursor: pointer; }
+#profile text { font-family: 'JetBrains Mono', monospace; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0 14px 12px; color: var(--dim); font: 500 12px 'JetBrains Mono', monospace; }
+.legend i { display: inline-block; width: 22px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--acc); }
+.lw { background: rgba(227,162,59,.55); } .ln { background: rgba(227,162,59,.16); border-style: dashed !important; } .lp { background: rgba(143,195,224,.05); border-color: #3A4652 !important; }
+.grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; margin: 16px 0 0; }
+.decks { display: grid; gap: 4px; align-content: start; }
+.deck { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; min-height: 48px; padding: 6px 10px; background: transparent; border: 1px solid var(--frame); color: var(--ink); cursor: pointer; font: inherit; }
+.deck .n { font: 700 15px Oxanium, sans-serif; color: var(--acc); }
+.deck .r { font-size: 14px; line-height: 1.25; }
+.deck .r small { display: block; color: var(--dim); font-size: 12px; }
+.deck[aria-current="true"] { background: var(--acc); color: #000; border-color: var(--acc); }
+.deck[aria-current="true"] .n, .deck[aria-current="true"] small { color: #000; }
+.chip { font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .06em; padding: 3px 6px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.w { color: var(--ok); } .chip.n { color: var(--acc); } .chip.p { color: var(--dim); }
+.deck[aria-current="true"] .chip { color: #000; }
+.detail { border: 1px solid var(--frame); padding: 16px; }
+.detail h2 { margin: 0; font: 700 26px/1.1 Oxanium, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+.detail .role { margin: 6px 0 0; color: var(--dim); max-width: 62ch; }
+.detail h3 { margin: 18px 0 6px; font: 600 12px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--acc); text-transform: uppercase; }
+.rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--frame); border: 1px solid var(--frame); }
+.rooms li { background: var(--bg); padding: 8px 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; cursor: pointer; }
+.rooms li[aria-selected="true"] { outline: 1px solid var(--acc); outline-offset: -1px; }
+.rooms li p { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 14px; line-height: 1.4; }
+.shows { margin: 0; padding-left: 18px; color: var(--ink); } .shows li { margin: 3px 0; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 16px; align-items: start; }
+#plan { width: 100%; height: auto; display: block; }
+.note { color: var(--dim); font-size: 13px; margin: 18px 0 0; }
+@media (max-width: 860px) { .pscroll { overflow-x: auto; } #profile { width: 900px; max-width: none; }  .grid, .two { grid-template-columns: minmax(0, 1fr); } .decks { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .deck { grid-template-columns: 40px 1fr; } .deck .chip { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="title"><div class="node" aria-hidden="true"></div><div><h1>USS Defiance · Master Systems Display</h1><p class="sub">EV-0408 · BASTION-CLASS HEAVY ESCORT · SIDE CUTAWAY, BOW LEFT · DRAFT DECK PLAN</p></div></div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Overlay"><button data-ov="decks" aria-pressed="true">Decks</button><button data-ov="systems" aria-pressed="false">Systems</button><button data-ov="zones" aria-pressed="false">Damage zones</button></div>
+      <div class="seg" role="group" aria-label="Alert"><button data-al="green" aria-pressed="true">Normal</button><button data-al="red" aria-pressed="false">Red alert</button></div>
+    </div>
+  </header>
+  <div class="rail" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="stats" id="stats"></div>
+  <section class="panel" aria-label="Side cutaway">
+    <div class="ptitle"><span>PROFILE · <b id="ovname">DECKS</b></span><span id="hint">TAP A COMPARTMENT OR A DECK · SWIPE TO PAN ON PHONES</span></div>
+    <div class="pscroll"><svg id="profile" viewBox="0 0 1060 300" role="img" aria-label="Side cutaway of the USS Defiance showing 12 decks"></svg></div>
+    <div class="legend"><span><i class="lw"></i>Walkable now</span><span><i class="ln"></i>Build next</span><span><i class="lp"></i>Planned</span></div>
+  </section>
+  <div class="grid">
+    <nav class="decks" id="decks" aria-label="Decks"></nav>
+    <section class="detail" id="detail" aria-live="polite"></section>
+  </div>
+  <p class="note">Draft: the hull here is redrawn from the written description (compact saucer, small armored prow, dorsal turret spine, short deep rear hull, two blade nacelles on swept spars). Proportions will be corrected against the original schematic once it's attached. Original design; all names are the Defiance's own.</p>
+</div>
+<script>
+{
+// ---------- the ship, in metres and decks ----------
+// x: metres from the bow (0 = prow tip, 200 = stern). t: decks from the top of Deck 1 (0) to the bottom of Deck 12 (12). Each deck is 3.5 m.
+const SHIP = { length: 200, beam: 158, height: 44, crew: 140, decks: 12 };
+const X = (m) => 30 + m * 5, T = (t) => 34 + t * 17.5;
+const P = (pts) => 'M' + pts.map(([m, t]) => X(m).toFixed(1) + ' ' + T(t).toFixed(1)).join(' L') + ' Z';
+// one traced outline: armored prow, saucer, the command citadel, the dorsal spine with its turret, and the short deep rear hull
+const HULL = {
+  hull: [[0, 4.7], [6, 3.7], [8, 3.5], [12, 2.5], [20, 1.6], [32, 1.0], [44, 1.0], [50, 0.0], [72, 0.0], [76, 0.45], [96, 0.45], [99, -0.3], [110, -0.3], [113, 0.45], [148, 0.45], [162, 3.0], [180, 3.0], [192, 4.2], [199, 6.0], [199, 10.0], [190, 11.4], [176, 12.0], [124, 12.0], [112, 9.0], [100, 6.0], [32, 6.0], [20, 5.6], [16, 6.3], [6, 6.0]],
+};
+const NACELLE = [[132, 3.5], [140, 3.1], [196, 3.1], [200, 3.7], [196, 4.6], [140, 4.6]];
+const SPAR = [[146, 7.2], [158, 7.2], [172, 4.5], [160, 4.5]];
+// ---------- decks and compartments ----------
+// s: w = walkable now, n = build next, p = planned
+const DECKS = [
+  { n: 1, name: 'Command', role: 'The armored command citadel on top of the saucer. Everything here is already built and walkable.',
+    rooms: [[50, 63, 'Main bridge', 'w', 'Command chair, flight, ops, tactical, science, engineering and comms stations, viewscreen.'], [63, 66, 'Turbolift 1', 'w', 'Forward lift. Runs Decks 1 to 6.'], [66, 72, 'Conference room', 'w', 'Senior staff briefings, battle honors.'], [72, 78, 'Ready room and head', 'w', "The captain's office."]],
+    shows: ['Alert condition and which stations are crewed', 'Bridge environment', 'Lift 1 position'] },
+  { n: 2, name: 'Command support', role: 'Directly under the bridge and inside the dorsal spine: where the battle is tracked and where the senior officers live. Recommended as the next deck to build.',
+    rooms: [[32, 44, 'Forward sensor and comms arrays', 'p', 'Long-range sensor pallet and subspace antenna.'], [44, 60, 'Combat information center', 'n', 'The room behind the bridge that tracks every contact: a big plot table, weapons and sensor operators.'], [60, 66, 'Lift 1 lobby', 'n', 'Where the lift doors open on Deck 2.'], [66, 80, "Captain's and first officer's quarters", 'n', 'Two suites off the lobby.'], [80, 96, "Officers' wardroom", 'n', 'Officers dine and meet here.'], [96, 113, 'Dorsal turret capacitors', 'p', 'Power banks that feed the dorsal beam turret above.'], [113, 136, 'Senior officers’ quarters', 'p', 'Department heads.'], [136, 150, 'Observation lounge', 'n', 'At the aft end of the spine, with windows looking back over the turret and both nacelles.']],
+    shows: ['CIC contact count and threat level', 'Dorsal turret capacitor charge', 'Quarters occupancy'] },
+  { n: 3, name: 'Medical and officers', role: 'Sickbay sits near the lift so casualties reach it fast; officers berth around it.',
+    rooms: [[14, 28, 'Forward shield generator', 'p', 'Feeds the forward shield arc.'], [28, 46, 'Sickbay', 'p', 'Eight beds, surgery, isolation ward.'], [46, 58, 'Medical lab and morgue', 'p', ''], [58, 66, 'Lift 1', 'p', ''], [66, 96, "Officers' quarters", 'p', ''], [96, 113, 'Dorsal turret mount', 'p', 'Turret drive and magazine of focusing crystals.'], [113, 127, 'Computer core, upper', 'p', ''], [127, 134, 'Impulse engines', 'p', 'Twin impulse engines at the saucer’s trailing edge.'], [134, 160, 'Crew quarters', 'p', '']],
+    shows: ['Sickbay beds in use and casualties', 'Forward shield generator output', 'Impulse engine output'] },
+  { n: 4, name: 'Crew deck', role: 'The heart of shipboard life: the mess, the lounge and most crew berths.',
+    rooms: [[6, 22, 'Auxiliary control', 'p', 'Back-up bridge inside the armored prow.'], [22, 44, 'Crew quarters', 'p', ''], [44, 70, 'Mess hall and galley', 'p', 'The one room everyone on the ship passes through every day.'], [70, 82, 'Crew lounge and gym', 'p', ''], [82, 96, 'Crew quarters', 'p', ''], [96, 116, 'Computer core', 'p', 'Main computer core, two decks tall.'], [116, 124, 'Lift 2', 'p', 'Aft lift. Runs Decks 2 to 12.'], [124, 150, 'Main shield generators', 'p', 'Port, starboard and aft arcs.'], [150, 180, 'Life support and environmental', 'p', '']],
+    shows: ['Galley stores', 'Shield generator load by arc', 'Atmosphere on each section'] },
+  { n: 5, name: 'Weapons and transport', role: 'The prow’s twin torpedo bays, the armory beside the transporters, and the science labs.',
+    rooms: [[2, 18, 'Torpedo bays 1 and 2', 'p', 'Twin forward launchers in the armored prow.'], [18, 32, 'Torpedo magazine', 'p', '24 torpedoes, 12 per bay.'], [32, 46, 'Armory and security', 'p', 'Next to the transporters, for boarding and away teams.'], [46, 62, 'Transporter rooms 1 and 2', 'p', ''], [62, 78, 'Science labs', 'p', ''], [78, 100, 'Crew quarters', 'p', ''], [100, 116, 'Cargo transporter and stores', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 150, 'Engineering offices', 'p', ''], [150, 196, 'Main engineering, upper gallery', 'p', 'Catwalk ring around the top of the warp core.']],
+    shows: ['Torpedo bays: loaded or reloading, magazine count', 'Transporters ready', 'Armory status'] },
+  { n: 6, name: 'Deflector and cargo', role: 'The saucer’s lower deck: the navigational deflector up front and the first cargo bay.',
+    rooms: [[4, 18, 'Navigational deflector', 'p', 'Clears debris ahead of the ship.'], [18, 30, 'Lower sensor array', 'p', ''], [30, 50, 'Torpedo loading', 'p', 'Feeds the magazine above.'], [50, 70, 'Cargo bay 1', 'p', ''], [70, 100, 'Crew quarters', 'p', ''], [100, 116, 'Escape pods and EVA prep', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 160, 'Main engineering', 'p', 'Control room and the warp core’s top.'], [160, 198, 'Auxiliary power', 'p', 'Fusion generators for when the core is down.']],
+    shows: ['Deflector status', 'Cargo bay contents', 'Auxiliary power reserve'] },
+  { n: 7, name: 'Engineering', role: 'Main engineering’s working floor around the warp core.',
+    rooms: [[102, 116, 'Ventral array capacitors', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 166, 'Main engineering and warp core', 'p', 'The ship’s power plant.'], [166, 198, 'Engineering workshops and spares', 'p', '']],
+    shows: ['Warp core output', 'Ventral array charge', 'Reactor temperature'] },
+  { n: 8, name: 'Propulsion', role: 'Fuel feed into the core, nacelle field control, and the ventral beam array.',
+    rooms: [[106, 116, 'Ventral beam array', 'p', 'The ship’s lower beam weapon.'], [116, 124, 'Lift 2', 'p', ''], [124, 140, 'Matter injection', 'p', ''], [140, 152, 'Warp core', 'p', ''], [152, 176, 'Nacelle field control', 'p', 'Port and starboard warp field coils are run from here.'], [176, 198, 'Shuttle maintenance', 'p', '']],
+    shows: ['Nacelle field strength, port and starboard', 'Matter injection rate'] },
+  { n: 9, name: 'Flight deck', role: 'The shuttlebay, opening off the stern, with flight operations beside it.',
+    rooms: [[110, 116, 'Cargo bay 2', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 140, 'Flight operations', 'p', 'Pilots’ ready room and bay control.'], [140, 152, 'Warp core', 'p', ''], [152, 199, 'Shuttlebay', 'p', 'Two shuttles. The launch doors open aft.']],
+    shows: ['Shuttles aboard and launch doors', 'Bay pressure'] },
+  { n: 10, name: 'Utilities', role: 'Water, air and waste systems, and the lower hangar.',
+    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 140, 'Environmental and water reclamation', 'p', ''], [140, 152, 'Warp core, lower', 'p', ''], [152, 198, 'Lower hangar and shuttle storage', 'p', '']],
+    shows: ['Water reclamation', 'Air scrubbers'] },
+  { n: 11, name: 'Fuel', role: 'Deuterium tanks and the antimatter storage pods that feed the core.',
+    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 140, 'Deuterium tanks', 'p', ''], [140, 152, 'Reactor base', 'p', ''], [152, 192, 'Antimatter storage pods', 'p', 'Magnetic containment pods.']],
+    shows: ['Antimatter containment', 'Fuel reserves'] },
+  { n: 12, name: 'Keel', role: 'The lowest deck: tractor beam, keel sensors and the pod ejection system.',
+    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 142, 'Tractor beam and keel sensors', 'p', ''], [142, 160, 'Antimatter pod ejection', 'p', 'Last-resort jettison of the fuel pods.'], [160, 182, 'Structural keel and waste', 'p', '']],
+    shows: ['Tractor beam', 'Ejection system armed or safe'] },
+];
+// systems overlay: lifts, warp core, power trunks, torpedo feed
+const LIFTS = [[63, 66, 0, 6, 'LIFT 1'], [116, 124, 1, 12, 'LIFT 2']];
+const CORE = [140, 152, 5, 11];
+// damage zones (match the ship model in js/sim.js); port and starboard are shown on the plan view
+const ZONES = [
+  { id: 'prow', name: 'Prow', pts: [[0, 3.3], [24, 3.3], [24, 6.6], [0, 6.6]] },
+  { id: 'dorsal', name: 'Dorsal', pts: [[30, -0.5], [162, -0.5], [162, 2.4], [30, 2.4]] },
+  { id: 'ventral', name: 'Ventral', pts: [[20, 5.0], [100, 5.0], [112, 9.6], [194, 9.6], [194, 12.2], [118, 12.2], [100, 6.4], [20, 6.4]] },
+  { id: 'engines', name: 'Engines', pts: [[124, 4.7], [200, 4.7], [200, 9.5], [124, 9.5]] },
+  { id: 'nac', name: 'Nacelles', pts: NACELLE },
+];
+// ---------- state ----------
+let deck = 2, room = null, ov = 'decks';
+const svg = document.getElementById('profile'), NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const FILL = { w: 'rgba(227,162,59,.55)', n: 'rgba(227,162,59,.16)', p: 'rgba(143,195,224,.05)' };
+
+function draw() {
+  svg.replaceChildren();
+  const acc = css('--acc'), ice = css('--ice'), frame = css('--frame'), dim = css('--dim');
+  const defs = el('defs', {}), clip = el('clipPath', { id: 'hull' }, defs);
+  Object.values(HULL).forEach((pts) => el('path', { d: P(pts) }, clip));
+  // nacelle and spar sit on the near side, drawn first so the hull reads in front
+  el('path', { d: P(SPAR), fill: '#0E1217', stroke: ice, 'stroke-width': 1.2, 'stroke-opacity': .6 });
+  el('path', { d: P(NACELLE), fill: '#0E1217', stroke: ice, 'stroke-width': 1.5 });
+  el('line', { x1: X(142), y1: T(3.85), x2: X(194), y2: T(3.85), stroke: ice, 'stroke-width': 3, 'stroke-opacity': .55 });
+  // one outline around the whole hull: thick strokes first, fills on top, so only the outer edge shows
+  Object.values(HULL).forEach((pts) => el('path', { d: P(pts), fill: 'none', stroke: acc, 'stroke-width': 3.4, 'stroke-linejoin': 'round' }));
+  Object.values(HULL).forEach((pts) => el('path', { d: P(pts), fill: '#0C1014' }));
+  // deck bands and compartments, clipped to the hull
+  const g = el('g', { 'clip-path': 'url(#hull)' });
+  DECKS.forEach((d) => {
+    const y0 = T(d.n - 1), h = 17.5, sel = d.n === deck;
+    if (sel) el('rect', { x: 0, y: y0, width: 1060, height: h, fill: acc, 'fill-opacity': .12 }, g);
+    d.rooms.forEach((r, i) => {
+      const [a, b, , s] = r, on = sel && room === i;
+      const c = el('rect', { class: 'cell', x: X(a) + 0.6, y: y0 + 0.6, width: X(b) - X(a) - 1.2, height: h - 1.2, fill: ov === 'decks' && s !== 'p' ? acc : ice, 'fill-opacity': ov === 'decks' ? { w: .55, n: .16, p: .05 }[s] : .03, stroke: on ? css('--ink') : ov === 'decks' && s !== 'p' ? acc : '#2F3943', 'stroke-width': on ? 1.6 : .8, 'stroke-dasharray': s === 'n' && ov === 'decks' ? '3 2' : 'none' }, g);
+      c.addEventListener('click', () => { deck = d.n; room = i; render(); });
+      const t = el('title', {}, c); t.textContent = `Deck ${d.n} · ${r[2]}`;
+    });
+    el('line', { x1: 0, y1: y0, x2: 1060, y2: y0, stroke: frame, 'stroke-width': .6 }, g);
+  });
+  // labels inside wide cells for the selected deck
+  const sd = DECKS[deck - 1];
+  sd.rooms.forEach(([a, b, name]) => { const w = X(b) - X(a); if (w > name.length * 4.3 + 6) { const t = el('text', { x: (X(a) + X(b)) / 2, y: T(deck - 1) + 11.6, 'text-anchor': 'middle', 'font-size': 7.2, fill: css('--ink'), 'pointer-events': 'none' }, g); t.textContent = name.toUpperCase(); } });
+  // fixed details: impulse engines, deflector, shuttlebay doors, turret
+  el('rect', { x: X(127.5), y: T(2.1), width: 14, height: 12, fill: acc, 'fill-opacity': .8 });
+  el('path', { d: P([[6, 6.0], [18, 6.3], [16, 6.9], [8, 6.6]]), fill: ice, 'fill-opacity': .7 });
+  el('rect', { x: X(198), y: T(8.1), width: 4, height: 30, fill: ice, 'fill-opacity': .6 });
+  el('rect', { x: X(101), y: T(-0.75), width: 40, height: 6, fill: acc });
+  // systems overlay
+  if (ov === 'systems') {
+    LIFTS.forEach(([a, b, t0, t1, name]) => { el('rect', { x: X(a), y: T(t0), width: X(b) - X(a), height: T(t1) - T(t0), fill: ice, 'fill-opacity': .35, stroke: ice }); const t = el('text', { x: X(b) + 4, y: T(t0) + 9, 'font-size': 8, fill: ice }); t.textContent = name; });
+    el('rect', { x: X(CORE[0]) + 10, y: T(CORE[2]), width: X(CORE[1]) - X(CORE[0]) - 20, height: T(CORE[3]) - T(CORE[2]), fill: acc, 'fill-opacity': .8 });
+    const tc = el('text', { x: X(CORE[1]) + 4, y: T(8) + 4, 'font-size': 8, fill: acc }); tc.textContent = 'WARP CORE';
+    [[[146, 7.5], [146, 4.6], [178, 4.6]], [[146, 5.5], [100, 5.5], [24, 5.5], [10, 4.6]], [[146, 3.6], [120, 3.6], [120, 1.6], [104, 0.2]]].forEach((pts) => el('polyline', { points: pts.map(([m, t]) => X(m) + ',' + T(t)).join(' '), fill: 'none', stroke: acc, 'stroke-width': 1.4, 'stroke-dasharray': '6 3' }));
+    const tp = el('text', { x: X(26), y: T(5.5) - 4, 'font-size': 8, fill: acc }); tp.textContent = 'POWER TRUNKS';
+  }
+  // damage zone overlay
+  if (ov === 'zones') ZONES.forEach((z) => {
+    el('path', { d: P(z.pts), fill: acc, 'fill-opacity': .1, stroke: acc, 'stroke-width': 1.2, 'stroke-dasharray': '5 3' });
+    const cx = z.pts.reduce((s, p) => s + p[0], 0) / z.pts.length, cy = z.pts.reduce((s, p) => s + p[1], 0) / z.pts.length;
+    const t = el('text', { x: X(cx), y: T(cy) + 3, 'text-anchor': 'middle', 'font-size': 9, fill: css('--ink'), 'font-weight': 600 }); t.textContent = z.name.toUpperCase();
+  });
+  // deck numbers on the left, bow marker
+  DECKS.forEach((d) => { const t = el('text', { x: 4, y: T(d.n - 1) + 12, 'font-size': 8, fill: d.n === deck ? acc : dim }); t.textContent = 'D' + d.n; });
+  const bow = el('text', { x: X(0), y: T(12) + 14, 'font-size': 8, fill: dim }); bow.textContent = '◂ BOW';
+  const st = el('text', { x: X(200), y: T(12) + 14, 'font-size': 8, fill: dim, 'text-anchor': 'end' }); st.textContent = 'STERN ▸ 200 M';
+}
+
+function planSVG() {
+  const acc = css('--acc'), ice = css('--ice'), ink = css('--ink');
+  // top view, bow left; starboard is the top half, port the bottom half
+  const x = (m) => 10 + m * 1.35, y = (b) => 120 + b * 1.35;
+  const poly = (pts, f, s, extra) => `<path d="M${pts.map(([m, b]) => x(m).toFixed(1) + ' ' + y(b).toFixed(1)).join(' L')} Z" fill="${f}" stroke="${s}" stroke-width="1.4" ${extra || ''}/>`;
+  const zones = ov === 'zones';
+  let s = `<svg id="plan" viewBox="0 0 290 240" role="img" aria-label="Plan view of the Defiance, bow left">`;
+  s += poly([[150, -14], [174, -70], [182, -70], [162, -14]], '#0E1217', ice) + poly([[150, 14], [174, 70], [182, 70], [162, 14]], '#0E1217', ice);
+  s += poly([[134, -66], [196, -68], [200, -73], [194, -76], [140, -74]], '#0E1217', ice) + poly([[134, 66], [196, 68], [200, 73], [194, 76], [140, 74]], '#0E1217', ice);
+  s += poly([[112, -18], [190, -16], [199, -8], [199, 8], [190, 16], [112, 18]], '#0C1014', acc);
+  s += `<circle cx="${x(70)}" cy="${y(0)}" r="${62 * 1.35}" fill="#0C1014" stroke="${acc}" stroke-width="1.4"/>`;
+  s += poly([[0, 0], [10, -10], [16, -10], [16, 10], [10, 10]], '#0C1014', acc);
+  s += `<rect x="${x(60)}" y="${y(-9)}" width="${18 * 1.35}" height="${18 * 1.35}" fill="none" stroke="${acc}" stroke-width="1"/>`;
+  s += `<rect x="${x(76)}" y="${y(-2.5)}" width="${72 * 1.35}" height="${5 * 1.35}" fill="${acc}" fill-opacity=".5"/>`;
+  if (zones) {
+    s += `<rect x="${x(20)}" y="${y(-62)}" width="${180 * 1.35}" height="${44 * 1.35}" fill="${acc}" fill-opacity=".1" stroke="${acc}" stroke-dasharray="5 3"/>`;
+    s += `<rect x="${x(20)}" y="${y(18)}" width="${180 * 1.35}" height="${44 * 1.35}" fill="${acc}" fill-opacity=".1" stroke="${acc}" stroke-dasharray="5 3"/>`;
+    s += `<text x="${x(60)}" y="${y(-36)}" font-size="10" fill="${ink}" text-anchor="middle" font-family="JetBrains Mono">STBD HULL</text><text x="${x(60)}" y="${y(44)}" font-size="10" fill="${ink}" text-anchor="middle" font-family="JetBrains Mono">PORT HULL</text>`;
+  }
+  s += `<text x="8" y="16" font-size="10" fill="${css('--dim')}" font-family="JetBrains Mono">PLAN · BOW LEFT · STARBOARD UP</text></svg>`;
+  return s;
+}
+
+function render() {
+  const d = DECKS[deck - 1];
+  draw();
+  document.getElementById('ovname').textContent = { decks: 'DECKS', systems: 'SYSTEMS: LIFTS, CORE, POWER', zones: 'DAMAGE ZONES' }[ov];
+  const status = (d) => d.rooms.some((r) => r[3] === 'w') ? ['w', 'WALKABLE'] : d.rooms.some((r) => r[3] === 'n') ? ['n', 'NEXT'] : ['p', 'PLANNED'];
+  document.getElementById('decks').innerHTML = DECKS.map((x) => { const [c, l] = status(x); return `<button class="deck" data-d="${x.n}" aria-current="${x.n === deck}"><span class="n">D${x.n}</span><span class="r">${x.name}<small>${x.rooms.length} spaces</small></span><span class="chip ${c}">${l}</span></button>`; }).join('');
+  const label = { w: 'WALKABLE', n: 'NEXT', p: 'PLANNED' };
+  document.getElementById('detail').innerHTML = `<h2>Deck ${d.n} · ${d.name}</h2><p class="role">${d.role}</p>
+    <div class="two"><div><h3>Spaces, bow to stern</h3><ul class="rooms">${d.rooms.map((r, i) => `<li data-r="${i}" aria-selected="${room === i}"><span>${r[2]}</span><span class="chip ${r[3]}">${label[r[3]]}</span>${r[4] ? `<p>${r[4]}</p>` : ''}</li>`).join('')}</ul></div>
+    <div><h3>What the ship display shows</h3><ul class="shows">${d.shows.map((s) => `<li>${s}</li>`).join('')}</ul><h3>Plan view</h3>${planSVG()}</div></div>`;
+}
+
+document.getElementById('stats').innerHTML = [['200 m', 'LENGTH'], ['158 m', 'BEAM'], ['44 m', 'HEIGHT'], ['12', 'DECKS'], ['140', 'CREW'], ['2', 'TURBOLIFTS'], ['DECK 1', 'WALKABLE NOW'], ['DECK 2', 'BUILD NEXT']].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
+document.getElementById('decks').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (b) { deck = +b.dataset.d; room = null; render(); } });
+document.getElementById('detail').addEventListener('click', (e) => { const li = e.target.closest('[data-r]'); if (li) { room = +li.dataset.r; render(); } });
+document.querySelectorAll('[data-ov]').forEach((b) => b.addEventListener('click', () => { ov = b.dataset.ov; document.querySelectorAll('[data-ov]').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); }));
+document.querySelectorAll('[data-al]').forEach((b) => b.addEventListener('click', () => { document.documentElement.classList.toggle('red', b.dataset.al === 'red'); document.querySelectorAll('[data-al]').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); }));
+render();
+}
+</script>
+</body>
+</html>
