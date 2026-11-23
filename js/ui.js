@@ -110,12 +110,14 @@ const STATIONS = {
     note: 'Four engagements, four convoys brought home. The crew reads the plaque on the way into every briefing.',
     acts: [] }) },
   damage: { title: 'Damage Control', role: 'Hull and structure', panel: () => ({
-    read: [['Hull integrity', pct(hullIntegrity())]].concat(ZONES.filter((z) => sim.zones[z.id] < 100).slice(0, 4).map((z) => [z.name, pct(sim.zones[z.id])])).concat(sim.teams.map((tm, i) => [`Team ${i + 1}`, tm.to ? `Moving to ${ZONE_NAME[tm.to]}` : tm.at ? `${ZONE_NAME[tm.at]}${sim.zones[tm.at] < SIM.repair.cap ? ', repairing' : ', done'}` : 'Standing by'])),
+    read: [['Hull integrity', pct(hullIntegrity())]].concat(ZONES.filter((z) => sim.zones[z.id] < 100).sort((a, b) => sim.zones[a.id] - sim.zones[b.id]).slice(0, 4).map((z) => [z.name, pct(sim.zones[z.id])])).concat(sim.teams.map((tm, i) => [`Team ${i + 1}`, tm.to ? `Moving to ${ZONE_NAME[tm.to]}` : tm.at ? `${ZONE_NAME[tm.at]}${sim.zones[tm.at] < SIM.repair.cap ? ', repairing' : ', done'}` : 'Standing by'])),
     note: sim.breach !== null ? `Core breach in ${Math.ceil(sim.breach)} s. Send a team to the engines.` : 'Each team takes 10 seconds to move, then repairs 1% a second, up to 80% in the field.',
-    acts: sim.teams.map((tm, i) => {
-      const covered = sim.teams.filter((t, j) => j !== i).map((t) => t.to || t.at), wz = sim.breach !== null && !covered.includes('engines') ? ZONES.find((z) => z.id === 'engines') : worstZone(covered);
+    acts: ((picked) => sim.teams.map((tm, i) => {
+      // each idle team is offered the worst zone nobody else is on or has been offered
+      const covered = sim.teams.filter((t, j) => j !== i).map((t) => t.to || t.at).concat(picked), wz = sim.breach !== null && !covered.includes('engines') ? ZONES.find((z) => z.id === 'engines') : worstZone(covered);
+      if (wz && !(tm.at === wz.id || tm.to === wz.id)) picked.push(wz.id);
       return { label: wz ? `Team ${i + 1} to ${wz.name}` : `Team ${i + 1}: no work`, disabled: !wz || tm.at === wz.id || tm.to === wz.id, fn: () => order('Damage Control', `Team ${i + 1} on the way to the ${wz.name.toLowerCase()}.`, () => sendTeam(i, wz.id)) };
-    }).concat([{ label: 'Reset after drill', disabled: sim.drill.on || hullIntegrity() >= 100, fn: () => { simReset(); toast('Ship restored. All sections at full.', 'Damage Control'); renderPanel(); redrawAll(); } }]),
+    }))([]).concat([{ label: 'Reset after drill', disabled: sim.drill.on || hullIntegrity() >= 100, fn: () => { simReset(); toast('Ship restored. All sections at full.', 'Damage Control'); renderPanel(); redrawAll(); } }]),
   }) },
   defense: { title: 'Tactical', role: 'Weapons, deflectors and alert status', panel: () => ({
     read: [['Condition', ALERTS[state.alert].label], ['Shields', sim.shields.up < 0.01 ? 'Down (navigational field)' : ARCS.map((a) => `${ARC_NAMES[a][0]} ${Math.round(shieldNow(a))}`).join(' · ')], ['Reinforced arc', sim.shields.reinforce ? ARC_NAMES[sim.shields.reinforce] : 'None, even spread'], ['Hull', pct(hullIntegrity())], ['Torpedoes', `${torpsLeft()} of ${SIM.torp.perBay * 2}`]],
