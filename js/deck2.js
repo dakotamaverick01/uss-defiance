@@ -57,8 +57,23 @@ function d2panel(x, z, H, w, d) {
   mesh(new THREE.PlaneGeometry(w, d), downlightMat, x, H - 0.045, z, DECK2).rotation.x = Math.PI / 2;
 }
 // simple furniture pieces
-function d2chair(x, z, rot, mat) {
-  const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
+function d2chair(x, z, rot, mat, kind) {
+  const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, kind || 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
+}
+// a quarters desk: walnut top, side panels and a drawer pedestal, with a bridge-style console pad on top whose
+// whole face is a display (deskSurface), tilted a little toward the sitter at local +z
+function d2desk(parent, w, d, station, sub, title, code) {
+  const g = group(0, 0, 0, 0, parent);
+  mesh(RBOX(w, 0.05, d, 0.02), WOOD, 0, 0.75, 0, g);
+  [-1, 1].forEach((sd) => mesh(RBOX(0.08, 0.72, d - 0.07, 0.02), WOOD, sd * (w / 2 - 0.1), 0.36, 0, g));
+  mesh(RBOX(0.42, 0.5, d - 0.15, 0.02), WOOD, w / 2 - 0.36, 0.47, 0, g);
+  mesh(RBOX(w - 0.3, 0.4, 0.03, 0.01), MAT.gunDark, 0, 0.52, -d / 2 + 0.07, g);
+  const pw = w - 0.2, pd = d - 0.2, top = group(0, 0.805, -0.02, 0, g); top.rotation.x = 0.1;
+  mesh(RBOX(pw, 0.03, pd, 0.012), MAT_BEZEL, 0, 0.015, 0, top);
+  mesh(pillow(pw, 0.045, 0.06, 0.02, 0.005, 'y', 0), MAT_PAD, 0, 0.012, pd / 2 + 0.02, top);
+  deskSurface(top, pw, pd - 0.08, 0.031, -0.01, { id: station, title, code }, sub);
+  addHit(BOX(w, 1.0, d), { station }, g, 0, 0.6, 0);
+  return g;
 }
 function d2label(text, x, y, z, rot, w) {
   const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
@@ -67,11 +82,55 @@ function d2label(text, x, y, z, rot, w) {
   const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; return m;
 }
 
+// a bed with its headboard to local -x: frame, mattress, cover, pillows, headboard; bedside tables at local z +-(wid/2 + 0.32)
+function d2bed(parent, x, z, rot, wid, sides) {
+  const g = group(x, 0, z, rot, parent), hw = wid / 2;
+  mesh(RBOX(2.1, 0.32, wid + 0.1, 0.04), WOOD, 0, 0.18, 0, g);
+  mesh(RBOX(2.0, 0.2, wid, 0.06), CERAMIC, 0, 0.42, 0, g);
+  mesh(RBOX(1.3, 0.06, wid + 0.04, 0.03), FABRIC, 0.32, 0.54, 0, g);
+  (wid > 1.2 ? [-hw / 2, hw / 2] : [0]).forEach((q) => mesh(RBOX(0.38, 0.12, Math.min(0.58, wid - 0.2), 0.05), CERAMIC, -0.78, 0.56, q, g));
+  mesh(RBOX(0.1, 1.1, wid + 0.3, 0.03), MAT.leatherDark, -1.08, 0.75, 0, g);
+  (sides || []).forEach((sd) => { const q = sd * (hw + 0.32); mesh(RBOX(0.45, 0.5, 0.42, 0.03), WOOD, -0.82, 0.25, q, g); mesh(lathe([[0, 0], [0.09, 0], [0.06, 0.22], [0.11, 0.3], [0, 0.3]], 20), BRASS, -0.82, 0.5, q, g); });
+  return g;
+}
+// a partition across a room along x at z, double-faced (12 cm), from xa to xb with an opening from oa to ob
+function d2partX(z, xa, xb, oa, ob, H) {
+  [[xa, oa], [ob, xb]].forEach(([a, b]) => {
+    wallPiece(d2RoomWall, [a, z + 0.06], [1, 0], [0, 1], 0, b - a, 0, H, H, 1.2, DECK2);
+    wallPiece(d2RoomWall, [a, z - 0.06], [1, 0], [0, -1], 0, b - a, 0, H, H, 1.2, DECK2);
+    d2seg(a, z, b, z, 0.2);
+  });
+  [oa, ob].forEach((x) => mesh(RBOX(0.14, H, 0.16, 0.02), MAT.gunDark, x, H / 2, z, DECK2));
+}
+// a wall shelf unit (books and keepsakes) facing local +z
+function d2shelf(parent, x, z, rot, seed) {
+  const sg = group(x, 0, z, rot, parent);
+  mesh(RBOX(1.2, 1.9, 0.34, 0.02), WOOD, 0, 0.95, -0.02, sg);
+  const rr = mulberry(seed); [0.45, 0.95, 1.45].forEach((y) => { mesh(BOX(1.1, 0.025, 0.3), MAT.gunDark, 0, y, 0.0, sg); let q = -0.5; while (q < 0.42) { const w = 0.03 + rr() * 0.05, h = 0.18 + rr() * 0.12; if (rr() < 0.1) { mesh(lathe([[0, 0], [0.05, 0], [0.04, 0.14], [0.02, 0.2], [0, 0.2]], 14), [BRASS, CERAMIC, GLASS][(rr() * 3) | 0], q + 0.06, y + 0.013, 0.0, sg); q += 0.16; continue; } mesh(BOX(w, h, 0.2), [MAT.leather, MAT.leatherDark, FABRIC, POT][(rr() * 4) | 0], q + w / 2, y + 0.013 + h / 2, 0.0, sg); q += w + 0.008; if (rr() < 0.12) q += 0.14; } });
+  return sg;
+}
+// a rug: a dark field with a two-line border in the given colour
+function d2rug(x, z, w, d, field, line, seed) {
+  const c = cnv(512, Math.round(512 * d / w)), g = c.getContext('2d'), H = c.height; g.fillStyle = field; g.fillRect(0, 0, 512, H); noise(g, 512, H, 9000, 0.05, seed);
+  g.strokeStyle = line; g.lineWidth = 7; g.strokeRect(18, 18, 476, H - 36); g.lineWidth = 2; g.strokeRect(36, 36, 440, H - 72);
+  const m = mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -1 }), x, 0.005, z, DECK2); m.rotation.x = -Math.PI / 2; return m;
+}
+// a synthesizer niche on a wall, facing local +z: recess, glowing back and a small screen beside it
+function d2synth(parent, x, y, z, rot, station, title, code) {
+  const n = group(x, y, z, rot, parent);
+  mesh(RBOX(0.62, 0.72, 0.14, 0.03), MAT.gunDark, 0, 0, -0.04, n);
+  mesh(new THREE.PlaneGeometry(0.5, 0.56), new THREE.MeshBasicMaterial({ color: 0x4a3c5a, toneMapped: false }), 0, 0, 0.035, n);
+  display(group(0.55, 0, 0.02, 0, n), 0.36, 0.5, 220, 300, 'aux', station, title, code);
+  addHit(BOX(1.4, 1.0, 0.6), { station }, n, 0.2, 0, 0.2);
+  return n;
+}
+
 // ---------- plan ----------
 const D2_LOBBY = { x0: -5.4, x1: 0.2, z0: 2.8, z1: 6.2 };
 const D2_QTR = { x0: -7.2, x1: 1.6, z0: -5.2, z1: 2.8, door: -2.6 };
 const D2_COR = { x0: 0.2, x1: 2.4, z0: 2.8, z1: 17.0 };
 const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
+const D2_XO = { x0: -5.4, x1: 0.2, z0: 6.2, z1: 14.6, door: 9.6 };
 
 // ---------- lift lobby ----------
 {
@@ -124,7 +183,7 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
   }
   [x0 + 0.06, x1 - 0.06].forEach((x) => { const r = mesh(CYL(0.022, 0.022, z1 - z0 - 0.6, 10), MAT.steel, x, 0.95, (z0 + z1) / 2, DECK2); r.rotation.x = Math.PI / 2; });
   // doors along the corridor: first officer (port), two senior officers' cabins (starboard), the wardroom aft
-  doorAt(x0, 9.6, Math.PI / 2, 'FIRST OFFICER', 'd2sealed', false, true, DECK2, 2);
+  doorAt(x0, D2_XO.door, Math.PI / 2, 'FIRST OFFICER', 'xoq', true, true, DECK2, 2);
   doorAt(x1, 7.2, -Math.PI / 2, 'SENIOR OFFICERS', 'd2sealed', false, true, DECK2, 2);
   doorAt(x1, 12.0, -Math.PI / 2, 'SENIOR OFFICERS', 'd2sealed', false, true, DECK2, 2);
   doorAt(D2_WARD.door, z1, Math.PI, 'WARDROOM', 'wardoor', true, true, DECK2, 2);
@@ -192,11 +251,9 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
   }
   { // desk on the starboard wall, with the captain's personal screen
     const dx = Q.x1 - 0.45, dz = 0.0, g = group(dx, 0, dz, -Math.PI / 2, DECK2);
-    mesh(RBOX(1.6, 0.05, 0.75, 0.02), WOOD, 0, 0.75, 0, g);
-    [-0.7, 0.7].forEach((x) => mesh(RBOX(0.08, 0.72, 0.68, 0.02), WOOD, x, 0.36, 0, g));
-    mesh(RBOX(0.5, 0.5, 0.6, 0.02), WOOD, 0.45, 0.47, 0, g);
+    d2desk(g, 1.6, 0.75, 'qdesk', 'log', 'Personal log', 'CO·01');
     const sg = group(0, 1.5, -0.42, 0, g); display(sg, 1.1, 0.62, 640, 360, 'log', 'qdesk', 'Personal log', 'CO·01');
-    d2chair(dx - 0.85, dz, -Math.PI / 2, MAT.leatherDark);
+    d2chair(dx - 0.85, dz, -Math.PI / 2, MAT.leatherDark, 'station');
     d2obs(dx, dz - 0.5, 0.42); d2obs(dx, dz + 0.5, 0.42);
     d2down(dx - 0.4, dz, H);
   }
@@ -211,6 +268,69 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
     d2seg(gx - 0.9, gz - 0.3, gx + 0.9, gz - 0.3, 0.3);
     plantAt(DECK2, Q.x1 - 0.45, -3.8, 1.0); d2obs(Q.x1 - 0.45, -3.8, 0.3);
     d2down(gx, gz - 0.8, H); d2down(-2.6, 1.9, H);
+  }
+}
+
+// ---------- first officer's quarters ----------
+// The captain's quarters, smaller: day cabin forward with the port viewport, sleeping cabin aft behind a partition.
+{
+  const Q = D2_XO, H = D2H, PZ = 12.0;
+  d2room('First officer’s quarters', Q.x0, Q.x1, Q.z0, Q.z1, H, d2RoomWall, MAT.roomCarpet, {
+    e: [{ a: Q.door - 0.6 - Q.z0, b: Q.door + 0.6 - Q.z0, y0: 0, y1: 2.3 }],
+    w: [{ a: 0.8, b: 4.4, y0: 0.9, y1: 2.2 }],
+  });
+  const vp = group(Q.x0 + 0.06, 0, 8.8, -Math.PI / 2, DECK2); viewport(vp, -1.8, 1.8, 0.9, 2.2, 0);
+  d2partX(PZ, Q.x0 + 0.06, Q.x1 - 0.06, -1.6, -0.6, H);
+  { // sitting area facing the viewport: sofa, low table, rug
+    const sx = -3.1, sz = 8.8, g = group(sx, 0, sz, Math.PI / 2, DECK2);
+    mesh(RBOX(2.2, 0.4, 0.88, 0.05), FABRIC, 0, 0.22, 0, g);
+    mesh(RBOX(2.2, 0.5, 0.22, 0.06), FABRIC, 0, 0.62, 0.35, g);
+    [-1.08, 1.08].forEach((x) => mesh(RBOX(0.2, 0.6, 0.88, 0.05), FABRIC, x, 0.32, 0, g));
+    [-0.55, 0.55].forEach((x) => mesh(RBOX(0.98, 0.12, 0.68, 0.05), FABRIC, x, 0.46, -0.06, g));
+    mesh(RBOX(2.2, 0.06, 0.88, 0.02), MAT.gunDark, 0, 0.03, 0, g);
+    [-0.8, 0, 0.8].forEach((z) => d2obs(sx, sz + z, 0.48));
+    const t = group(sx - 1.1, 0, sz, Math.PI / 2, DECK2); mesh(RBOX(1.2, 0.05, 0.56, 0.02), WOOD, 0, 0.42, 0, t); [-0.5, 0.5].forEach((x) => mesh(RBOX(0.06, 0.4, 0.46, 0.01), MAT.steel, x, 0.2, 0, t));
+    mesh(lathe([[0, 0], [0.05, 0], [0.04, 0.16], [0.07, 0.24], [0, 0.26]], 18), GLASS, -0.25, 0.445, 0.05, t);
+    d2obs(sx - 1.1, sz - 0.4, 0.35); d2obs(sx - 1.1, sz + 0.4, 0.35);
+    d2rug(sx - 0.8, sz, 2.6, 3.0, '#2c3340', 'rgba(201,182,140,0.7)', 91);
+    d2down(sx - 0.8, sz, H); d2down(sx - 0.8, sz - 1.5, H); d2down(sx - 0.8, sz + 1.5, H);
+    plantAt(DECK2, Q.x0 + 0.45, Q.z0 + 0.45, 0.95); d2obs(Q.x0 + 0.45, Q.z0 + 0.45, 0.3);
+  }
+  { // desk on the forward wall, facing aft
+    const dx = -1.3, dz = Q.z0 + 0.46, g = group(dx, 0, dz, 0, DECK2);
+    d2desk(g, 1.5, 0.72, 'xodesk', 'xo', 'First officer', 'XO·01');
+    d2chair(dx, dz + 0.78, 0, MAT.leatherDark, 'station');
+    d2obs(dx - 0.45, dz, 0.4); d2obs(dx + 0.45, dz, 0.4);
+    // a framed print of a ringed planet above the desk
+    const c = cnv(384, 256), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#101826'); gr.addColorStop(1, '#2a2233'); x.fillStyle = gr; x.fillRect(0, 0, 384, 256);
+    x.fillStyle = '#c9a477'; x.beginPath(); x.arc(200, 130, 62, 0, Math.PI * 2); x.fill(); x.strokeStyle = 'rgba(230,205,160,0.8)'; x.lineWidth = 5; x.beginPath(); x.ellipse(200, 132, 120, 22, -0.25, 0, Math.PI * 2); x.stroke();
+    for (let i = 0; i < 60; i++) { x.fillStyle = 'rgba(255,255,255,' + (0.3 + Math.random() * 0.6) + ')'; x.fillRect(Math.random() * 384, Math.random() * 256, 1.5, 1.5); }
+    mesh(RBOX(0.86, 0.6, 0.03, 0.01), WOOD, dx, 1.75, Q.z0 + 0.075, DECK2);
+    mesh(new THREE.PlaneGeometry(0.76, 0.5), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.5 }), dx, 1.75, Q.z0 + 0.092, DECK2);
+    d2down(dx, dz + 0.4, H);
+  }
+  { // galley counter on the starboard wall, forward of the door
+    const gz = 7.75;
+    mesh(RBOX(0.56, 0.9, 1.3, 0.02), MAT_PED, Q.x1 - 0.34, 0.45, gz, DECK2); mesh(RBOX(0.62, 0.04, 1.36, 0.01), CERAMIC, Q.x1 - 0.34, 0.92, gz, DECK2);
+    d2synth(DECK2, Q.x1 - 0.1, 1.42, gz + 0.2, -Math.PI / 2, 'xogalley', 'Galley', 'GAL·02');
+    d2seg(Q.x1 - 0.62, gz - 0.65, Q.x1 - 0.62, gz + 0.65, 0.3);
+  }
+  { // table for two, aft of the sofa
+    const tx = -2.5, tz = 10.9;
+    mesh(CYL(0.45, 0.45, 0.05, 36), WOOD, tx, 0.74, tz, DECK2); mesh(CYL(0.06, 0.1, 0.7, 14), MAT.steel, tx, 0.36, tz, DECK2); mesh(CYL(0.28, 0.32, 0.03, 26), MAT.steel, tx, 0.015, tz, DECK2);
+    d2chair(tx - 0.72, tz, -Math.PI / 2, MAT.leather); d2chair(tx + 0.72, tz, Math.PI / 2, MAT.leather);
+    d2obs(tx, tz, 0.5); d2obs(tx - 0.72, tz, 0.28); d2obs(tx + 0.72, tz, 0.28);
+    mesh(lathe([[0, 0], [0.04, 0], [0.03, 0.16], [0.07, 0.24], [0.015, 0.32], [0, 0.32]], 18), BRASS, tx, 0.765, tz, DECK2);
+    const pl = mesh(new THREE.CircleGeometry(0.4, 32), lightDiscMat, tx, H - 0.006, tz, DECK2); pl.rotation.x = Math.PI / 2;
+    mesh(new THREE.TorusGeometry(0.41, 0.02, 8, 36), MAT.steel, tx, H - 0.01, tz, DECK2).rotation.x = Math.PI / 2;
+    d2shelf(DECK2, Q.x1 - 0.22, 11.15, -Math.PI / 2, 533); d2obs(Q.x1 - 0.22, 11.15, 0.4);
+    d2down(-0.6, 10.6, H);
+  }
+  { // sleeping cabin: bed to the port wall, wardrobe aft
+    d2bed(DECK2, Q.x0 + 1.15, 13.3, 0, 1.35, [1]);
+    d2obs(Q.x0 + 0.8, 13.3, 0.62); d2obs(Q.x0 + 1.6, 13.3, 0.62); d2obs(Q.x0 + 0.33, 14.3, 0.28);
+    mesh(RBOX(1.2, 2.1, 0.6, 0.03), WOOD, -0.75, 1.05, Q.z1 - 0.36, DECK2); mesh(BOX(0.012, 1.8, 0.012), MAT.steel, -0.75, 1.05, Q.z1 - 0.055, DECK2); d2obs(-0.75, Q.z1 - 0.36, 0.5);
+    d2down(Q.x0 + 1.4, 13.3, H); d2down(-1.1, 13.3, H);
   }
 }
 

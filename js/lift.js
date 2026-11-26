@@ -355,14 +355,21 @@ Object.assign(STATIONS, {
     return { read: [['Beyond', 'The rest of the deck'], ['Access', 'Closed to the crew']], note: 'Construction crews are still fitting out this deck. Ride back up to the bridge in Lift 1.', acts: [] };
   } },
 });
+// a synthesizer niche: pick an order, it is ready in the niche
+function galleyStation(key, role, note, menu) {
+  return { title: 'Galley', role, panel: () => ({ read: [['Synthesizer', 'Ready'], ['Last order', state[key] || 'None']], note,
+    acts: menu.map((n) => ({ label: n, on: state[key] === n, fn: () => { state[key] = n; beep([660, 990], 0.08, 0.04); toast(`${n}. Ready in the niche.`, 'Galley'); renderPanel(); } })) }) };
+}
 Object.assign(STATIONS, {
   capq: { title: 'Captain’s quarters', role: 'Deck 2 · forward', panel: () => ({ read: [['Inside', 'Day cabin, dining table, desk, galley, sleeping cabin'], ['Viewport', 'Forward, armored, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
   wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, sideboard, the ship’s crest'], ['Viewport', 'Starboard']], note: 'Walk up to the door to go in.', acts: [] }) },
   d2sealed: { title: 'Sealed cabin', role: 'Deck 2 · fitting-out', panel: () => ({ read: [['Status', 'Sealed'], ['Next', 'First officer’s and senior officers’ quarters, then the observation lounge']], note: 'These cabins open in the next stage of the build.', acts: [] }) },
   qdesk: { title: 'Captain’s desk', role: 'Personal log', panel: () => ({ read: [['Entry', LOG[state.logIdx].d], ['Reports', state.reports ? state.reports + ' to sign' : 'All signed']], note: LOG[state.logIdx].t,
     acts: [{ label: 'Next entry', fn: () => { state.logIdx = (state.logIdx + 1) % LOG.length; redrawStation('qdesk'); redrawStation('desk'); renderPanel(); } }, { label: 'Sign a report', disabled: !state.reports, fn: () => { state.reports = Math.max(0, state.reports - 1); toast('Report signed.', 'Yeoman'); renderPanel(); } }] }) },
-  qgalley: { title: 'Galley', role: 'Captain’s quarters', panel: () => ({ read: [['Synthesizer', 'Ready'], ['Last order', state.qcup || 'None']], note: 'A small galley for the captain’s own table.',
-    acts: [['Coffee, black'], ['Mint tea'], ['Hot chocolate'], ['Soup of the day']].map(([n]) => ({ label: n, on: state.qcup === n, fn: () => { state.qcup = n; beep([660, 990], 0.08, 0.04); toast(`${n}. Ready in the niche.`, 'Galley'); renderPanel(); } })) }) },
+  qgalley: galleyStation('qcup', 'Captain’s quarters', 'A small galley for the captain’s own table.', ['Coffee, black', 'Mint tea', 'Hot chocolate', 'Soup of the day']),
+  xoq: { title: 'First officer’s quarters', role: 'Deck 2 · port', panel: () => ({ read: [['Inside', 'Day cabin, desk, table for two, galley, sleeping cabin'], ['Viewport', 'Port, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
+  xodesk: { title: 'First officer’s desk', role: 'Duty roster', panel: () => ({ read: [['On watch', 'Alpha'], ['Next drill', state.alert === 'red' ? 'Now' : 'Day 3'], ['Department reports', 'Five, all filed']], note: 'The first officer keeps the duty roster and the department reports here, and briefs the captain from them each morning.', acts: [] }) },
+  xogalley: galleyStation('xocup', 'First officer’s quarters', 'A galley niche beside the door.', ['Coffee, white', 'Green tea', 'Spiced cider', 'Vegetable broth']),
   wardroom: { title: 'Wardroom', role: 'Mess board', panel: () => ({ read: [['Next meal', 'Officers’ dinner, 1830'], ['Host', 'First officer'], ['Seats', '10, two guests tonight']], note: 'The officers eat here and meet off watch. The captain dines here on the first night of every patrol.', acts: [] }) },
 });
 FUNC.liftcar = FUNC.deckdir = FUNC.sealed = 'acc';

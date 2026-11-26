@@ -33,7 +33,7 @@ CHECK_JS = r"""() => {
     }
     const r = room(label); ok('walk ' + name, r && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1, `${x.toFixed(2)},${z.toFixed(2)}`);
   };
-  walk('first officer day cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-2.5, 8.0]], 'First officer’s quarters');
+  walk('first officer day cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.8, 8.4]], 'First officer’s quarters');
   walk('first officer sleeping cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.1, 11.2], [-1.1, 12.8], [-2.5, 13.6]], 'First officer’s quarters');
   walk('senior cabin 1', [[1.3, 5.0], [1.3, 7.2], [3.4, 7.2], [4.3, 5.4]], 'Senior officers’ cabin 1');
   walk('senior cabin 2', [[1.3, 5.0], [1.3, 12.0], [3.4, 12.0], [4.3, 13.8]], 'Senior officers’ cabin 2');
