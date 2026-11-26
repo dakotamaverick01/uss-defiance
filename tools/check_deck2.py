@@ -18,6 +18,10 @@ CHECK_JS = r"""() => {
   ok('no sealed rooms on Deck 2', LIFT_DECKS[1].sealed.length === 0, LIFT_DECKS[1].sealed.join(','));
   ['xoq', 'so1q', 'so2q', 'lngdoor'].forEach((s) => { const d = DOORS.find((q) => q.station === s); ok('auto door ' + s, d && d.auto && d.deck === 2); });
   { const d = DOORS.find((q) => q.station === 'capbank'); ok('capacitor door sealed', d && !d.auto); }
+  // the Lift 1 shaft stands on every deck: no room but the lobby may overlap it
+  { const xs = LIFT.carSegs.flatMap((q) => [q[0], q[2]]), zs = LIFT.carSegs.flatMap((q) => [q[1], q[3]]), a = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    const hit = D2.rooms.filter((r) => r.label !== 'Lift 1 lobby' && r.x0 < a[1] && r.x1 > a[0] && r.z0 < a[3] && r.z1 > a[2] + 0.05).map((r) => r.label);
+    ok('no room overlaps the lift shaft', hit.length === 0, hit.join(',')); }
   // walk: auto doors open, sealed ones stay shut
   DOORS.forEach((d) => { if (d.deck === 2 && d.auto) d.open = 1; });
   const room = (l) => D2.rooms.find((r) => r.label === l);
@@ -33,8 +37,8 @@ CHECK_JS = r"""() => {
     }
     const r = room(label); ok('walk ' + name, r && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1, `${x.toFixed(2)},${z.toFixed(2)}`);
   };
-  walk('first officer day cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.8, 8.4]], 'First officer’s quarters');
-  walk('first officer sleeping cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.1, 11.2], [-1.1, 12.8], [-2.5, 13.6]], 'First officer’s quarters');
+  walk('first officer day cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.9, 10.2]], 'First officer’s quarters');
+  walk('first officer sleeping cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-2.15, 10.4], [-2.15, 12.0], [-2.15, 13.3], [-2.6, 13.9]], 'First officer’s quarters');
   walk('senior cabin 1', [[1.3, 5.0], [1.3, 7.2], [3.4, 7.2], [4.3, 5.4]], 'Senior officers’ cabin 1');
   walk('senior cabin 2', [[1.3, 5.0], [1.3, 12.0], [3.4, 12.0], [4.3, 13.8]], 'Senior officers’ cabin 2');
   walk('passage', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 22.0]], 'Officers’ passage');

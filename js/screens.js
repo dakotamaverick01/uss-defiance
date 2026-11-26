@@ -587,6 +587,12 @@ DRAW.xo = function (g, x, y, w, h, P) {
   table(g, sub(g, a, 'DUTY ROSTER', P.acc, P), [['ALPHA WATCH', '0800–1600'], ['BETA WATCH', '1600–0000'], ['GAMMA WATCH', '0000–0800'], ['NEXT DRILL', red ? 'NOW' : 'DAY 3', red ? P.red : P.txt]], P);
   lights(g, sub(g, b, 'DEPARTMENTS', P.ice, P), [['ENGINEERING', 'ok'], ['TACTICAL', red ? 'alert' : 'ok'], ['SCIENCE', 'ok'], ['MEDICAL', 'ok'], ['OPERATIONS', 'act']], P);
 };
+// a senior officer's desk: messages waiting and the officer's watches
+DRAW.cabin = function (g, x, y, w, h, P, s) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), n = s && s.station === 'so2desk' ? 1 : 0;
+  table(g, sub(g, a, 'MESSAGES', P.acc, P), [['FROM HOME', n ? '1 NEW' : '2 NEW'], ['DEPT REPORT', 'DUE 1700'], ['WARDROOM', 'DINNER 1830'], ['TRAINING', n ? 'SIM BAY 4' : 'DAMAGE DRILL']], P);
+  lights(g, sub(g, b, 'MY WATCHES', P.ice, P), [['ALPHA', n ? 'off' : 'act'], ['BETA', n ? 'act' : 'off'], ['GAMMA', 'off'], ['ON CALL', state.alert === 'green' ? 'ok' : 'alert']], P);
+};
 DRAW.mess = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
   table(g, sub(g, a, 'MESS · TODAY', P.acc, P), [['0630', 'BREAKFAST · ALPHA WATCH'], ['1200', 'MIDDAY · ALL WATCHES'], ['1830', 'OFFICERS’ DINNER'], ['2200', 'NIGHT GALLEY'], ['HOST', 'FIRST OFFICER']], P);
