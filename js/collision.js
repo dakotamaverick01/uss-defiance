@@ -6,7 +6,6 @@
 // ---------- collision ----------
 const obstacles = [
   { x: 0, z: 0.45, r: 0.48 }, { x: SEAT_XO.x, z: SEAT_XO.z, r: 0.4 }, { x: SEAT_TAC.x, z: SEAT_TAC.z, r: 0.4 }, { x: SEAT_XO.x - 0.07, z: SEAT_XO.z - 0.72, r: 0.5 }, { x: SEAT_TAC.x + 0.07, z: SEAT_TAC.z - 0.72, r: 0.55 },
-  { x: TABLE.x, z: TABLE.z, r: 0.9 },
 ];
 [-1.4, 1.4].forEach((x) => { obstacles.push({ x: x - 0.38, z: -3.15, r: 0.38 }, { x: x + 0.38, z: -3.15, r: 0.38 }, { x, z: -2.45, r: 0.36 }); });
 extraObs.forEach((o) => obstacles.push(o));

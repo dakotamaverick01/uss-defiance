@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `a468f27`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `1f49072`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -25,7 +25,7 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 | Area | What you can do |
 | --- | --- |
-| **Bridge** | Sit at any station and work its displays. The ship is a working system: set alert levels, split reactor power at Operations, reinforce a shield arc at Tactical, send repair teams from Damage Control, and run a combat drill to watch it all react. |
+| **Bridge** | The ship holds standard orbit over Kessra IV: the planet's limb and atmosphere arc across the main viewer and its surface rolls slowly beneath you. Upholstered swivel chairs turn when you brush past them and drift back to rest. Behind the command chair, a horizontal situation table (like an engineering master table) shows the sector chart, a live ship plan, power, damage and contacts; the aft wall carries the master systems display. Sit at any station and work its displays. The ship is a working system: set alert levels, split reactor power at Operations, reinforce a shield arc at Tactical, send repair teams from Damage Control, and run a combat drill to watch it all react. |
 | **Captain's ready room** | About 6 x 6.5 m. Read the captain's log at the desk, use the synthesizer, inspect the ship model, open or close the armored window shutters. |
 | **Officer conference room** | About 8 x 6.5 m, with room to walk around the table. Step through the briefing slides, read the battle honors plaque. |
 | **Head** | Yes, the ship has a restroom. |
@@ -69,7 +69,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, captain's quarters, wardroom |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |
-  | `render.js` | Haze light shafts, dust, post-processing, hero shots, frame loop |
+  | `render.js` | Haze light shafts, post-processing, screen redraw scheduler, hero shots, frame loop |
 
 - **Lighting (baked):** the ship is lit only by its own fixtures: downlights, ceiling discs, cove slots, deck strips and screens. That light, including light bouncing off floors and walls, is calculated ahead of time in Blender and saved in `bake/`. Floors, walls and ceilings carry a light map (one image laid out like a sewing pattern); everything else reads a grid of light probes, points every 30 cm that recorded the light arriving from six directions. Light level and alert colour still change live. There are no real-time lights apart from the viewscreen's warp glow, which keeps phones fast.
 - **Decks and the lift:** decks sit at their real heights, 3.5 m apart, and the lift car really travels between them. Only the deck you are on is shown, which keeps phones fast as the ship grows. Deck 1 and Deck 2 are lit together in one bake (the export shows every deck while it runs). The lift car and the sealed lobbies for unbuilt decks are not part of the bake: their light is painted into small light maps in `lift.js`, and `bake.js` skips their materials.
@@ -93,7 +93,7 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`). Next is Deck 2 part 2: the first officer's and senior officers' quarters and the observation lounge.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`), then two detail passes: denser screens and a new master systems display, followed by new chairs, the situation table, an orbital view and continuously animated displays. Next is Deck 2 part 2: the first officer's and senior officers' quarters and the observation lounge.
 
 Deck 1 is complete. In the build-out (gameplay paused), Stage 1 gave it more room: every bridge wall moved out 0.8 m for wider walkways (consoles moved with the walls; the dais, pods and situation table stayed put), the ready room and conference room grew to about 6 x 6.5 m and 8 x 6.5 m with 3.1 m ceilings, and the light was re-baked at 160 samples. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.
 
@@ -1553,41 +1553,95 @@ function backShape(wb, ws, wt, h, r) {
   s.lineTo(-ws / 2, h * 0.66); s.quadraticCurveTo(-ws / 2 - 0.03, h * 0.32, -wb / 2, 0);
   return s;
 }
+// ---------- chairs (rebuilt): upholstered, on a swivel, and they move when you brush past ----------
+// Cushions are "pillows": a finely divided box with rounded edges, puffed on its face and bent to wrap the sitter.
+// Every chair sits on a pedestal; the seat, back and arms ride a swivel that spins and rocks when the player
+// brushes past (chairsUpdate, called from the frame loop), then slowly settles back.
+const _pillows = new Map();
+function pillow(w, h, d, r, puff, axis, bend, key, taper) {
+  const k = key || [w, h, d, r, puff, axis, bend, taper || 0].join(','); if (_pillows.has(k)) return _pillows.get(k);
+  const g = new THREE.BoxGeometry(w, h, d, 10, Math.max(2, Math.round(h / 0.04)), 10), p = g.attributes.position, v = new THREE.Vector3(), q = new THREE.Vector3();
+  const hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i); q.set(clamp(v.x, -hx, hx), clamp(v.y, -hy, hy), clamp(v.z, -hz, hz));
+    const n = v.clone().sub(q); if (n.lengthSq() > 1e-10) v.copy(q.add(n.normalize().multiplyScalar(r)));
+    const fx = 1 - (v.x / (w / 2)) ** 2, fy = 1 - (v.y / (h / 2)) ** 2, fz = 1 - (v.z / (d / 2)) ** 2;
+    if (axis === 'y' && v.y > 0) v.y += puff * Math.max(0, fx) * Math.max(0, fz);
+    if (axis === '-z' && v.z < 0) v.z -= puff * Math.max(0, fx) * Math.max(0, fy);
+    if (axis === '+z' && v.z > 0) v.z += puff * Math.max(0, fx) * Math.max(0, fy);
+    if (taper) v.x *= 1 - taper * (v.y / h + 0.5); // narrower toward the top, like a moulded shell
+    if (bend) v.z += bend * v.x * v.x; // wrap round the sitter
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals(); _pillows.set(k, g); return g;
+}
 let _baseGeo = null;
 const CHAIR_BASE_MAT = triSurface(new THREE.MeshStandardMaterial({ color: 0x45433f, metalness: 0.85, roughness: 0.34, envMapIntensity: 0.6 }), { set: 'steel', metres: 0.45, ns: 0.5, rv: 0.7, low: 0.3 });
 function chairBase() {
   if (_baseGeo) return _baseGeo;
-  const pts = [[0, 0], [0.36, 0], [0.375, 0.012], [0.36, 0.03], [0.22, 0.06], [0.11, 0.09], [0.075, 0.13], [0.065, 0.33], [0.09, 0.36], [0, 0.36]].map(([x, y]) => new THREE.Vector2(x, y));
+  const pts = [[0, 0], [0.3, 0], [0.315, 0.012], [0.3, 0.028], [0.18, 0.05], [0.085, 0.08], [0.06, 0.12], [0.05, 0.3], [0.07, 0.33], [0.075, 0.36], [0, 0.36]].map(([x, y]) => new THREE.Vector2(x, y));
   _baseGeo = new THREE.LatheGeometry(pts, 40); return _baseGeo;
 }
-function makeChair(parent, kind) {
+// moulded shell: smooth satin composite, warm dark grey (no cast-metal grain, which read as stone)
+const MAT_SHELL = new THREE.MeshStandardMaterial({ color: 0x2e2a27, metalness: 0.1, roughness: 0.5, envMapIntensity: 0.4 });
+const CHAIRS = [];
+// kinds: captain (wide, high back, headrest, long arms), xo (high back, headrest), station (mid back), dining (lighter, short arms)
+function makeChair(parent, kind, leather) {
   const g = new THREE.Group(); parent.add(g);
-  const cap = kind === 'captain', side = kind === 'xo';
-  const s = cap ? 1.1 : side ? 1.0 : 0.9;
-  g.scale.set(s, 1, s);
+  const cap = kind === 'captain', hi = cap || kind === 'xo', dine = kind === 'dining', L = leather || MAT.leather;
+  const sx = cap ? 1.1 : dine ? 0.92 : 1.0;
   mesh(chairBase(), CHAIR_BASE_MAT, 0, 0, 0, g);
-  mesh(new THREE.TorusGeometry(0.36, 0.012, 6, 40), MAT.steel, 0, 0.012, 0, g).rotation.x = Math.PI / 2;
-  // seat pan + waterfall cushion
-  mesh(RBOX(0.58, 0.07, 0.54, 0.03), MAT.gun, 0, 0.395, 0.0, g);
-  mesh(sideGeo('seat', () => { const p = new THREE.Shape(); p.moveTo(-0.25, 0.42); p.lineTo(0.2, 0.42); p.quadraticCurveTo(0.29, 0.42, 0.29, 0.48); p.quadraticCurveTo(0.29, 0.535, 0.2, 0.54); p.lineTo(-0.22, 0.55); p.quadraticCurveTo(-0.27, 0.55, -0.27, 0.49); p.closePath(); return p; }, 0.5, 0.025), MAT.leather, 0, 0, 0, g);
-  // back: tapered shell + cushion with stitch lines
-  const back = new THREE.Group(); back.position.set(0, 0.47, 0.26); back.rotation.x = -0.13; g.add(back);
-  const d = cap ? [0.5, 0.58, 0.42, 0.86, 0.1] : side ? [0.46, 0.52, 0.4, 0.66, 0.09] : [0.44, 0.48, 0.38, 0.56, 0.08];
-  mesh(extrudeX('bshell' + kind, () => backShape(d[0] + 0.04, d[1] + 0.04, d[2] + 0.04, d[3] + 0.03, d[4] + 0.02), 0.08, 0.02), MAT.gun, 0, -0.015, 0.045, back);
-  mesh(extrudeX('bcush' + kind, () => backShape(d[0], d[1], d[2], d[3], d[4]), 0.07, 0.03), MAT.leather, 0, 0, -0.02, back);
-  (cap ? [0.26, 0.48, 0.7] : [0.34, 0.66]).forEach((f) => mesh(BOX(d[1] * 0.74, 0.008, 0.01), MAT.leatherDark, 0, f * d[3], -0.057, back));
-  if (cap) {
-    mesh(BOX(0.36, 0.014, 0.014), STRIP, 0, 0.12, 0.088, back);
-    mesh(extrudeX('crest', () => { const p = new THREE.Shape(); for (let i = 0; i < 6; i++) { const a = (60 * i) * D2R; i ? p.lineTo(Math.cos(a) * 0.045, Math.sin(a) * 0.045) : p.moveTo(0.045, 0); } p.closePath(); return p; }, 0.012, 0.003), MAT.steel, 0, d[3] - 0.18, 0.09, back);
+  const sw = group(0, 0.36, 0, 0, g); sw.scale.set(sx, 1, sx); // the swivel: everything above the pedestal
+  const rock = group(0, 0, 0, 0, sw);                            // and a little rock on top of it
+  // seat: shell, then a deep cushion with a soft waterfall front edge
+  mesh(pillow(0.56, 0.05, 0.52, 0.02, 0, 'y', 0), MAT_SHELL, 0, 0.035, 0.0, rock);
+  mesh(pillow(0.52, 0.1, 0.5, 0.045, 0.018, 'y', 0), L, 0, 0.1, -0.005, rock);
+  mesh(BOX(0.4, 0.006, 0.006), MAT.leatherDark, 0, 0.162, -0.09, rock);
+  // back: shell and a cushion wrapped round the sitter, tilted back; stitch lines across it
+  const bh = hi ? 0.66 : dine ? 0.46 : 0.54, back = group(0, 0.1, 0.25, 0, rock); back.rotation.x = -0.16;
+  // shell: tapers toward the shoulders and bulges at the rear; an upholstered panel is let into its back
+  mesh(pillow(0.52, bh, 0.06, 0.028, 0.035, '+z', -0.12, null, 0.17), MAT_SHELL, 0, bh / 2 + 0.06, 0.03, back);
+  mesh(pillow(0.38, bh * 0.74, 0.03, 0.014, 0.014, '+z', -0.1, null, 0.15), L, 0, bh * 0.5 + 0.06, 0.078, back);
+  mesh(pillow(0.47, bh - 0.05, 0.08, 0.035, 0.022, '-z', -0.14, null, 0.15), L, 0, bh / 2 + 0.06, -0.025, back);
+  [0.3, 0.58].forEach((f) => mesh(BOX(0.36 * (1 - 0.15 * f), 0.006, 0.008), MAT.leatherDark, 0, 0.06 + bh * f, -0.072, back));
+  mesh(BOX(0.006, bh * 0.62, 0.008), MAT.leatherDark, 0, 0.06 + bh * 0.45, -0.074, back); // centre channel
+  if (hi) { // headrest on two posts
+    [-0.07, 0.07].forEach((x) => mesh(CYL(0.012, 0.012, 0.08, 8), MAT.steel, x, bh + 0.1, 0.01, back));
+    mesh(pillow(cap ? 0.34 : 0.3, 0.15, 0.08, 0.035, 0.015, '-z', -0.2), L, 0, bh + 0.2, -0.01, back);
   }
-  // armrests: one swept piece each, rear post into the seat shell
-  const armLen = cap ? 0.3 : 0.22;
+  if (cap) mesh(BOX(0.3, 0.014, 0.014), STRIP, 0, 0.1, 0.06, back);
+  // arms: a cast support from the seat shell up to a padded rest
+  const al = cap ? 0.42 : dine ? 0.26 : 0.34;
   [-1, 1].forEach((sd) => {
-    mesh(sideGeo('arm' + armLen, () => { const p = new THREE.Shape(); p.moveTo(-0.25, 0.4); p.lineTo(-0.17, 0.4); p.quadraticCurveTo(-0.15, 0.6, -0.1, 0.635); p.lineTo(armLen - 0.03, 0.645); p.quadraticCurveTo(armLen + 0.02, 0.65, armLen + 0.02, 0.685); p.quadraticCurveTo(armLen + 0.02, 0.722, armLen - 0.03, 0.722); p.lineTo(-0.2, 0.722); p.quadraticCurveTo(-0.27, 0.72, -0.27, 0.65); p.closePath(); return p; }, 0.085, 0.018), MAT.gun, sd * 0.33, 0, 0, g);
-    if (!cap) mesh(RBOX(0.07, 0.022, 0.32, 0.01), MAT.leather, sd * 0.33, 0.733, -0.02, g);
-    else mesh(RBOX(0.07, 0.022, 0.2, 0.01), MAT.leather, sd * 0.33, 0.733, 0.12, g);
+    mesh(RBOX(0.035, 0.2, 0.07, 0.012), MAT_SHELL, sd * 0.29, 0.16, 0.08, rock);
+    mesh(RBOX(0.035, 0.04, al * 0.7, 0.012), MAT_SHELL, sd * 0.29, 0.26, 0.1 - al * 0.3, rock);
+    mesh(pillow(0.075, 0.045, al, 0.02, 0.008, 'y', 0), L, sd * 0.29, 0.3, 0.1 - al * 0.45, rock);
   });
+  const c = { g, sw, rock, home: 0, yaw: 0, vel: 0, tilt: 0, tiltV: 0, cap, p: null };
+  g.userData.swivel = sw; g.userData.chair = c; CHAIRS.push(c);
   return g;
+}
+// a chair at rest is rarely square: give each a slight, fixed set-off
+function chairRest(c, yaw) { c.home = c.yaw = yaw; c.sw.rotation.y = yaw; }
+let _cpx = null, _cpz = null;
+function chairsUpdate(dt) {
+  if (dt <= 0) return;
+  const vx = _cpx === null ? 0 : (player.x - _cpx) / dt, vz = _cpz === null ? 0 : (player.z - _cpz) / dt; _cpx = player.x; _cpz = player.z;
+  const sp = Math.hypot(vx, vz), wp = new THREE.Vector3();
+  for (const c of CHAIRS) {
+    if (!c.p) { c.g.updateWorldMatrix(true, false); c.p = c.g.getWorldPosition(wp).clone(); }
+    if (Math.abs(c.p.y - deckY(LIFT.deck)) > 1.5 && !(c.p.y > -0.5 && LIFT.deck === 1)) continue;
+    const dx = player.x - c.p.x, dz = player.z - c.p.z, d = Math.hypot(dx, dz);
+    if (d < 0.78 && sp > 0.05 && !state.sitting) {
+      const touch = 1 - d / 0.78, cross = dx * vz - dz * vx; // which way the brush turns the chair
+      c.vel += -cross * 6 * touch * dt; c.tiltV += sp * 1.2 * touch * dt;
+    }
+    if (c.cap && state.sitting) c.vel += (0 - c.yaw) * 8 * dt - c.vel * 6 * dt;
+    else c.vel += (c.home - c.yaw) * 0.35 * dt; // a self-centring swivel brings it back, slowly
+    c.vel *= Math.exp(-dt * 2.2); c.vel = clamp(c.vel, -4, 4); c.yaw += c.vel * dt;
+    c.tiltV += (-c.tilt * 60 - c.tiltV * 7) * dt; c.tilt += c.tiltV * dt;
+    if (Math.abs(c.vel) > 1e-4 || Math.abs(c.tilt) > 1e-4 || Math.abs(c.yaw - c.sw.rotation.y) > 1e-4) { c.sw.rotation.y = c.yaw; c.rock.rotation.x = clamp(c.tilt, -0.08, 0.08); }
+  }
 }
 
 // ---------- station furniture (shared) ----------
@@ -1639,8 +1693,8 @@ mesh(new THREE.CylinderGeometry(DAIS.r, DAIS.r + 0.04, DAIS.h, 72), [MAT.gun, MA
 { const t = mesh(new THREE.TorusGeometry(DAIS.r + 0.01, 0.025, 8, 120), MAT.steel, DAIS.x, DAIS.h, DAIS.z); t.rotation.x = Math.PI / 2; }
 { const t = mesh(new THREE.TorusGeometry(DAIS.r + 0.03, 0.012, 6, 120), STRIP, DAIS.x, DAIS.h - 0.05, DAIS.z); t.rotation.x = Math.PI / 2; }
 ao(DAIS.x, DAIS.z, DAIS.r * 2.6, DAIS.r * 2.6, 0.55);
-const capChair = group(0, DAIS.h, 0.45); makeChair(capChair, 'captain');
-[-1, 1].forEach((sd) => { const sg = group(sd * 0.363, 0.73, -0.06, 0, capChair); const sc = addScreen(sg, 0.07, 0.3, 128, 352, 'cmd', 'command', 'Command', 'CMD'); sc.mesh.rotation.x = -Math.PI / 2 + 0.06; });
+const capChair = group(0, DAIS.h, 0.45); const capSw = makeChair(capChair, 'captain').userData.swivel;
+[-1, 1].forEach((sd) => { const sg = group(sd * 0.29, 0.33, -0.12, 0, capSw); const sc = addScreen(sg, 0.06, 0.26, 128, 352, 'cmd', 'command', 'Command', 'CMD'); sc.mesh.rotation.x = -Math.PI / 2 + 0.06; });
 ao(0, 0.45, 1.2, 1.2, 0.6, DAIS.h);
 addHit(BOX(1.0, 1.8, 1.0), { station: 'command' }, null, 0, DAIS.h + 0.9, 0.45);
 const SEAT_XO = { x: -1.3, z: 0.65 }, SEAT_TAC = { x: 1.3, z: 0.65 };
@@ -1675,7 +1729,7 @@ function pod(x, z, station, kindA, titleA, codeA) {
   grille(f, 0, 0.36, 0.02, 0.66, 0.2);
   idPlate(f, codeA, 0, 0.2, 0.022, 0.26);
   addHit(BOX(1.6, 1.5, 1.0), { station }, g, 0, 0.75, 0);
-  const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7);
+  const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7); chairRest(ch.userData.chair, (x > 0 ? -1 : 1) * 0.12);
   ao(x, z, 1.8, 1.2, 0.65); ao(x, z + 0.7, 0.9, 0.9, 0.55);
   pool(x, z + 0.45, 1.6, 1.0, 0xffe2c8, 0.12);
   return g;
@@ -1727,7 +1781,7 @@ function post(parent, lx, p, wallW, body) {
   addHit(BOX(Math.min(1.5, wallW + 0.1), 2.6, 1.3), { station: p.id }, st, 0, 1.3, 0.1);
   st.updateWorldMatrix(true, false);
   const cw = new THREE.Vector3(); st.localToWorld(cw.set(0, 0, 1.02));
-  const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y;
+  const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y; chairRest(ch.userData.chair, Math.sin(cw.x * 7 + cw.z * 3) * 0.22);
   ao(cw.x, cw.z, 0.9, 0.9, 0.55); extraObs.push({ x: cw.x, z: cw.z, r: 0.36 });
   const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.08);
   const dl = new THREE.Vector3(); st.localToWorld(dl.set(0, 0, 0.7)); DOWNLIGHTS.push([dl.x, dl.z]);
@@ -1835,15 +1889,25 @@ function rail(ei, t0, t1, y) {
   mesh(BOX(3.1, 0.02, 0.02), SLOT, 0, -0.72, 0.02, g);
   addHit(BOX(3.2, 1.4, 0.4), { station: 'ship' }, g, 0, 0, 0.2);
 }
-const TABLE = { x: 0, z: 3.55 };
+// ---------- systems table aft of the command dais ----------
+// A waist-high display table in the tradition of an engineering master situation table: a sculpted base, a heavy
+// trim slab and one large glass display (DRAW via drawTable in screens.js) read from the forward side.
+const TABLE = { x: 0, z: 3.75, w: 2.5, d: 1.25 };
 {
-  mesh(new THREE.CylinderGeometry(0.42, 0.55, 0.85, 6), MAT.gun, TABLE.x, 0.425, TABLE.z);
-  mesh(new THREE.CylinderGeometry(0.92, 0.88, 0.1, 6), MAT.console, TABLE.x, 0.9, TABLE.z);
-  const r = mesh(new THREE.CylinderGeometry(0.94, 0.94, 0.03, 6, 1, true), STRIP, TABLE.x, 0.94, TABLE.z);
-  const emitC = cnv(256, 256); { const g = emitC.getContext('2d'); const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128); gr.addColorStop(0, '#bff8ef'); gr.addColorStop(0.5, '#2a6a64'); gr.addColorStop(1, '#0b1a1a'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); g.strokeStyle = 'rgba(210,255,248,0.3)'; g.lineWidth = 2; for (let i = 1; i < 6; i++) { g.beginPath(); g.arc(128, 128, i * 22, 0, 7); g.stroke(); } for (let a = 0; a < 6; a++) { const t = a * Math.PI / 3; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.cos(t) * 128, 128 + Math.sin(t) * 128); g.stroke(); } }
-  const em = mesh(new THREE.CircleGeometry(0.78, 6), new THREE.MeshBasicMaterial({ map: tex(emitC), toneMapped: false }), TABLE.x, 0.952, TABLE.z); em.rotation.x = -Math.PI / 2; em.rotation.z = Math.PI / 6;
-  ao(TABLE.x, TABLE.z, 2.2, 2.2, 0.6);
-  pool(TABLE.x, TABLE.z, 3.0, 3.0, 0x6fd6c8, 0.08);
+  const g = group(TABLE.x, 0, TABLE.z, 0); // reads right way up from the aft side, where you walk in from the lift and the MSD
+  mesh(RBOX(2.1, 0.08, 0.84, 0.03), MAT.gunDark, 0, 0.04, 0, g);
+  [-1, 1].forEach((sd) => { mesh(BOX(0.018, 0.018, 0.7), STRIP, sd * 1.02, 0.05, 0, g); mesh(BOX(1.9, 0.018, 0.018), STRIP, 0, 0.05, sd * 0.41, g); });
+  [-0.78, 0.78].forEach((x) => { mesh(RBOX(0.46, 0.76, 0.74, 0.05), MAT_PED, x, 0.46, 0, g); mesh(RBOX(0.05, 0.62, 0.76, 0.015), MAT_TRIM, x + (x > 0 ? -0.24 : 0.24), 0.46, 0, g); grille(g, x, 0.46, 0.372, 0.3, 0.3); });
+  mesh(RBOX(1.12, 0.2, 0.34, 0.03), MAT_TRIM, 0, 0.62, 0, g); idPlate(g, 'SYS·TBL', 0, 0.62, 0.172, 0.28);
+  mesh(RBOX(TABLE.w, 0.09, TABLE.d, 0.035), MAT_TRIM, 0, 0.905, 0, g);
+  mesh(RBOX(TABLE.w + 0.04, 0.03, TABLE.d + 0.04, 0.015), MAT.leatherDark, 0, 0.935, 0, g);
+  mesh(RBOX(TABLE.w - 0.12, 0.012, TABLE.d - 0.12, 0.006), MAT.glassTop, 0, 0.952, 0, g);
+  mesh(BOX(TABLE.w - 0.1, 0.012, 0.012), STRIP, 0, 0.86, TABLE.d / 2 - 0.02, g); mesh(BOX(TABLE.w - 0.1, 0.012, 0.012), STRIP, 0, 0.86, -TABLE.d / 2 + 0.02, g);
+  buttons(g, 9, -1.0, 1.0, 0.958, TABLE.d / 2 - 0.035, 41); buttons(g, 9, -1.0, 1.0, 0.958, -TABLE.d / 2 + 0.035, 43);
+  const sg = group(0, 0.962, 0, 0, g); sg.rotation.x = -Math.PI / 2; addScreen(sg, TABLE.w - 0.2, TABLE.d - 0.2, 2048, 896, 'table', 'carto', 'Situation table', 'SIT·01');
+  ao(TABLE.x, TABLE.z, 3.0, 1.8, 0.6);
+  pool(TABLE.x, TABLE.z, 3.0, 2.0, 0xffd9b0, 0.06);
+  [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].reduce((a, b2) => { addSeg(TABLE.x + a[0] * TABLE.w / 2, TABLE.z + a[1] * TABLE.d / 2, TABLE.x + b2[0] * TABLE.w / 2, TABLE.z + b2[1] * TABLE.d / 2, 0.34); return b2; });
 }
 const holoBeam = mesh(new THREE.CylinderGeometry(0.75, 0.6, 0.7, 6, 1, true), new THREE.MeshBasicMaterial({ color: 0x6fd6c8, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }), TABLE.x, 1.31, TABLE.z);
 const holo = group(TABLE.x, 1.55, TABLE.z);
@@ -1866,7 +1930,8 @@ function buildHolo(i) {
   holo.rotation.x = 0.35;
 }
 buildHolo(0);
-addHit(new THREE.CylinderGeometry(1.0, 1.0, 2.2, 6), { station: 'carto' }, null, TABLE.x, 1.1, TABLE.z);
+addHit(BOX(TABLE.w + 0.2, 1.3, TABLE.d + 0.2), { station: 'carto' }, null, TABLE.x, 0.65, TABLE.z);
+holo.visible = holoBeam.visible = false; // the old hologram is retired; the table display shows the sector chart
 // doors: Lift + Ready Room (aft), Head (aft-port), Conference Room (aft-starboard)
 const DOORS = [];
 function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }
@@ -1954,8 +2019,9 @@ function fromEye(yawDeg, pitchDeg, dist) {
 }
 // The sun is off-screen to the right and a little behind the viewer, so the planet's near limb and the ship's flank are lit.
 const SUN = new THREE.Vector3(0.55, 0.3, -0.8).normalize();
-const PLANET_R = 60, PLANET_ANG = 40;
-const PLANET_POS = fromEye(52, 4, PLANET_R / Math.sin(PLANET_ANG * D2R));
+// Standard orbit: the planet fills the bottom of the viewscreen and its limb arcs across the lower third.
+const PLANET_R = 60, PLANET_ANG = 56;
+const PLANET_POS = fromEye(4, -59, PLANET_R / Math.sin(PLANET_ANG * D2R));
 // "Magnify" frames the lit limb, where the atmosphere reads best.
 const TARGET_LOOK = (() => { // the point on the limb nearest straight ahead, nudged just inside the disc
   const d = PLANET_POS.clone().sub(VS_EYE), D = d.length(); d.normalize();
@@ -2110,12 +2176,12 @@ void main(){
   float ndl=dot(n,L), diff=max(ndl,0.0), day=smoothstep(-0.12,0.18,ndl);
   float c=cl.r;
   vec3 col=s.rgb*(1.0-0.35*c)*diff*sun;
-  vec3 H=normalize(L+V); col+=vec3(1.0,0.93,0.82)*pow(max(dot(n,H),0.0),70.0)*s.a*0.9*day*(1.0-c)*sun;
+  vec3 H=normalize(L+V); col+=vec3(1.0,0.93,0.82)*pow(max(dot(n,H),0.0),160.0)*s.a*0.55*day*(1.0-c)*sun;
   col=mix(col, vec3(0.92,0.93,0.95)*(diff*sun*0.95+0.004), c);
   col*=mix(vec3(1.0,0.50,0.30), vec3(1.0), smoothstep(-0.05,0.30,ndl));
-  float mu=max(dot(n,V),0.0), fr=pow(1.0-mu,2.6);
-  col=mix(col, atmo*diff*sun*0.32, atmoK*(0.16+0.5*fr));
-  col+=atmo*atmoK*(fr*1.6+0.05)*smoothstep(-0.25,0.55,ndl)*sun*0.5;
+  float mu=max(dot(n,V),0.0), fr=pow(1.0-mu,6.0); // a steep rim term: from low orbit most of the disc is seen at a grazing angle
+  col=mix(col, atmo*diff*sun*0.32, atmoK*(0.08+0.45*fr));
+  col+=atmo*atmoK*(fr*1.4+0.03)*smoothstep(-0.25,0.55,ndl)*sun*0.5;
   col+=glowCol*cl.g*(1.2-day)*2.2;
   col+=vec3(0.35,0.9,0.85)*scan*smoothstep(0.02,0.0,abs(fract(vUv.y*40.0)-0.5)-0.47)*0.5;
   gl_FragColor=vec4(col,opacity);
@@ -2132,7 +2198,7 @@ void main(){
 }`,
 });
 const planet = space(mesh(new THREE.SphereGeometry(PLANET_R, isMobile ? 96 : 160, isMobile ? 64 : 110), planetMat, PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
-planet.rotation.set(0.12, 2.4, 0.22);
+planet.rotation.set(0.0, 0.25, Math.PI / 2 + 0.18); // pole turned sideways so the equator rolls toward the bow as we orbit
 const atmoShell = space(mesh(new THREE.SphereGeometry(PLANET_R * 1.03, isMobile ? 96 : 160, isMobile ? 64 : 110), atmoMat, PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
 const scanRing = space(mesh(new THREE.TorusGeometry(PLANET_R * 1.12, 0.3, 6, 120), new THREE.MeshBasicMaterial({ color: 0x6fd6c8, transparent: true, opacity: 0, depthWrite: false }), PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
 scanRing.visible = false; // scans now sweep across the surface itself
@@ -2158,7 +2224,7 @@ const MOON_POS = fromEye(-26, 13, 420);
 const moon = space(mesh(new THREE.SphereGeometry(5.5, 48, 32), moonMat, MOON_POS.x, MOON_POS.y, MOON_POS.z));
 
 // ---------- the convoy freighter we are escorting (original design) ----------
-const SHIP_POS = fromEye(-6, -7, 50);
+const SHIP_POS = fromEye(-11, 3.5, 46);
 const ship = space(new THREE.Group()); ship.position.copy(SHIP_POS); ship.rotation.set(0.16, -0.58, 0.06, 'YXZ'); scene.add(ship);
 const shipLights = [];
 {
@@ -2239,8 +2305,9 @@ function updateSpace(dt, fade) {
   const on = fade > 0.01;
   planet.visible = atmoShell.visible = moon.visible = on;
   planetMat.uniforms.opacity.value = atmoMat.uniforms.opacity.value = moonMat.uniforms.opacity.value = fade;
-  planet.rotation.y += dt * (reduceMotion ? 0.0004 : 0.0012);
-  planetMat.uniforms.drift.value = spaceT * 0.0004;
+  // orbital motion: the surface slides slowly toward the bow, clouds drift on their own
+  planet.rotation.x -= dt * (reduceMotion ? 0.0012 : 0.0045);
+  planetMat.uniforms.drift.value = spaceT * 0.0011;
   _tmpL.copy(SUN).transformDirection(vcam.matrixWorldInverse);
   [planetMat, atmoMat, moonMat].forEach((m) => m.uniforms.lightDir.value.copy(_tmpL));
   ship.visible = fade > 0.4;
@@ -2864,7 +2931,6 @@ BAKE.ready = (async () => {
 // ---------- collision ----------
 const obstacles = [
   { x: 0, z: 0.45, r: 0.48 }, { x: SEAT_XO.x, z: SEAT_XO.z, r: 0.4 }, { x: SEAT_TAC.x, z: SEAT_TAC.z, r: 0.4 }, { x: SEAT_XO.x - 0.07, z: SEAT_XO.z - 0.72, r: 0.5 }, { x: SEAT_TAC.x + 0.07, z: SEAT_TAC.z - 0.72, r: 0.55 },
-  { x: TABLE.x, z: TABLE.z, r: 0.9 },
 ];
 [-1.4, 1.4].forEach((x) => { obstacles.push({ x: x - 0.38, z: -3.15, r: 0.38 }, { x: x + 0.38, z: -3.15, r: 0.38 }, { x, z: -2.45, r: 0.36 }); });
 extraObs.forEach((o) => obstacles.push(o));
@@ -2933,7 +2999,11 @@ function sub(g, r, title, color, P) {
   hexTab(g, r.x, r.y, tw, th, true, false); g.fillStyle = c1; g.fill();
   g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(title, r.x + tw - th * 0.3, r.y + th / 2 + 1);
   const bx = r.x + tw + th * 0.25, bw = Math.max(0, r.w - tw - th * 0.25);
-  if (bw > th) { g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill(); }
+  if (bw > th) {
+    g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill();
+    const hs = hash1(r.x * 0.37 + r.y * 0.11 + title.length), span = bw - th * 0.55 - th, px = bx + ((elapsed * (40 + hs * 90) + hs * 999) % Math.max(1, span));
+    g.fillStyle = P.butter; g.fillRect(px, r.y + th * 0.3, th * (0.6 + hs), th * 0.4);
+  }
   return { x: r.x, y: r.y + th * 1.4, w: r.w, h: r.h - th * 1.4 };
 }
 // readout rows: a coloured key block, a tan label and a cream value
@@ -2961,10 +3031,10 @@ function bars(g, r, rows, P) {
 // status: a pill per system, filled with its state, label inside
 function lights(g, r, rows, P, cols) {
   cols = cols || 1; const per = Math.ceil(rows.length / cols), cw = r.w / cols, rh = Math.min(r.h / per, 34), fs = clamp(rh * 0.5, 8, 15);
-  const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: Math.sin(elapsed * 6) > 0 ? P.yel : P.line };
+  const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: P.yel };
   rows.forEach(([k, st, v], i) => {
     const cx = r.x + Math.floor(i / per) * cw, cy = r.y + (i % per) * rh, ph = rh * 0.74, pw = cw - 8 - (v ? cw * 0.28 : 0);
-    hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = C[st] || P.dim; g.fill();
+    const blinkOn = st !== 'blink' || Math.sin(elapsed * (5 + i * 0.9) + i * 2.3) > 0; hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = blinkOn ? C[st] || P.dim : P.line; g.fill();
     g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = st === 'off' ? P.dim : '#000'; fitFont(g, k, 600, fs, DISP, pw - ph); g.fillText(k, cx + ph * 0.55, cy + rh / 2 + 1);
     if (v) { g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${DISP}`; g.fillText(v, cx + cw - 8, cy + rh / 2 + 1); }
   });
@@ -3039,27 +3109,38 @@ function ringW(g, r, P, value, label) {
 // ---------- density: button banks and number columns ----------
 // The panels around the readable widgets: banks of numbered pill buttons and slowly ticking columns of numbers.
 // They carry no information of their own; they make each screen read as a working console with more going on.
+// Everything moves on its own clock: each pill has its own rate and phase, numbers tick at their own moments,
+// columns scroll smoothly, and every screen has occasional bursts of activity, so nothing steps in time.
+let BURST = 0; // 0..1, set per screen by drawScreen
+function hash1(n) { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); }
 function pillBank(g, r, seed, P, cols) {
   const rr = mulberry(seed), cw = r.w / cols, ph = clamp(cw * 0.3, 12, 30), gap = Math.max(3, ph * 0.22), rows = Math.max(1, Math.floor((r.h + gap) / (ph + gap)));
-  const pal2 = [P.acc, P.tan, P.butter, P.ice, P.tan, P.rose, P.plum, P.acc];
+  const pal2 = [P.acc, P.tan, P.butter, P.ice, P.tan, P.rose, P.plum, P.acc], n = rows * cols;
+  // a chase that runs across the bank now and then
+  const cyc = 5 + hash1(seed) * 7, ct = (elapsed + hash1(seed + 1) * cyc) % cyc, wave = ct < 1.4 ? ct / 1.4 * (n + 4) - 2 : -99;
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const c = pal2[(rr() * pal2.length) | 0], off = rr() < 0.14, ph2 = rr() * 9, sp = 0.2 + rr() * 0.9, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap;
-    const lit = !off && Math.sin(elapsed * sp + ph2) > -0.85, flash = Math.sin(elapsed * sp * 2.3 + ph2) > 0.985;
+    const c = pal2[(rr() * pal2.length) | 0], off = rr() < 0.14, ph2 = rr() * 9, sp = 0.25 + rr() * 1.4, nr = 0.08 + rr() * 0.6, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap, k = j * cols + i;
+    const lit = !off && Math.sin(elapsed * sp + ph2) > -0.8 + BURST * 0.6, flash = Math.sin(elapsed * sp * (3 + BURST * 9) + ph2 * 3) > 0.97 - BURST * 0.25 || Math.abs(k - wave) < 1.2;
     hexTab(g, x, y, w, ph, i === 0, i === cols - 1 || cols === 1); g.fillStyle = flash ? P.txt : lit ? c : P.line; g.fill();
-    if (ph >= 13 && w > ph * 1.6) { g.fillStyle = lit ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(10 + ((seed * 31 + j * 17 + i * 7) % 89)) + (w > ph * 3 ? '-' + String(100 + ((seed * 7 + j * 53 + i * 29) % 899)) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
+    if (ph >= 13 && w > ph * 1.6) { const tk = Math.floor(elapsed * nr + ph2), a2 = 10 + ((seed * 31 + k * 17 + tk * 7) % 89), b2 = 100 + ((seed * 7 + k * 53 + tk * 131) % 899); g.fillStyle = lit || flash ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(a2) + (w > ph * 3 ? '-' + String(b2) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
   }
 }
+// columns of numbers that scroll upward smoothly; a few cells change or flash on their own
 function numGrid(g, r, seed, P) {
-  const fs = clamp(r.h / 7.5, 9, 15), lh = fs * 1.32, cols = Math.max(2, Math.floor(r.w / (fs * 3.9))), rows = Math.max(1, Math.floor(r.h / lh)), cw = r.w / cols, tick = Math.floor(elapsed / 1.6);
-  const hot = (seed + tick) % rows; g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'top';
-  for (let j = 0; j < rows; j++) {
-    const rr = mulberry(seed * 13 + j * 7 + (j === hot ? tick : 0));
+  const fs = clamp(r.h / 7.5, 9, 15), lh = fs * 1.32, cols = Math.max(2, Math.floor(r.w / (fs * 3.9))), rows = Math.max(1, Math.floor(r.h / lh)), cw = r.w / cols;
+  const sp = 0.35 + hash1(seed) * 0.9 + BURST * 2.5, pos = elapsed * sp + hash1(seed + 3) * 100, base = Math.floor(pos), fr = pos - base;
+  g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+  g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'top';
+  for (let j = 0; j <= rows; j++) {
+    const row = base + j, y = r.y + (j - fr) * lh, hot = hash1(seed * 3 + row) > 0.86;
     for (let i = 0; i < cols; i++) {
-      const n = String(Math.floor(rr() * Math.pow(10, 2 + ((rr() * 4) | 0)))), x = r.x + i * cw;
-      g.fillStyle = j === hot ? P.butter : i === 0 ? P.acc : (i + j) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
-      g.fillText(n, i === 0 ? x : x + cw - 4, r.y + j * lh);
+      const cell = seed * 977 + row * 31 + i, tk = Math.floor(elapsed * (0.2 + hash1(cell) * 1.2) + hash1(cell + 5) * 9), digits = 2 + ((hash1(cell + 7) * 4) | 0);
+      const n = String(Math.floor(hash1(cell + tk * 13) * Math.pow(10, digits))), x = r.x + i * cw, fl = Math.sin(elapsed * (5 + hash1(cell) * 9) + cell) > 0.985 - BURST * 0.1;
+      g.fillStyle = fl ? P.txt : hot ? P.butter : i === 0 ? P.acc : (i + row) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
+      g.fillText(n, i === 0 ? x : x + cw - 4, y);
     }
   }
+  g.restore();
 }
 // ---------- live ship widgets (Stage 1) ----------
 function shipClock(at) { const s = Math.floor(at); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -3487,9 +3568,6 @@ const MSD_ROOMS = [ // [deck, from m, to m, kind] from the deck plan (docs/maste
   [8, 70, 104, 's'], [8, 104, 116, 'x'], [8, 116, 124, 's'], [8, 124, 140, 'e'], [8, 140, 152, 'e'], [8, 152, 176, 'e'], [8, 176, 198, 's'],
   [9, 110, 116, 's'], [9, 116, 124, 's'], [9, 124, 140, 's'], [9, 140, 152, 'e'], [9, 152, 199, 's'],
 ];
-const MSD_TOP = [['BRIDGE', 64, 2], ['DORSAL TURRET', 110, -8], ['CAPTAIN’S QUARTERS', 52, 6], ['WARDROOM', 88, 6], ['OBSERVATION LOUNGE', 142, 6], ['COMPUTER CORE', 106, 15], ['SENSOR PALLET', 38, 6], ['IMPULSE ENGINES', 192, 14], ['LIFT 1', 64, 12], ['FORWARD SHIELD GEN', 20, 9]];
-const MSD_BOT = [['TORPEDO BAYS', 10, 16], ['DEFLECTOR', 11, 20.5], ['SICKBAY', 37, 9], ['MESS HALL', 57, 13], ['CIC', 108, 25], ['VENTRAL ARRAY', 110, 29], ['WARP CORE', 146, 27], ['MAIN ENGINEERING', 160, 23], ['SHUTTLEBAY', 182, 30], ['NACELLE COILS', 172, 40], ['LIFT 2', 120, 34]];
-const MSD = { key: '', base: null };
 function msdPaths(X, Y) {
   const hull = new Path2D(); // the primary hull and engineering section as one long swept body
   hull.moveTo(X(0), Y(17)); hull.quadraticCurveTo(X(8), Y(9.5), X(30), Y(6.5)); hull.bezierCurveTo(X(60), Y(3.8), X(120), Y(3.2), X(150), Y(4.2));
@@ -3514,121 +3592,216 @@ function msdPlan(X, Z) { // top view, bow to the left; Z is across the beam
 }
 // draw a set of shapes with a single clean outline round their union: thick outline strokes first, fills on top
 function msdUnion(g, paths, fill, line, lw) { g.lineJoin = 'round'; g.strokeStyle = line; g.lineWidth = lw * 2; paths.forEach((p) => g.stroke(p)); g.fillStyle = fill; paths.forEach((p) => g.fill(p)); }
+// Layout (2048 x 820): left panel = plan view with shields and warp field, warp field geometry inset below;
+// right panel = the side cutaway with stacked callout lists at its four corners, title top right.
+const MSD_LISTS = {
+  tl: [['SENSOR PALLET', 38, 6], ['FORWARD SHIELD GENERATOR', 20, 9], ['CAPTAIN’S QUARTERS', 52, 6], ['BRIDGE', 64, 2], ['LIFT 1', 64.5, 12], ['WARDROOM', 88, 6], ['CREW QUARTERS', 84, 16]],
+  tr: [['TURRET CAPACITORS', 104, 4.5], ['COMPUTER CORE', 106, 14], ['DORSAL TURRET', 112, -8], ['SENIOR OFFICERS’ QUARTERS', 124, 6], ['SHIELD GENERATORS', 136, 13], ['OBSERVATION LOUNGE', 143, 6], ['LIFE SUPPORT', 166, 13], ['IMPULSE ENGINES', 197, 18]],
+  bl: [['DEFLECTOR', 9, 20.5], ['TORPEDO BAYS', 8, 16], ['TORPEDO MAGAZINE', 25, 16], ['SICKBAY', 37, 9.5], ['ARMORY', 40, 16], ['CARGO BAY 1', 54, 20], ['MESS HALL', 57, 13]],
+  br: [['CIC', 108, 25], ['VENTRAL ARRAY', 110, 29], ['LIFT 2', 120.5, 34], ['WARP CORE', 146, 27], ['MAIN ENGINEERING', 160, 23], ['NACELLE FIELD COILS', 172, 40], ['SHUTTLE MAINTENANCE', 186, 27], ['SHUTTLEBAY', 190, 30.5]],
+};
+const MSD = { key: '', base: null };
+function msdGeom(W, H) {
+  const u = W / 2048;
+  const L = { x: 16 * u, y: 16 * u, w: 620 * u, h: H - 32 * u }, R = { x: 656 * u, y: 16 * u, w: W - 672 * u, h: H - 32 * u };
+  const S = 5.3 * u, X = (m) => R.x + 140 * u + m * S, Y = (m) => R.y + 300 * u + m * S;
+  const PS = 2.4 * u, PX = (m) => L.x + 110 * u + m * PS, PZ = (m) => L.y + 262 * u + m * PS;
+  return { u, L, R, S, X, Y, PS, PX, PZ, colW: 60 * u, barH: 20 * u };
+}
 function msdBase(W, H, P) {
-  const c = cnv(W, H), g = c.getContext('2d'), u = W / 2048;
+  const c = cnv(W, H), g = c.getContext('2d'), G = msdGeom(W, H), { u, L, R, S, X, Y, PS, PX, PZ, colW, barH } = G;
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  // ---- frames: two panels with elbows, like a working display wall ----
-  const L = { x: 16 * u, y: 16 * u, w: 1290 * u, h: H - 32 * u }, R = { x: 1326 * u, y: 16 * u, w: W - 1342 * u, h: H - 32 * u };
-  const colW = 64 * u, barH = 22 * u;
-  elbow(g, L.x, L.y, colW, barH, 520 * u, 70 * u, true, P.acc); elbow(g, L.x, L.y + L.h, colW, barH, 380 * u, 60 * u, false, P.tan);
-  [[560, 180, P.tan], [752, 90, P.ice], [854, 260, P.butter], [1126, 150, P.acc]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y, w * u, barH); });
-  [[410, 300, P.plum], [722, 140, P.ice], [874, 300, P.acc], [1186, 88, P.butter]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y + L.h - barH, w * u, barH); });
-  { const rr = mulberry(808), top = L.y + barH + 76 * u, bot = L.y + L.h - barH - 66 * u, n = 9, kh = (bot - top - (n - 1) * 6 * u) / n;
-    for (let i = 0; i < n; i++) { g.fillStyle = [P.ice, P.tan, P.butter, P.rose, P.plum, P.acc][(rr() * 6) | 0]; g.fillRect(L.x, top + i * (kh + 6 * u), colW, kh); g.fillStyle = '#000'; g.font = `600 ${13 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 7) + '-' + String(1000 + ((i * 3779) % 8999)), L.x + colW - 4 * u, top + i * (kh + 6 * u) + kh - 3 * u); } }
-  // right panel: elbows on the right-hand side
+  // ---- frames ----
+  elbow(g, L.x, L.y, colW, barH, 300 * u, 60 * u, true, P.butter); elbow(g, L.x, L.y + L.h, colW, barH, 340 * u, 60 * u, false, P.acc);
+  [[310, 150, P.acc], [466, 154, P.tan]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y, w * u, barH); });
+  [[350, 110, P.ice], [466, 154, P.butter]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y + L.h - barH, w * u, barH); });
+  { const rr = mulberry(808), top = L.y + barH + 66 * u, bot = L.y + L.h - barH - 66 * u, n = 8, kh = (bot - top - (n - 1) * 5 * u) / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = [P.ice, P.tan, P.butter, P.rose, P.plum, P.acc][(rr() * 6) | 0]; g.fillRect(L.x, top + i * (kh + 5 * u), colW, kh); g.fillStyle = '#000'; g.font = `600 ${12 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 7) + '-' + String(1000 + ((i * 3779) % 8999)), L.x + colW - 4 * u, top + i * (kh + 5 * u) + kh - 3 * u); } }
+  // the divider between the panels: a column of blocks, like a spine
+  { const x = R.x - 14 * u, top = R.y + 70 * u; [[90, P.plum], [40, P.ice], [210, P.plum], [60, P.butter], [150, P.plum], [80, P.acc]].reduce((y, [h, cc]) => { g.fillStyle = cc; g.fillRect(x, y, 24 * u, h * u); return y + h * u + 5 * u; }, top); }
   g.save(); g.translate(R.x + R.w, 0); g.scale(-1, 1);
-  elbow(g, 0, R.y, colW, barH, 300 * u, 70 * u, true, P.ice); elbow(g, 0, R.y + R.h, colW, barH, 440 * u, 60 * u, false, P.acc);
-  { const rr = mulberry(909), top = R.y + barH + 76 * u, bot = R.y + R.h - barH - 66 * u, n = 8, kh = (bot - top - (n - 1) * 6 * u) / n;
-    for (let i = 0; i < n; i++) { g.fillStyle = [P.tan, P.butter, P.plum, P.acc, P.ice][(rr() * 5) | 0]; g.fillRect(0, top + i * (kh + 6 * u), colW, kh); } }
+  elbow(g, 0, R.y, colW, barH, 560 * u, 60 * u, true, P.butter); elbow(g, 0, R.y + R.h, colW, barH, 420 * u, 60 * u, false, P.butter);
+  { const rr = mulberry(909), top = R.y + barH + 66 * u, bot = R.y + R.h - barH - 66 * u, n = 7, kh = (bot - top - (n - 1) * 5 * u) / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = [P.tan, P.ice, P.plum, P.acc, P.butter][(rr() * 5) | 0]; g.fillRect(0, top + i * (kh + 5 * u), colW, kh); } }
   g.restore();
-  [[0, 180, P.butter], [190, 120, P.tan]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(R.x + x * u, R.y, w * u, barH); });
-  [[0, 160, P.tan], [170, 90, P.plum]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(R.x + x * u, R.y + R.h - barH, w * u, barH); });
+  g.fillStyle = P.butter; g.fillRect(R.x + 30 * u, R.y, R.w - 620 * u, barH); g.fillStyle = P.plum; g.fillRect(R.x + 30 * u, R.y + R.h - barH, 200 * u, barH); g.fillStyle = P.butter; g.fillRect(R.x + 240 * u, R.y + R.h - barH, R.w - 700 * u, barH);
   // ---- side cutaway ----
-  const S = 5.4 * u, X = (m) => L.x + 140 * u + m * S, Y = (m) => L.y + 246 * u + m * S;
-  const p = msdPaths(X, Y), list = [p.spar, p.nac, p.hull, p.bridge, p.arch, p.turret];
-  msdUnion(g, list, '#151014', P.txt, 2.4 * u);
+  const p = msdPaths(X, Y);
+  msdUnion(g, [p.spar, p.nac, p.hull, p.bridge, p.arch, p.turret], '#120d12', P.txt, 2.6 * u);
   const clipDraw = (path, fn) => { g.save(); g.clip(path); fn(); g.restore(); };
-  const KC = { w: P.acc, l: P.ice, s: P.plum, x: P.rose, e: P.butter };
+  const KC = { w: [P.acc, P.butter], l: [P.ice, P.plum], s: [P.plum, P.ice], x: [P.rose, P.plum], e: [P.butter, P.acc] };
   const rooms = () => {
     const rr = mulberry(4242);
+    g.fillStyle = '#1b141b'; g.fillRect(X(-2), Y(-12), 206 * S, 58 * S);
     MSD_ROOMS.forEach(([d, a, b, k]) => {
-      const x0 = X(a) + 1.5 * u, x1 = X(b) - 1.5 * u, y0 = Y((d - 1) * 3.5 + 0.2) + 1, y1 = Y(d * 3.5) - 1;
-      g.fillStyle = KC[k]; g.globalAlpha = k === 'w' ? 0.95 : 0.78; g.fillRect(x0, y0, x1 - x0, y1 - y0); g.globalAlpha = 1;
-      // partitions and doors inside each compartment
-      const n = Math.max(1, Math.round((x1 - x0) / (24 * u))); g.fillStyle = 'rgba(0,0,0,0.55)';
-      for (let i = 1; i < n; i++) g.fillRect(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * (rr() < 0.5 ? 0 : 0.35), 1.6 * u, (y1 - y0) * 0.65);
-      if (y1 - y0 > 10 * u) for (let i = 0; i < n; i++) if (rr() < 0.5) g.fillRect(x0 + (x1 - x0) * (i + 0.3) / n, y0 + (y1 - y0) * 0.25, 4 * u, (y1 - y0) * 0.3);
+      const y0 = Y((d - 1) * 3.5) + 1.6 * u, y1 = Y(d * 3.5) - 1, cells = Math.max(1, Math.round((b - a) * S / (13 * u))), cwid = (b - a) * S / cells;
+      for (let i = 0; i < cells; i++) {
+        const x0 = X(a) + i * cwid + 1, w = cwid - 1.6 * u, [c1, c2] = KC[k];
+        g.fillStyle = rr() < 0.72 ? c1 : c2; g.globalAlpha = k === 'w' ? 0.95 : 0.62 + rr() * 0.3; g.fillRect(x0, y0, w, y1 - y0); g.globalAlpha = 1;
+        if (rr() < 0.55) { g.fillStyle = rr() < 0.5 ? 'rgba(0,0,0,0.45)' : 'rgba(255,240,220,0.35)'; g.fillRect(x0 + w * rr() * 0.5, y0 + (y1 - y0) * (0.35 + rr() * 0.3), w * (0.25 + rr() * 0.35), (y1 - y0) * 0.22); }
+      }
     });
-    // lift shafts, the computer core stack, deck lines
-    g.fillStyle = P.txt; g.fillRect(X(64), Y(0.4), 2.5 * S, Y(21) - Y(0.4)); g.fillRect(X(119), Y(3.5), 2.5 * S, Y(42) - Y(3.5));
-    for (let d = 0; d <= 12; d++) { g.fillStyle = '#000'; g.fillRect(X(0), Y(d * 3.5) - 1, X(200) - X(0), 1.6 * u); }
-    g.fillStyle = P.ice; g.fillRect(X(97), Y(7.2), X(115) - X(97), Y(17.4) - Y(7.2)); g.fillStyle = '#000'; for (let i = 0; i < 6; i++) g.fillRect(X(97), Y(7.6 + i * 1.7), X(115) - X(97), 0.6 * S);
+    for (let d = 0; d <= 12; d++) { g.fillStyle = '#000'; g.fillRect(X(-2), Y(d * 3.5) - 1.2 * u, 206 * S, 2 * u); }
+    for (let m = 10; m < 200; m += 10) { g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(X(m), Y(-12), 1.6 * u, 58 * S); }
+    // structures that run through several decks: lifts, the computer core, the EPS trunk, the torpedo tubes
+    g.fillStyle = P.txt; g.fillRect(X(64), Y(0.4), 2.2 * S, Y(21) - Y(0.4)); g.fillRect(X(119.5), Y(3.5), 2.2 * S, Y(42) - Y(3.5));
+    for (let d = 0; d < 6; d++) { g.fillStyle = '#000'; g.fillRect(X(64), Y(d * 3.5 + 1.7), 2.2 * S, 1.2 * u); }
+    g.fillStyle = P.ice; g.fillRect(X(97), Y(7.2), X(115) - X(97), Y(17.4) - Y(7.2)); g.fillStyle = '#000'; for (let i = 0; i < 6; i++) g.fillRect(X(97), Y(7.6 + i * 1.7), X(115) - X(97), 0.5 * S);
+    g.fillStyle = P.butter; g.fillRect(X(20), Y(19.2), X(143) - X(20), 0.55 * S); g.fillRect(X(110), Y(-3), 0.55 * S, Y(19.2) - Y(-3));
+    g.fillStyle = P.rose; [16.2, 17.6].forEach((yy) => g.fillRect(X(1), Y(yy), X(18) - X(1), 0.7 * S));
+    // shuttles parked in the bay
+    g.fillStyle = P.butter; [158, 169, 180].forEach((m) => { rrect(g, X(m), Y(29), 8 * S, 2.2 * S, 1.4 * u); g.fill(); });
   };
   clipDraw(p.hull, rooms); clipDraw(p.bridge, rooms);
-  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(85), Y(-8), X(136) - X(85), Y(5) - Y(-8)); g.fillStyle = P.rose; for (let i = 0; i < 9; i++) g.fillRect(X(92 + i * 4.3), Y(-7), 2.2 * S, Y(4) - Y(-7)); });
-  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(100), Y(-11), X(120) - X(100), Y(-6) - Y(-11)); g.fillStyle = P.butter; g.fillRect(X(104), Y(-8.6), X(116) - X(104), 0.9 * S); });
-  clipDraw(p.spar, () => { g.fillStyle = P.plum; g.fillRect(X(130), Y(30), X(162) - X(130), Y(39) - Y(30)); });
-  clipDraw(p.nac, () => { g.fillStyle = P.ice; g.fillRect(X(124), Y(36), X(202) - X(124), Y(44) - Y(36)); g.fillStyle = P.plum; g.fillRect(X(124), Y(41), X(202) - X(124), Y(44) - Y(41)); g.fillStyle = P.butter; for (let i = 0; i < 14; i++) g.fillRect(X(138 + i * 4.2), Y(37.8), 2.4 * S, Y(40) - Y(37.8)); g.fillStyle = P.rose; g.fillRect(X(124), Y(36), X(132) - X(124), Y(44) - Y(36)); });
-  // portholes along the primary hull
-  g.fillStyle = P.butter; for (let m = 26; m < 172; m += 4.5) { const yy = m < 60 ? 6.5 - (m - 26) * 0.07 : 4.2 + Math.max(0, m - 150) * 0.12; g.fillRect(X(m), Y(yy + 1.2), 1.4 * S * 0.5, 0.5 * S); }
-  // impulse exhaust and the deflector
+  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(85), Y(-8), 52 * S, 14 * S); g.fillStyle = P.ice; for (let i = 0; i < 12; i++) g.fillRect(X(90 + i * 3.6), Y(-7), 1.8 * S, 12 * S); g.fillStyle = P.butter; g.fillRect(X(85), Y(-3.4), 52 * S, 0.5 * S); });
+  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(100), Y(-11), 20 * S, 5 * S); g.fillStyle = P.butter; g.fillRect(X(103), Y(-8.8), 14 * S, 0.8 * S); g.fillStyle = P.txt; g.fillRect(X(116), Y(-8.2), 4 * S, 0.5 * S); });
+  clipDraw(p.spar, () => { g.fillStyle = P.plum; g.fillRect(X(130), Y(30), 32 * S, 9 * S); g.fillStyle = P.butter; g.fillRect(X(138), Y(33.6), 18 * S, 0.5 * S); });
+  clipDraw(p.nac, () => { g.fillStyle = P.ice; g.fillRect(X(124), Y(36), 78 * S, 8 * S); g.fillStyle = P.plum; g.fillRect(X(124), Y(41.2), 78 * S, 3 * S); g.fillStyle = P.butter; for (let i = 0; i < 16; i++) g.fillRect(X(137 + i * 3.7), Y(37.6), 2 * S, 2.6 * S); g.fillStyle = P.rose; g.fillRect(X(124), Y(36), 8 * S, 8 * S); g.fillStyle = P.txt; g.fillRect(X(134), Y(40.6), 62 * S, 0.4 * S); });
+  g.fillStyle = P.butter; for (let m = 26; m < 172; m += 3.2) { const yy = m < 60 ? 6.6 - (m - 26) * 0.07 : 4.3 + Math.max(0, m - 150) * 0.12; g.fillRect(X(m), Y(yy + 0.9), 0.7 * S, 0.45 * S); }
   g.fillStyle = P.red; g.fillRect(X(196.6), Y(16.5), 2.6 * S, Y(22) - Y(16.5)); g.fillStyle = P.butter; g.beginPath(); g.ellipse(X(9), Y(20.4), 4.5 * S, 1.6 * S, -0.25, 0, 7); g.fill();
-  // callouts: labels above and below, leaders in lilac
-  g.font = `500 ${16 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
-  const callout = (arr, up) => {
-    const rows = up ? [64, 92, 120, 148] : [560, 588, 616, 644], ends = rows.map(() => -1e9);
-    arr.slice().sort((a, b) => a[1] - b[1]).forEach(([t, m, ym]) => {
-      const px = X(m), py = Y(ym), tw = g.measureText(t).width;
-      let r = rows.findIndex((_, k) => px - tw - 22 * u > ends[k]); if (r < 0) r = 0; ends[r] = px + 8 * u;
-      const ly = L.y + rows[r] * u;
-      g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px - tw - 14 * u, ly); g.lineTo(px, ly); g.lineTo(px, py); g.stroke();
-      g.fillStyle = '#000'; g.fillRect(px - tw - 14 * u, ly - 10 * u, tw + 8 * u, 20 * u);
-      g.fillStyle = P.butter; g.beginPath(); g.arc(px, py, 3.4 * u, 0, 7); g.fill();
-      g.fillStyle = P.tan; g.textAlign = 'right'; g.fillText(t, px - 10 * u, ly + 1);
+  // ---- stacked callout lists at the cutaway's four corners ----
+  const fs = 14 * u, lh = 19 * u; g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'middle';
+  const list = (items, x0, y0, side, vert, order) => {
+    const it = items.slice().sort((a, b) => order * (a[1] - b[1]));
+    it.forEach(([t, m, ym], i) => {
+      const ly = y0 + i * lh, px = X(m), py = Y(ym), tw = g.measureText(t).width, ex = side < 0 ? x0 + tw + 12 * u : x0 - tw - 12 * u;
+      g.strokeStyle = P.ice; g.lineWidth = 1.8 * u; g.beginPath(); g.moveTo(ex, ly); g.lineTo(px, ly); g.lineTo(px, py); g.stroke();
+      g.fillStyle = P.butter; g.beginPath(); g.arc(px, py, 3 * u, 0, 7); g.fill();
+      labels.push([t, x0, ly, side, tw]);
     });
   };
-  callout(MSD_TOP, true); callout(MSD_BOT, false);
-  // deck numbers down the bow side
-  g.font = `600 ${13 * u | 0}px ${DISP}`; g.textAlign = 'right'; for (let d = 1; d <= 12; d++) { g.fillStyle = d <= 2 ? P.acc : P.dim; g.fillText('D' + d, X(-4), Y((d - 0.5) * 3.5)); }
-  // ---- right panel: title, plan view, deck index, readouts ----
-  const rx = R.x + 8 * u, rw = R.w - colW - 24 * u;
-  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${58 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 18 * u, R.y + barH + 62 * u);
-  g.fillStyle = P.tan; g.font = `500 ${20 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 18 * u, R.y + barH + 92 * u);
-  const PS = 2.25 * u, PX = (m) => rx + 70 * u + m * PS, PZ = (m) => R.y + 340 * u + m * PS, pl = msdPlan(PX, PZ);
-  // warp field geometry round the nacelles
-  g.strokeStyle = P.plum; g.lineWidth = 2 * u; [1, 1.18].forEach((k) => { [-1, 1].forEach((sd) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 44 * k * PS, 14 * k * PS, 0, 0, 7); g.stroke(); }); });
-  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#151014', P.txt, 2.2 * u);
-  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-50), 200 * PS, 100 * PS);
-  { const rr = mulberry(77); for (let i = 0; i < 70; i++) { const a = rr() * 190, z = (rr() - 0.5) * 90; g.fillStyle = [P.ice, P.tan, P.plum, P.rose][(rr() * 4) | 0]; g.fillRect(PX(a), PZ(z), (3 + rr() * 8) * PS, (2 + rr() * 6) * PS); } }
-  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 15 * PS, 8 * PS, 0, 0, 7); g.fill(); g.restore();
+  const labels = []; // leaders first, then every label on a black knockout so no line runs through text
+  list(MSD_LISTS.tl, R.x + 52 * u, R.y + 50 * u, -1, 1, -1);
+  list(MSD_LISTS.tr, R.x + R.w - colW - 22 * u, R.y + 112 * u, 1, 1, 1);
+  list(MSD_LISTS.bl, R.x + 52 * u, R.y + 560 * u, -1, -1, 1);
+  list(MSD_LISTS.br, R.x + R.w - colW - 22 * u, R.y + 560 * u, 1, -1, -1);
+  labels.forEach(([t, x0, ly, side, tw]) => {
+    const bx = side < 0 ? x0 - 12 * u : x0 - tw - 8 * u;
+    g.fillStyle = '#000'; g.fillRect(bx, ly - lh * 0.46, tw + 22 * u, lh * 0.92);
+    g.fillStyle = P.butter; g.fillRect(side < 0 ? x0 - 10 * u : x0 + 3 * u, ly - 3.5 * u, 7 * u, 7 * u);
+    g.fillStyle = P.tan; g.textAlign = side < 0 ? 'left' : 'right'; g.fillText(t, side < 0 ? x0 + 2 * u : x0 - 3 * u, ly + 1);
+  });
+  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${54 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 22 * u, R.y + barH + 56 * u);
+  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
+  hexTab(g, R.x + R.w - colW - 300 * u, R.y + R.h - barH - 34 * u, 280 * u, 24 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = '#000'; g.font = `600 ${16 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('INTERIOR SYSTEMS OVERVIEW', R.x + R.w - colW - 160 * u, R.y + R.h - barH - 16 * u);
+  // ---- left panel: plan view, and the warp field geometry inset ----
+  const pl = msdPlan(PX, PZ);
+  g.strokeStyle = P.plum; g.lineWidth = 1.8 * u; [1, 1.25, 1.5].forEach((k) => [-1, 1].forEach((sd) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 42 * k * PS, 13 * k * PS, 0, 0, 7); g.stroke(); }));
+  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#120d12', P.txt, 2.2 * u);
+  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-52), 200 * PS, 104 * PS);
+  { const rr = mulberry(77); for (let i = 0; i < 140; i++) { const a = rr() * 192, z = (rr() - 0.5) * 92; g.fillStyle = [P.ice, P.tan, P.plum, P.rose, P.ice][(rr() * 5) | 0]; g.fillRect(PX(a), PZ(z), (2 + rr() * 8) * PS, (1.5 + rr() * 5) * PS); } }
+  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
   pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); g.fillStyle = P.butter; for (let i = 0; i < 12; i++) g.fillRect(PX(140 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); g.restore(); });
   pl.spars.forEach((s2) => { g.save(); g.clip(s2); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
-  // deck index and readouts under the plan
-  const dy = R.y + R.h - barH - 214 * u; g.font = `600 ${15 * u | 0}px ${DISP}`;
-  for (let d = 1; d <= 12; d++) { const cx = rx + ((d - 1) % 6) * (rw / 6), cy = dy + Math.floor((d - 1) / 6) * 34 * u, w = rw / 6 - 8 * u; hexTab(g, cx, cy, w, 26 * u, true, true); g.fillStyle = d <= 2 ? P.acc : d === 7 ? P.rose : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('DECK ' + d, cx + w / 2, cy + 14 * u); }
+  const iy = L.y + 486 * u;
+  g.fillStyle = P.acc; g.font = `600 ${22 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText('WARP FIELD GEOMETRY', L.x + L.w - 10 * u, iy);
+  hexTab(g, L.x + colW + 24 * u, iy - 10 * u, 150 * u, 20 * u, true, false); g.fillStyle = P.tan; g.fill(); g.fillStyle = P.ice; g.fillRect(L.x + colW + 180 * u, iy - 10 * u, 90 * u, 20 * u);
+  // side view of a nacelle with its field lobes
+  const fx = L.x + colW + 40 * u, fy = iy + 95 * u;
+  g.strokeStyle = P.plum; g.lineWidth = 1.8 * u; [1, 0.78, 0.56, 0.36].forEach((k) => { g.beginPath(); g.ellipse(fx + 140 * u, fy, 140 * u * (0.6 + k * 0.4), 60 * u * k, 0, 0, 7); g.stroke(); });
+  hexTab(g, fx + 30 * u, fy - 8 * u, 220 * u, 16 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = P.butter; for (let i = 0; i < 12; i++) g.fillRect(fx + 70 * u + i * 13 * u, fy - 6 * u, 6 * u, 12 * u);
   return c;
 }
 function drawMSD(s) {
-  const g = s.g, W = s.w, H = s.h, P = pal(), u = W / 2048;
+  const g = s.g, W = s.w, H = s.h, P = pal(), G = msdGeom(W, H), { u, L, R, S, X, Y, PS, PX, PZ, colW, barH } = G;
   const key = state.alert + '|' + ZONES.map((z) => zoneStatus(z.id)).join('');
   if (MSD.key !== key || !MSD.base || MSD.base.width !== W) { MSD.key = key; MSD.base = msdBase(W, H, P); }
   g.drawImage(MSD.base, 0, 0);
-  const L = { x: 16 * u, y: 16 * u, h: H - 32 * u }, R = { x: 1326 * u, y: 16 * u, w: W - 1342 * u, h: H - 32 * u }, colW = 64 * u, barH = 22 * u;
-  const S = 5.4 * u, X = (m) => L.x + 140 * u + m * S, Y = (m) => L.y + 246 * u + m * S, warp = smooth(30, 300, cur.speed);
-  // warp core: pulses, faster at warp
-  const k = 0.55 + 0.45 * Math.sin(elapsed * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143), Y(17.6), 6 * S, Y(38) - Y(17.6)); g.globalAlpha = 1;
-  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.6 + ((elapsed * (1.2 + warp * 5) + i * 4.1) % 20.4); g.fillRect(X(143), Y(yy), 6 * S, 0.5 * S); }
-  // damage: tint the affected section of the cutaway
+  const t = elapsed, warp = smooth(30, 300, cur.speed);
+  // warp core pulses; plasma rises through it
+  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143), Y(17.6), 6 * S, Y(38) - Y(17.6)); g.globalAlpha = 1;
+  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.6 + ((t * (1.2 + warp * 5) + i * 4.1) % 20.4); g.fillRect(X(143), Y(yy), 6 * S, 0.5 * S); }
+  // power running forward along the EPS trunk and up into the turret
+  g.fillStyle = P.txt; for (let i = 0; i < 9; i++) { const f = ((t * 0.18 + i / 9) % 1); g.fillRect(X(143 - f * 123), Y(19.1), 2.2 * S, 0.75 * S); }
+  for (let i = 0; i < 3; i++) { const f = ((t * 0.3 + i / 3) % 1); g.fillRect(X(109.8), Y(19.2 - f * 22), 0.75 * S, 1.4 * S); }
+  // nacelle coils fire in sequence
+  for (let i = 0; i < 16; i++) { if (((t * (4 + warp * 10) - i) % 16 + 16) % 16 < 2) { g.fillStyle = P.txt; g.fillRect(X(137 + i * 3.7), Y(37.6), 2 * S, 2.6 * S); } }
+  // damage tints, and a scan bar crossing the cutaway
   const ZR = { prow: [0, 9, 26, 24], dorsal: [86, -11, 134, 5], ventral: [50, 25, 150, 35], engines: [124, 13, 200, 33] };
-  Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(elapsed * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
+  Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
   ['portNac', 'stbdNac'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.35; g.fillRect(X(126), Y(36.5 + i * 3.3), X(200) - X(126), 3 * S); g.globalAlpha = 1; });
-  // a slow scan bar crossing the cutaway
-  const sx = X(((elapsed * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.35; g.fillRect(sx, Y(-11), 5 * u, Y(44) - Y(-11)); g.globalAlpha = 1;
-  // plan view: live shield arcs (bow to the left: forward arc on the left)
-  const rx = R.x + 8 * u, rw = R.w - colW - 24 * u, PS = 2.25 * u, PX = (m) => rx + 70 * u + m * PS, PZ = (m) => R.y + 340 * u + m * PS, up = sim.shields.up > 0.01;
-  const arcs = [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]];
-  arcs.forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 12 : 7) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 116 * PS, 88 * PS, 0, a0 + 0.07, a1 - 0.07); g.stroke(); });
+  const sx = X(((t * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.3; g.fillRect(sx, Y(-11), 4 * u, Y(44) - Y(-11)); g.globalAlpha = 1;
+  // plan view: live shield arcs
+  const up = sim.shields.up > 0.01;
+  [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]].forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 11 : 6) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 106 * PS, 86 * PS, 0, a0 + 0.07, a1 - 0.07); g.stroke(); });
   ['port', 'stbd'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.4; g.fillRect(PX(40), PZ(i ? 8 : -46), 100 * PS, 38 * PS); g.globalAlpha = 1; });
-  // readouts and a bank of buttons along the bottom of the right panel
-  const by = R.y + R.h - barH - 136 * u;
-  table(g, { x: rx, y: by, w: rw * 0.46, h: 110 * u }, [['HULL', Math.round(hullIntegrity()) + '%', hullIntegrity() < 50 ? P.red : hullIntegrity() < 90 ? P.yel : P.txt], ['SPEED', SPEEDS[state.speed].screen], ['CONDITION', ALERTS[state.alert].short, P.acc], ['REACTOR', Math.round(reactorOut()) + ' U']], P);
-  numGrid(g, { x: rx + rw * 0.5, y: by, w: rw * 0.5, h: 110 * u }, 61, P);
-  pillBank(g, { x: L.x + colW + 30 * u, y: L.y + 676 * u, w: 520 * u, h: 52 * u }, 71, P, 7);
-  numGrid(g, { x: L.x + 640 * u, y: L.y + 672 * u, w: 620 * u, h: 62 * u }, 83, P);
+  // warp field geometry: readouts and moving numbers
+  const iy = L.y + 486 * u, fx = L.x + colW + 40 * u;
+  numGrid(g, { x: L.x + colW + 330 * u, y: iy + 24 * u, w: L.w - colW - 340 * u, h: 150 * u }, 61, P);
+  table(g, { x: L.x + colW + 24 * u, y: iy + 168 * u, w: L.w - colW - 34 * u, h: 96 * u }, [['FIELD', warp > 0.5 ? 'WARP 6 · STABLE' : 'IDLE', warp > 0.5 ? P.acc : P.tan], ['COILS P/S', Math.round(sim.zones.portNac) + ' / ' + Math.round(sim.zones.stbdNac) + '%'], ['REACTOR', Math.round(reactorOut()) + ' U · ' + ALERTS[state.alert].short]], P);
+  { const ph = t * (1 + warp * 4); g.fillStyle = P.butter; g.globalAlpha = 0.6; for (let i = 0; i < 3; i++) { const kk = ((ph * 0.3 + i / 3) % 1); g.fillRect(fx + 140 * u - 140 * u * kk, iy + 95 * u - 2 * u, 4 * u, 4 * u); g.fillRect(fx + 140 * u + 140 * u * kk, iy + 95 * u - 2 * u, 4 * u, 4 * u); } g.globalAlpha = 1; }
+  // number table in the bottom middle, like a legend
+  numGrid(g, { x: R.x + 462 * u, y: R.y + 616 * u, w: 236 * u, h: 140 * u }, 83, P);
+  pillBank(g, { x: L.x + colW + 24 * u, y: L.y + 30 * u, w: 230 * u, h: 22 * u }, 71, P, 5);
+}
+
+// ---------- the situation table (aft of the command dais), read from the forward side ----------
+// Live sector chart, ship plan with power flowing through it, shield arcs, power, damage, contacts and a lot of chrome.
+function drawTable(s) {
+  const g = s.g, W = s.w, H = s.h, P = pal(), u = W / 2048, t = elapsed;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  // frame: elbows in all four corners, segmented bars along top and bottom
+  const cw = 70 * u, bh = 22 * u, m = 14 * u;
+  elbow(g, m, m, cw, bh, 640 * u, 60 * u, true, P.acc); elbow(g, m, H - m, cw, bh, 520 * u, 60 * u, false, P.tan);
+  g.save(); g.translate(W, 0); g.scale(-1, 1); elbow(g, m, m, cw, bh, 380 * u, 60 * u, true, P.ice); elbow(g, m, H - m, cw, bh, 460 * u, 60 * u, false, P.acc); g.restore();
+  const segs = (y, x0, x1, seed) => { const rr = mulberry(seed); let x = x0; while (x < x1 - 10 * u) { const w = Math.min(x1 - x, (40 + rr() * 150) * u), c = [P.tan, P.butter, P.plum, P.ice, P.acc][(rr() * 5) | 0]; g.fillStyle = c; g.fillRect(x, y, w, bh); if (w > 80 * u) { g.fillStyle = '#000'; g.font = `600 ${bh * 0.8 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(100 + ((x * 7) | 0) % 899), x + w - 5 * u, y + bh / 2 + 1); } x += w + 6 * u; } };
+  segs(m, 1380 * u, W - 400 * u, 5); segs(H - m - bh, 545 * u, W - 480 * u, 9);
+  g.fillStyle = P.acc; g.font = `600 ${40 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('SITUATION TABLE · USS DEFIANCE', 670 * u, 6 * u);
+  // side columns of numbered blocks
+  [[m, 9, 1], [W - m - cw, 8, 2]].forEach(([x, n, sd]) => { const rr = mulberry(sd * 77), top = m + bh + 70 * u, bot = H - m - bh - 70 * u, kh = (bot - top - (n - 1) * 6 * u) / n; for (let i = 0; i < n; i++) { const on = Math.sin(t * (0.4 + rr()) + i * 1.7 + sd) > -0.8; g.fillStyle = on ? [P.ice, P.tan, P.butter, P.plum, P.rose][(rr() * 5) | 0] : P.line; g.fillRect(x, top + i * (kh + 6 * u), cw, kh); g.fillStyle = '#000'; g.font = `600 ${14 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 9 + sd) + '-' + String(1000 + ((i * 2971 + sd * 13) % 8999)), x + cw - 5 * u, top + i * (kh + 6 * u) + kh - 3 * u); } });
+  const X0 = 110 * u, X1 = W - 110 * u, Y0 = 70 * u, Y1 = H - 66 * u;
+  // ---- left column: sector chart, course, button bank ----
+  const lc = { x: X0, y: Y0, w: 440 * u, h: Y1 - Y0 };
+  const sys = SYSTEMS[state.holo], sc = sub(g, { x: lc.x, y: lc.y, w: lc.w, h: 390 * u }, 'SECTOR · ' + sys.star.toUpperCase(), P.acc, P);
+  { const cx = sc.x + sc.w / 2, cy = sc.y + sc.h / 2, R = Math.min(sc.w, sc.h) / 2 * 0.96;
+    for (let k = 0; k < sys.planets; k++) { const rad = R * (0.24 + k * 0.72 / sys.planets); g.strokeStyle = k === sys.featured ? P.plum : P.line; g.lineWidth = (k === sys.featured ? 7 : 4) * u; g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.stroke(); const a = t * 0.5 / (k + 1.3) + k * 1.9 + state.holo; g.fillStyle = k === sys.featured ? P.butter : P.ice; const ps = (k === sys.featured ? 12 : 8) * u; rrect(g, cx + Math.cos(a) * rad - ps, cy + Math.sin(a) * rad - ps, ps * 2, ps * 2, ps * 0.4); g.fill(); if (k === sys.featured) { g.fillStyle = P.txt; g.font = `500 ${15 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(sys.planet.toUpperCase(), cx + Math.cos(a) * rad + 16 * u, cy + Math.sin(a) * rad); } }
+    g.fillStyle = P.butter; g.beginPath(); g.arc(cx, cy, 16 * u * (1 + 0.06 * Math.sin(t * 3)), 0, 7); g.fill(); g.fillStyle = P.acc; g.beginPath(); g.arc(cx, cy, 9 * u, 0, 7); g.fill();
+    if (state.holoOn) { const sw = t * 0.7; g.fillStyle = P.ice; g.globalAlpha = 0.18; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, sw - 0.35, sw); g.closePath(); g.fill(); g.globalAlpha = 1; }
+    if (state.holo === state.cur) { const a = t * 0.12 + 1, rad = R * (0.24 + sys.featured * 0.72 / sys.planets) + 22 * u; g.fillStyle = P.acc; g.save(); g.translate(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); g.rotate(a + Math.PI / 2); g.beginPath(); g.moveTo(0, -11 * u); g.lineTo(8 * u, 9 * u); g.lineTo(-8 * u, 9 * u); g.closePath(); g.fill(); g.restore(); }
+    g.fillStyle = P.tan; g.font = `500 ${14 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(sys.cls.toUpperCase(), sc.x, sc.y + sc.h - 16 * u); }
+  table(g, sub(g, { x: lc.x, y: lc.y + 405 * u, w: lc.w, h: 170 * u }, 'COURSE', P.ice, P), [['POSITION', sysCur().star.toUpperCase()], ['DESTINATION', sysDest().star.toUpperCase(), P.acc], ['HEADING', sysDest().heading.toUpperCase()], ['SPEED', SPEEDS[state.speed].screen]], P);
+  pillBank(g, { x: lc.x, y: lc.y + 600 * u, w: lc.w, h: Y1 - Y0 - 600 * u }, 301, P, 4);
+  // ---- right column: power, damage, contacts ----
+  const rc = { x: X1 - 440 * u, y: Y0, w: 440 * u };
+  const A = sim.alloc, kR = reactorOut() / SIM.reactor;
+  bars(g, sub(g, { x: rc.x, y: rc.y, w: rc.w, h: 210 * u }, 'POWER · ' + sim.preset.toUpperCase(), P.acc, P), [['WEAPONS', A.weapons * kR / 100, P.acc], ['SHIELDS', A.shields * kR / 100, P.acc], ['ENGINES', A.engines * kR / 100, P.ice], ['SENSORS', A.sensors * kR / 100, P.ice]], P);
+  zonesW(g, sub(g, { x: rc.x, y: rc.y + 225 * u, w: rc.w, h: 200 * u }, 'DAMAGE ZONES', P.acc, P), P);
+  { const pr = sub(g, { x: rc.x, y: rc.y + 440 * u, w: rc.w, h: Y1 - Y0 - 440 * u }, 'CONTACTS', P.ice, P), [pa, pb] = split(pr, [0.9, 1.1], false, 12 * u);
+    plotW(g, pa, P); table(g, pb, CONVOY.map(([n, d]) => [n, d.replace(' AFT', ''), P.ice]).concat([['TRACK 0417', state.alert !== 'green' ? 'UNKNOWN' : 'BEACON', state.alert !== 'green' ? P.acc : P.tan]]), P); }
+  // ---- centre: the ship in plan, with power running through it ----
+  const cx0 = X0 + 470 * u, cx1 = X1 - 470 * u, cwid = cx1 - cx0, PS = cwid / 300, PX = (mm) => cx0 + 70 * u + mm * PS, PZ = (mm) => Y0 + 330 * u + mm * PS, pl = msdPlan(PX, PZ);
+  sub(g, { x: cx0, y: Y0, w: cwid, h: 150 * u }, 'SHIP SYSTEMS · PLAN', P.acc, P);
+  g.strokeStyle = P.plum; g.lineWidth = 3 * u; [-1, 1].forEach((sd) => [1, 1.2].forEach((k) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 42 * k * PS, 12 * k * PS, 0, 0, 7); g.stroke(); }));
+  const arcs = [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]], up = sim.shields.up > 0.01;
+  arcs.forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 16 : 9) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 112 * PS, 86 * PS, 0, a0 + 0.06, a1 - 0.06); g.stroke(); });
+  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#151014', P.txt, 2.4 * u);
+  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-52), 200 * PS, 104 * PS);
+  { const rr = mulberry(1212); for (let i = 0; i < 160; i++) { const a = rr() * 192, z = (rr() - 0.5) * 92; g.fillStyle = [P.ice, P.tan, P.plum, P.rose, P.ice][(rr() * 5) | 0]; g.globalAlpha = 0.85; g.fillRect(PX(a), PZ(z), (2 + rr() * 9) * PS, (1.5 + rr() * 5) * PS); } g.globalAlpha = 1; }
+  for (let d = 0; d < 6; d++) { g.strokeStyle = '#000'; g.lineWidth = 2 * u; g.beginPath(); g.ellipse(PX(66), PZ(0), (14 + d * 11) * PS, (9 + d * 7.5) * PS, 0, 0, 7); g.stroke(); }
+  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
+  pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); for (let i = 0; i < 13; i++) { const on = ((t * 6 - i) % 13 + 13) % 13 < 3; g.fillStyle = on ? P.txt : P.butter; g.fillRect(PX(138 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); } g.restore(); });
+  pl.spars.forEach((sp) => { g.save(); g.clip(sp); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
+  // power conduits: blocks running from the core to the nacelles, the turret and the shield generators
+  const core = [146, 0], routes = [[[146, 0], [150, -20], [164, -66]], [[146, 0], [150, 20], [164, 66]], [[146, 0], [110, 0], [64, 0]], [[146, 0], [140, -26]], [[146, 0], [140, 26]]];
+  routes.forEach((rt, ri) => { for (let i = 0; i + 1 < rt.length; i++) { const [a, b] = [rt[i], rt[i + 1]], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(2, Math.round(L2 / 3)); for (let k = 0; k < n; k++) { const f = ((k / n) + t * (0.35 + ri * 0.04)) % 1, x = a[0] + (b[0] - a[0]) * f, z = a[1] + (b[1] - a[1]) * f, on = ((k + Math.floor(t * 9)) % 4) === 0; g.fillStyle = on ? P.txt : ri < 2 ? P.butter : ri === 2 ? P.acc : P.ice; rrect(g, PX(x) - 3.2 * u, PZ(z) - 3.2 * u, 6.4 * u, 6.4 * u, 1.5 * u); g.fill(); } } });
+  { const k = 0.6 + 0.4 * Math.sin(t * (2 + smooth(30, 300, cur.speed) * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + 0.5 * k; g.beginPath(); g.arc(PX(core[0]), PZ(core[1]), 11 * u, 0, 7); g.fill(); g.globalAlpha = 1; }
+  // zone damage over the plan
+  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [60, -18, 80, 36], port: [30, -48, 110, 22], stbd: [30, 26, 110, 22], engines: [150, -16, 50, 32], portNac: [124, -76, 76, 12], stbdNac: [124, 64, 76, 12] };
+  Object.entries(ZP).forEach(([id, [a, z, w, d]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.3 + 0.2 * Math.sin(t * 5); g.fillRect(PX(a), PZ(z), w * PS, d * PS); g.globalAlpha = 1; });
+  // callouts round the plan
+  g.font = `500 ${15 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
+  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -70, -1, 0], ['STBD NACELLE', 186, 70, 1, 0], ['DORSAL TURRET', 110, -6, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
+  // under the plan: deck status, numbers, a trace and buttons
+  const by = PZ(0) + 270 * u, bw = cwid;
+  for (let d = 1; d <= 12; d++) { const x = cx0 + (d - 1) * bw / 12, w = bw / 12 - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === 12); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
+  const lo = { x: cx0, y: by + 40 * u, w: cwid, h: Y1 - by - 40 * u }, [l1, l2, l3] = split(lo, [1, 1.1, 1], false, 16 * u);
+  numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }
 function drawScreen(s) {
+  { const per = 6 + hash1(s.seed) * 10, ph = (elapsed + hash1(s.seed + 2) * per) % per; BURST = ph < 0.9 ? Math.sin(ph / 0.9 * Math.PI) : 0; }
   if (s.kind === 'strip') drawStrip(s);
   else if (s.kind === 'msd') drawMSD(s);
+  else if (s.kind === 'table') drawTable(s);
   else if (s.kind === 'cmd') drawCmd(s);
   else if (s.kind === 'keys') drawKeys(s);
   else if (s.kind === 'band') drawBand(s);
@@ -3667,7 +3840,7 @@ function drawScreen(s) {
     if (avail > 14) {
       const n = clamp(Math.round(avail / Math.max(22, H * 0.075)), 1, 10), kh = (avail - (n - 1) * gap) / n, r = mulberry(s.seed), cols = [P.ice, P.tan, P.butter, P.rose, P.tan, P.plum];
       for (let i = 0; i < n; i++) {
-        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8) + r() * 9) > 0.95, num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71) % 8999));
+        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8 + BURST * 6) + r() * 9) > 0.95 - BURST * 0.3, tk = Math.floor(elapsed * (0.1 + r() * 0.4) + i), num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71 + tk * 389) % 8999));
         g.fillStyle = blink ? P.txt : c; g.fillRect(pad, cy0 + i * (kh + gap), colW, kh);
         if (kh > 12) { g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'bottom'; fitFont(g, num, 600, Math.min(kh * 0.36, colW * 0.24), DISP, colW - 6); g.fillText(num, pad + colW - 4, cy0 + i * (kh + gap) + kh - 2); }
       }
@@ -4124,11 +4297,11 @@ function aim() {
 
 ````javascript
 // USS Defiance · render.js
-// Atmosphere (shadows, light shafts, dust), post-processing, hero shots and the frame loop.
+// Atmosphere (shadows, light shafts), post-processing, hero shots and the frame loop.
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
-// ---------- atmosphere: shadow flags, light shafts, dust ----------
+// ---------- atmosphere: shadow flags, light shafts ----------
 scene.traverse((o) => {
   if (!o.isMesh || o.layers.mask !== 1 || o.visible === false) return;
   const m = o.material, basic = Array.isArray(m) ? false : (m.isMeshBasicMaterial || m.transparent);
@@ -4156,25 +4329,7 @@ const shafts = [];
 });
 shafts.push(mesh(new THREE.CylinderGeometry(1.35, 1.9, WALL_H - 0.02, 40, 1, true), shaftMat.clone(), COFFER.x, (WALL_H - 0.02) / 2, COFFER.z));
 shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
-const N_DUST = isMobile ? 220 : 420;
-const dustPos = new Float32Array(N_DUST * 3), dustSeed = new Float32Array(N_DUST * 4);
-{
-  const r = mulberry(77);
-  for (let i = 0; i < N_DUST; i++) { dustSeed.set([(r() - 0.5) * 9, 0.3 + r() * 2.8, (r() - 0.5) * 9, r() * 6.28], i * 4); }
-  const dc = cnv(32, 32), dg = dc.getContext('2d'), gr = dg.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,240,220,1)'); gr.addColorStop(1, 'rgba(255,240,220,0)'); dg.fillStyle = gr; dg.fillRect(0, 0, 32, 32);
-  var dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-  var dust = add(new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.014, map: tex(dc), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
-  dust.frustumCulled = false;
-}
-function updateDust(t) {
-  for (let i = 0; i < N_DUST; i++) {
-    const o = i * 4, ph = dustSeed[o + 3];
-    dustPos[i * 3] = dustSeed[o] + Math.sin(t * 0.05 + ph) * 0.4;
-    dustPos[i * 3 + 1] = 0.3 + ((dustSeed[o + 1] + t * 0.03 + Math.sin(t * 0.2 + ph) * 0.05) % 2.9);
-    dustPos[i * 3 + 2] = dustSeed[o + 2] + Math.cos(t * 0.04 + ph) * 0.4;
-  }
-  dustGeo.attributes.position.needsUpdate = true;
-}
+// (no floating dust motes: they read as glowing specks; the light shafts stay)
 
 // ---------- bloom (falls back to a plain render if the effect scripts are missing) ----------
 let composer = null, bloom = null;
@@ -4238,6 +4393,7 @@ function resize() {
 window.addEventListener('resize', resize); resize();
 
 const clock = { last: performance.now(), getDelta() { const n = performance.now(), d = (n - this.last) / 1000; this.last = n; return d; } };
+const _scrPM = new THREE.Matrix4(), _scrFr = new THREE.Frustum();
 let wasWarp = false, rr = 0, rrTimer = 0, panelTimer = 0, ovTimer = 0, bobT = 0, bobAmp = 0;
 const standV = new THREE.Vector3();
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
@@ -4250,6 +4406,7 @@ function frame() {
   if (state.open) { livePanelT += dt; if (livePanelT > 0.25) { livePanelT = 0; renderPanel(); } }
 
   liftUpdate(dt);
+  chairsUpdate(dt);
   if (!state.sitting) {
     let f = 0, s = 0;
     if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
@@ -4321,8 +4478,7 @@ function frame() {
     if (state.scanT > 2.6) { state.scanning = false; state.scanned = true; scanRing.material.opacity = 0; planetMat.uniforms.scan.value = 0; toast(`Scan complete on ${sysCur().planet}.`, 'Science'); beep([2093, 1568], 0.08, 0.035); renderPanel(); redrawAll(); }
   }
 
-  holo.visible = state.holoOn; holoBeam.visible = state.holoOn;
-  if (state.holoOn) {
+  if (false) { // the hologram over the old situation table is retired
     holo.rotation.y += dt * (reduceMotion ? 0.05 : 0.22);
     holoPlanets.forEach((p) => { p.a += dt * p.w; p.m.position.set(Math.cos(p.a) * p.r, 0, Math.sin(p.a) * p.r); });
     holoBeam.material.opacity = 0.05 + Math.sin(elapsed * 2) * 0.015;
@@ -4366,15 +4522,24 @@ function frame() {
 
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }
 
-  rrTimer += dt;
-  if (rrTimer > 0.04) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72 && shown(sc.mesh)) { drawScreen(sc); break; } } }
+  // screens: every frame, redraw a few of the visible ones, the nearest and longest-waiting first, so they all keep moving
+  { _scrPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _scrFr.setFromProjectionMatrix(_scrPM);
+    const budget = isMobile ? 2 : 4, pick = [];
+    for (const sc of screens) {
+      if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); }
+      const d2 = sc.wp.distanceToSquared(camera.position); if (d2 > 110) continue;
+      const big = sc.w * sc.h > 900000, age = elapsed - (sc.last || -9); if (age < (big ? 1 / 12 : 1 / 30)) continue;
+      if (!shown(sc.mesh)) continue;
+      const score = age * (_scrFr.containsPoint(sc.wp) ? 4 : 0.25) / (0.6 + Math.sqrt(d2)) * (big ? 0.7 : 1);
+      if (pick.length < budget) pick.push([score, sc]); else { let lo = 0; for (let k = 1; k < pick.length; k++) if (pick[k][0] < pick[lo][0]) lo = k; if (score > pick[lo][0]) pick[lo] = [score, sc]; }
+    }
+    pick.forEach(([, sc]) => { drawScreen(sc); sc.last = elapsed; }); }
   if (state.open && byStation[state.open]) { panelTimer += dt; if (panelTimer > 0.15) { panelTimer = 0; byStation[state.open].forEach((s) => { if (s.kind !== 'keys') drawScreen(s); }); } }
   ovTimer += dt; if (ovTimer > 1) { ovTimer = 0; drawOverlay(); }
 
   aimTimer += dt; if (aimTimer > 0.12) { aimTimer = 0; aim(); }
 
   scene.fog = null; renderer.setRenderTarget(rt); if (LIFT.deck === 1) renderer.render(scene, vcam);
-  updateDust(elapsed);
   { const sk = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1) * (1 + Math.sin(elapsed * 0.7) * 0.15); shaftMat.uniforms.k.value = 0.06 * sk; shafts[shafts.length - 1].material.uniforms.k.value = 0.035 * sk; }
   scene.fog = FOG; renderer.setRenderTarget(null);
   if (composer) composer.render(); else renderer.render(scene, camera);

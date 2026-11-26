@@ -58,12 +58,7 @@ function d2panel(x, z, H, w, d) {
 }
 // simple furniture pieces
 function d2chair(x, z, rot, mat) {
-  const g = group(x, 0, z, rot, DECK2);
-  mesh(RBOX(0.48, 0.08, 0.46, 0.03), mat || MAT.leather, 0, 0.47, 0, g);
-  mesh(RBOX(0.46, 0.5, 0.07, 0.03), mat || MAT.leather, 0, 0.78, 0.2, g);
-  mesh(CYL(0.025, 0.03, 0.44, 10), MAT.steel, 0, 0.22, 0, g);
-  mesh(CYL(0.2, 0.22, 0.03, 20), MAT.steel, 0, 0.015, 0, g);
-  return g;
+  const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
 }
 function d2label(text, x, y, z, rot, w) {
   const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);

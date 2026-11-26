@@ -34,7 +34,11 @@ function sub(g, r, title, color, P) {
   hexTab(g, r.x, r.y, tw, th, true, false); g.fillStyle = c1; g.fill();
   g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(title, r.x + tw - th * 0.3, r.y + th / 2 + 1);
   const bx = r.x + tw + th * 0.25, bw = Math.max(0, r.w - tw - th * 0.25);
-  if (bw > th) { g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill(); }
+  if (bw > th) {
+    g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill();
+    const hs = hash1(r.x * 0.37 + r.y * 0.11 + title.length), span = bw - th * 0.55 - th, px = bx + ((elapsed * (40 + hs * 90) + hs * 999) % Math.max(1, span));
+    g.fillStyle = P.butter; g.fillRect(px, r.y + th * 0.3, th * (0.6 + hs), th * 0.4);
+  }
   return { x: r.x, y: r.y + th * 1.4, w: r.w, h: r.h - th * 1.4 };
 }
 // readout rows: a coloured key block, a tan label and a cream value
@@ -62,10 +66,10 @@ function bars(g, r, rows, P) {
 // status: a pill per system, filled with its state, label inside
 function lights(g, r, rows, P, cols) {
   cols = cols || 1; const per = Math.ceil(rows.length / cols), cw = r.w / cols, rh = Math.min(r.h / per, 34), fs = clamp(rh * 0.5, 8, 15);
-  const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: Math.sin(elapsed * 6) > 0 ? P.yel : P.line };
+  const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: P.yel };
   rows.forEach(([k, st, v], i) => {
     const cx = r.x + Math.floor(i / per) * cw, cy = r.y + (i % per) * rh, ph = rh * 0.74, pw = cw - 8 - (v ? cw * 0.28 : 0);
-    hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = C[st] || P.dim; g.fill();
+    const blinkOn = st !== 'blink' || Math.sin(elapsed * (5 + i * 0.9) + i * 2.3) > 0; hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = blinkOn ? C[st] || P.dim : P.line; g.fill();
     g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = st === 'off' ? P.dim : '#000'; fitFont(g, k, 600, fs, DISP, pw - ph); g.fillText(k, cx + ph * 0.55, cy + rh / 2 + 1);
     if (v) { g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${DISP}`; g.fillText(v, cx + cw - 8, cy + rh / 2 + 1); }
   });
@@ -140,27 +144,38 @@ function ringW(g, r, P, value, label) {
 // ---------- density: button banks and number columns ----------
 // The panels around the readable widgets: banks of numbered pill buttons and slowly ticking columns of numbers.
 // They carry no information of their own; they make each screen read as a working console with more going on.
+// Everything moves on its own clock: each pill has its own rate and phase, numbers tick at their own moments,
+// columns scroll smoothly, and every screen has occasional bursts of activity, so nothing steps in time.
+let BURST = 0; // 0..1, set per screen by drawScreen
+function hash1(n) { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); }
 function pillBank(g, r, seed, P, cols) {
   const rr = mulberry(seed), cw = r.w / cols, ph = clamp(cw * 0.3, 12, 30), gap = Math.max(3, ph * 0.22), rows = Math.max(1, Math.floor((r.h + gap) / (ph + gap)));
-  const pal2 = [P.acc, P.tan, P.butter, P.ice, P.tan, P.rose, P.plum, P.acc];
+  const pal2 = [P.acc, P.tan, P.butter, P.ice, P.tan, P.rose, P.plum, P.acc], n = rows * cols;
+  // a chase that runs across the bank now and then
+  const cyc = 5 + hash1(seed) * 7, ct = (elapsed + hash1(seed + 1) * cyc) % cyc, wave = ct < 1.4 ? ct / 1.4 * (n + 4) - 2 : -99;
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const c = pal2[(rr() * pal2.length) | 0], off = rr() < 0.14, ph2 = rr() * 9, sp = 0.2 + rr() * 0.9, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap;
-    const lit = !off && Math.sin(elapsed * sp + ph2) > -0.85, flash = Math.sin(elapsed * sp * 2.3 + ph2) > 0.985;
+    const c = pal2[(rr() * pal2.length) | 0], off = rr() < 0.14, ph2 = rr() * 9, sp = 0.25 + rr() * 1.4, nr = 0.08 + rr() * 0.6, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap, k = j * cols + i;
+    const lit = !off && Math.sin(elapsed * sp + ph2) > -0.8 + BURST * 0.6, flash = Math.sin(elapsed * sp * (3 + BURST * 9) + ph2 * 3) > 0.97 - BURST * 0.25 || Math.abs(k - wave) < 1.2;
     hexTab(g, x, y, w, ph, i === 0, i === cols - 1 || cols === 1); g.fillStyle = flash ? P.txt : lit ? c : P.line; g.fill();
-    if (ph >= 13 && w > ph * 1.6) { g.fillStyle = lit ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(10 + ((seed * 31 + j * 17 + i * 7) % 89)) + (w > ph * 3 ? '-' + String(100 + ((seed * 7 + j * 53 + i * 29) % 899)) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
+    if (ph >= 13 && w > ph * 1.6) { const tk = Math.floor(elapsed * nr + ph2), a2 = 10 + ((seed * 31 + k * 17 + tk * 7) % 89), b2 = 100 + ((seed * 7 + k * 53 + tk * 131) % 899); g.fillStyle = lit || flash ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(a2) + (w > ph * 3 ? '-' + String(b2) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
   }
 }
+// columns of numbers that scroll upward smoothly; a few cells change or flash on their own
 function numGrid(g, r, seed, P) {
-  const fs = clamp(r.h / 7.5, 9, 15), lh = fs * 1.32, cols = Math.max(2, Math.floor(r.w / (fs * 3.9))), rows = Math.max(1, Math.floor(r.h / lh)), cw = r.w / cols, tick = Math.floor(elapsed / 1.6);
-  const hot = (seed + tick) % rows; g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'top';
-  for (let j = 0; j < rows; j++) {
-    const rr = mulberry(seed * 13 + j * 7 + (j === hot ? tick : 0));
+  const fs = clamp(r.h / 7.5, 9, 15), lh = fs * 1.32, cols = Math.max(2, Math.floor(r.w / (fs * 3.9))), rows = Math.max(1, Math.floor(r.h / lh)), cw = r.w / cols;
+  const sp = 0.35 + hash1(seed) * 0.9 + BURST * 2.5, pos = elapsed * sp + hash1(seed + 3) * 100, base = Math.floor(pos), fr = pos - base;
+  g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+  g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'top';
+  for (let j = 0; j <= rows; j++) {
+    const row = base + j, y = r.y + (j - fr) * lh, hot = hash1(seed * 3 + row) > 0.86;
     for (let i = 0; i < cols; i++) {
-      const n = String(Math.floor(rr() * Math.pow(10, 2 + ((rr() * 4) | 0)))), x = r.x + i * cw;
-      g.fillStyle = j === hot ? P.butter : i === 0 ? P.acc : (i + j) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
-      g.fillText(n, i === 0 ? x : x + cw - 4, r.y + j * lh);
+      const cell = seed * 977 + row * 31 + i, tk = Math.floor(elapsed * (0.2 + hash1(cell) * 1.2) + hash1(cell + 5) * 9), digits = 2 + ((hash1(cell + 7) * 4) | 0);
+      const n = String(Math.floor(hash1(cell + tk * 13) * Math.pow(10, digits))), x = r.x + i * cw, fl = Math.sin(elapsed * (5 + hash1(cell) * 9) + cell) > 0.985 - BURST * 0.1;
+      g.fillStyle = fl ? P.txt : hot ? P.butter : i === 0 ? P.acc : (i + row) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
+      g.fillText(n, i === 0 ? x : x + cw - 4, y);
     }
   }
+  g.restore();
 }
 // ---------- live ship widgets (Stage 1) ----------
 function shipClock(at) { const s = Math.floor(at); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -588,9 +603,6 @@ const MSD_ROOMS = [ // [deck, from m, to m, kind] from the deck plan (docs/maste
   [8, 70, 104, 's'], [8, 104, 116, 'x'], [8, 116, 124, 's'], [8, 124, 140, 'e'], [8, 140, 152, 'e'], [8, 152, 176, 'e'], [8, 176, 198, 's'],
   [9, 110, 116, 's'], [9, 116, 124, 's'], [9, 124, 140, 's'], [9, 140, 152, 'e'], [9, 152, 199, 's'],
 ];
-const MSD_TOP = [['BRIDGE', 64, 2], ['DORSAL TURRET', 110, -8], ['CAPTAIN’S QUARTERS', 52, 6], ['WARDROOM', 88, 6], ['OBSERVATION LOUNGE', 142, 6], ['COMPUTER CORE', 106, 15], ['SENSOR PALLET', 38, 6], ['IMPULSE ENGINES', 192, 14], ['LIFT 1', 64, 12], ['FORWARD SHIELD GEN', 20, 9]];
-const MSD_BOT = [['TORPEDO BAYS', 10, 16], ['DEFLECTOR', 11, 20.5], ['SICKBAY', 37, 9], ['MESS HALL', 57, 13], ['CIC', 108, 25], ['VENTRAL ARRAY', 110, 29], ['WARP CORE', 146, 27], ['MAIN ENGINEERING', 160, 23], ['SHUTTLEBAY', 182, 30], ['NACELLE COILS', 172, 40], ['LIFT 2', 120, 34]];
-const MSD = { key: '', base: null };
 function msdPaths(X, Y) {
   const hull = new Path2D(); // the primary hull and engineering section as one long swept body
   hull.moveTo(X(0), Y(17)); hull.quadraticCurveTo(X(8), Y(9.5), X(30), Y(6.5)); hull.bezierCurveTo(X(60), Y(3.8), X(120), Y(3.2), X(150), Y(4.2));
@@ -615,121 +627,216 @@ function msdPlan(X, Z) { // top view, bow to the left; Z is across the beam
 }
 // draw a set of shapes with a single clean outline round their union: thick outline strokes first, fills on top
 function msdUnion(g, paths, fill, line, lw) { g.lineJoin = 'round'; g.strokeStyle = line; g.lineWidth = lw * 2; paths.forEach((p) => g.stroke(p)); g.fillStyle = fill; paths.forEach((p) => g.fill(p)); }
+// Layout (2048 x 820): left panel = plan view with shields and warp field, warp field geometry inset below;
+// right panel = the side cutaway with stacked callout lists at its four corners, title top right.
+const MSD_LISTS = {
+  tl: [['SENSOR PALLET', 38, 6], ['FORWARD SHIELD GENERATOR', 20, 9], ['CAPTAIN’S QUARTERS', 52, 6], ['BRIDGE', 64, 2], ['LIFT 1', 64.5, 12], ['WARDROOM', 88, 6], ['CREW QUARTERS', 84, 16]],
+  tr: [['TURRET CAPACITORS', 104, 4.5], ['COMPUTER CORE', 106, 14], ['DORSAL TURRET', 112, -8], ['SENIOR OFFICERS’ QUARTERS', 124, 6], ['SHIELD GENERATORS', 136, 13], ['OBSERVATION LOUNGE', 143, 6], ['LIFE SUPPORT', 166, 13], ['IMPULSE ENGINES', 197, 18]],
+  bl: [['DEFLECTOR', 9, 20.5], ['TORPEDO BAYS', 8, 16], ['TORPEDO MAGAZINE', 25, 16], ['SICKBAY', 37, 9.5], ['ARMORY', 40, 16], ['CARGO BAY 1', 54, 20], ['MESS HALL', 57, 13]],
+  br: [['CIC', 108, 25], ['VENTRAL ARRAY', 110, 29], ['LIFT 2', 120.5, 34], ['WARP CORE', 146, 27], ['MAIN ENGINEERING', 160, 23], ['NACELLE FIELD COILS', 172, 40], ['SHUTTLE MAINTENANCE', 186, 27], ['SHUTTLEBAY', 190, 30.5]],
+};
+const MSD = { key: '', base: null };
+function msdGeom(W, H) {
+  const u = W / 2048;
+  const L = { x: 16 * u, y: 16 * u, w: 620 * u, h: H - 32 * u }, R = { x: 656 * u, y: 16 * u, w: W - 672 * u, h: H - 32 * u };
+  const S = 5.3 * u, X = (m) => R.x + 140 * u + m * S, Y = (m) => R.y + 300 * u + m * S;
+  const PS = 2.4 * u, PX = (m) => L.x + 110 * u + m * PS, PZ = (m) => L.y + 262 * u + m * PS;
+  return { u, L, R, S, X, Y, PS, PX, PZ, colW: 60 * u, barH: 20 * u };
+}
 function msdBase(W, H, P) {
-  const c = cnv(W, H), g = c.getContext('2d'), u = W / 2048;
+  const c = cnv(W, H), g = c.getContext('2d'), G = msdGeom(W, H), { u, L, R, S, X, Y, PS, PX, PZ, colW, barH } = G;
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  // ---- frames: two panels with elbows, like a working display wall ----
-  const L = { x: 16 * u, y: 16 * u, w: 1290 * u, h: H - 32 * u }, R = { x: 1326 * u, y: 16 * u, w: W - 1342 * u, h: H - 32 * u };
-  const colW = 64 * u, barH = 22 * u;
-  elbow(g, L.x, L.y, colW, barH, 520 * u, 70 * u, true, P.acc); elbow(g, L.x, L.y + L.h, colW, barH, 380 * u, 60 * u, false, P.tan);
-  [[560, 180, P.tan], [752, 90, P.ice], [854, 260, P.butter], [1126, 150, P.acc]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y, w * u, barH); });
-  [[410, 300, P.plum], [722, 140, P.ice], [874, 300, P.acc], [1186, 88, P.butter]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y + L.h - barH, w * u, barH); });
-  { const rr = mulberry(808), top = L.y + barH + 76 * u, bot = L.y + L.h - barH - 66 * u, n = 9, kh = (bot - top - (n - 1) * 6 * u) / n;
-    for (let i = 0; i < n; i++) { g.fillStyle = [P.ice, P.tan, P.butter, P.rose, P.plum, P.acc][(rr() * 6) | 0]; g.fillRect(L.x, top + i * (kh + 6 * u), colW, kh); g.fillStyle = '#000'; g.font = `600 ${13 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 7) + '-' + String(1000 + ((i * 3779) % 8999)), L.x + colW - 4 * u, top + i * (kh + 6 * u) + kh - 3 * u); } }
-  // right panel: elbows on the right-hand side
+  // ---- frames ----
+  elbow(g, L.x, L.y, colW, barH, 300 * u, 60 * u, true, P.butter); elbow(g, L.x, L.y + L.h, colW, barH, 340 * u, 60 * u, false, P.acc);
+  [[310, 150, P.acc], [466, 154, P.tan]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y, w * u, barH); });
+  [[350, 110, P.ice], [466, 154, P.butter]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(L.x + x * u, L.y + L.h - barH, w * u, barH); });
+  { const rr = mulberry(808), top = L.y + barH + 66 * u, bot = L.y + L.h - barH - 66 * u, n = 8, kh = (bot - top - (n - 1) * 5 * u) / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = [P.ice, P.tan, P.butter, P.rose, P.plum, P.acc][(rr() * 6) | 0]; g.fillRect(L.x, top + i * (kh + 5 * u), colW, kh); g.fillStyle = '#000'; g.font = `600 ${12 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 7) + '-' + String(1000 + ((i * 3779) % 8999)), L.x + colW - 4 * u, top + i * (kh + 5 * u) + kh - 3 * u); } }
+  // the divider between the panels: a column of blocks, like a spine
+  { const x = R.x - 14 * u, top = R.y + 70 * u; [[90, P.plum], [40, P.ice], [210, P.plum], [60, P.butter], [150, P.plum], [80, P.acc]].reduce((y, [h, cc]) => { g.fillStyle = cc; g.fillRect(x, y, 24 * u, h * u); return y + h * u + 5 * u; }, top); }
   g.save(); g.translate(R.x + R.w, 0); g.scale(-1, 1);
-  elbow(g, 0, R.y, colW, barH, 300 * u, 70 * u, true, P.ice); elbow(g, 0, R.y + R.h, colW, barH, 440 * u, 60 * u, false, P.acc);
-  { const rr = mulberry(909), top = R.y + barH + 76 * u, bot = R.y + R.h - barH - 66 * u, n = 8, kh = (bot - top - (n - 1) * 6 * u) / n;
-    for (let i = 0; i < n; i++) { g.fillStyle = [P.tan, P.butter, P.plum, P.acc, P.ice][(rr() * 5) | 0]; g.fillRect(0, top + i * (kh + 6 * u), colW, kh); } }
+  elbow(g, 0, R.y, colW, barH, 560 * u, 60 * u, true, P.butter); elbow(g, 0, R.y + R.h, colW, barH, 420 * u, 60 * u, false, P.butter);
+  { const rr = mulberry(909), top = R.y + barH + 66 * u, bot = R.y + R.h - barH - 66 * u, n = 7, kh = (bot - top - (n - 1) * 5 * u) / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = [P.tan, P.ice, P.plum, P.acc, P.butter][(rr() * 5) | 0]; g.fillRect(0, top + i * (kh + 5 * u), colW, kh); } }
   g.restore();
-  [[0, 180, P.butter], [190, 120, P.tan]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(R.x + x * u, R.y, w * u, barH); });
-  [[0, 160, P.tan], [170, 90, P.plum]].forEach(([x, w, cc]) => { g.fillStyle = cc; g.fillRect(R.x + x * u, R.y + R.h - barH, w * u, barH); });
+  g.fillStyle = P.butter; g.fillRect(R.x + 30 * u, R.y, R.w - 620 * u, barH); g.fillStyle = P.plum; g.fillRect(R.x + 30 * u, R.y + R.h - barH, 200 * u, barH); g.fillStyle = P.butter; g.fillRect(R.x + 240 * u, R.y + R.h - barH, R.w - 700 * u, barH);
   // ---- side cutaway ----
-  const S = 5.4 * u, X = (m) => L.x + 140 * u + m * S, Y = (m) => L.y + 246 * u + m * S;
-  const p = msdPaths(X, Y), list = [p.spar, p.nac, p.hull, p.bridge, p.arch, p.turret];
-  msdUnion(g, list, '#151014', P.txt, 2.4 * u);
+  const p = msdPaths(X, Y);
+  msdUnion(g, [p.spar, p.nac, p.hull, p.bridge, p.arch, p.turret], '#120d12', P.txt, 2.6 * u);
   const clipDraw = (path, fn) => { g.save(); g.clip(path); fn(); g.restore(); };
-  const KC = { w: P.acc, l: P.ice, s: P.plum, x: P.rose, e: P.butter };
+  const KC = { w: [P.acc, P.butter], l: [P.ice, P.plum], s: [P.plum, P.ice], x: [P.rose, P.plum], e: [P.butter, P.acc] };
   const rooms = () => {
     const rr = mulberry(4242);
+    g.fillStyle = '#1b141b'; g.fillRect(X(-2), Y(-12), 206 * S, 58 * S);
     MSD_ROOMS.forEach(([d, a, b, k]) => {
-      const x0 = X(a) + 1.5 * u, x1 = X(b) - 1.5 * u, y0 = Y((d - 1) * 3.5 + 0.2) + 1, y1 = Y(d * 3.5) - 1;
-      g.fillStyle = KC[k]; g.globalAlpha = k === 'w' ? 0.95 : 0.78; g.fillRect(x0, y0, x1 - x0, y1 - y0); g.globalAlpha = 1;
-      // partitions and doors inside each compartment
-      const n = Math.max(1, Math.round((x1 - x0) / (24 * u))); g.fillStyle = 'rgba(0,0,0,0.55)';
-      for (let i = 1; i < n; i++) g.fillRect(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * (rr() < 0.5 ? 0 : 0.35), 1.6 * u, (y1 - y0) * 0.65);
-      if (y1 - y0 > 10 * u) for (let i = 0; i < n; i++) if (rr() < 0.5) g.fillRect(x0 + (x1 - x0) * (i + 0.3) / n, y0 + (y1 - y0) * 0.25, 4 * u, (y1 - y0) * 0.3);
+      const y0 = Y((d - 1) * 3.5) + 1.6 * u, y1 = Y(d * 3.5) - 1, cells = Math.max(1, Math.round((b - a) * S / (13 * u))), cwid = (b - a) * S / cells;
+      for (let i = 0; i < cells; i++) {
+        const x0 = X(a) + i * cwid + 1, w = cwid - 1.6 * u, [c1, c2] = KC[k];
+        g.fillStyle = rr() < 0.72 ? c1 : c2; g.globalAlpha = k === 'w' ? 0.95 : 0.62 + rr() * 0.3; g.fillRect(x0, y0, w, y1 - y0); g.globalAlpha = 1;
+        if (rr() < 0.55) { g.fillStyle = rr() < 0.5 ? 'rgba(0,0,0,0.45)' : 'rgba(255,240,220,0.35)'; g.fillRect(x0 + w * rr() * 0.5, y0 + (y1 - y0) * (0.35 + rr() * 0.3), w * (0.25 + rr() * 0.35), (y1 - y0) * 0.22); }
+      }
     });
-    // lift shafts, the computer core stack, deck lines
-    g.fillStyle = P.txt; g.fillRect(X(64), Y(0.4), 2.5 * S, Y(21) - Y(0.4)); g.fillRect(X(119), Y(3.5), 2.5 * S, Y(42) - Y(3.5));
-    for (let d = 0; d <= 12; d++) { g.fillStyle = '#000'; g.fillRect(X(0), Y(d * 3.5) - 1, X(200) - X(0), 1.6 * u); }
-    g.fillStyle = P.ice; g.fillRect(X(97), Y(7.2), X(115) - X(97), Y(17.4) - Y(7.2)); g.fillStyle = '#000'; for (let i = 0; i < 6; i++) g.fillRect(X(97), Y(7.6 + i * 1.7), X(115) - X(97), 0.6 * S);
+    for (let d = 0; d <= 12; d++) { g.fillStyle = '#000'; g.fillRect(X(-2), Y(d * 3.5) - 1.2 * u, 206 * S, 2 * u); }
+    for (let m = 10; m < 200; m += 10) { g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(X(m), Y(-12), 1.6 * u, 58 * S); }
+    // structures that run through several decks: lifts, the computer core, the EPS trunk, the torpedo tubes
+    g.fillStyle = P.txt; g.fillRect(X(64), Y(0.4), 2.2 * S, Y(21) - Y(0.4)); g.fillRect(X(119.5), Y(3.5), 2.2 * S, Y(42) - Y(3.5));
+    for (let d = 0; d < 6; d++) { g.fillStyle = '#000'; g.fillRect(X(64), Y(d * 3.5 + 1.7), 2.2 * S, 1.2 * u); }
+    g.fillStyle = P.ice; g.fillRect(X(97), Y(7.2), X(115) - X(97), Y(17.4) - Y(7.2)); g.fillStyle = '#000'; for (let i = 0; i < 6; i++) g.fillRect(X(97), Y(7.6 + i * 1.7), X(115) - X(97), 0.5 * S);
+    g.fillStyle = P.butter; g.fillRect(X(20), Y(19.2), X(143) - X(20), 0.55 * S); g.fillRect(X(110), Y(-3), 0.55 * S, Y(19.2) - Y(-3));
+    g.fillStyle = P.rose; [16.2, 17.6].forEach((yy) => g.fillRect(X(1), Y(yy), X(18) - X(1), 0.7 * S));
+    // shuttles parked in the bay
+    g.fillStyle = P.butter; [158, 169, 180].forEach((m) => { rrect(g, X(m), Y(29), 8 * S, 2.2 * S, 1.4 * u); g.fill(); });
   };
   clipDraw(p.hull, rooms); clipDraw(p.bridge, rooms);
-  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(85), Y(-8), X(136) - X(85), Y(5) - Y(-8)); g.fillStyle = P.rose; for (let i = 0; i < 9; i++) g.fillRect(X(92 + i * 4.3), Y(-7), 2.2 * S, Y(4) - Y(-7)); });
-  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(100), Y(-11), X(120) - X(100), Y(-6) - Y(-11)); g.fillStyle = P.butter; g.fillRect(X(104), Y(-8.6), X(116) - X(104), 0.9 * S); });
-  clipDraw(p.spar, () => { g.fillStyle = P.plum; g.fillRect(X(130), Y(30), X(162) - X(130), Y(39) - Y(30)); });
-  clipDraw(p.nac, () => { g.fillStyle = P.ice; g.fillRect(X(124), Y(36), X(202) - X(124), Y(44) - Y(36)); g.fillStyle = P.plum; g.fillRect(X(124), Y(41), X(202) - X(124), Y(44) - Y(41)); g.fillStyle = P.butter; for (let i = 0; i < 14; i++) g.fillRect(X(138 + i * 4.2), Y(37.8), 2.4 * S, Y(40) - Y(37.8)); g.fillStyle = P.rose; g.fillRect(X(124), Y(36), X(132) - X(124), Y(44) - Y(36)); });
-  // portholes along the primary hull
-  g.fillStyle = P.butter; for (let m = 26; m < 172; m += 4.5) { const yy = m < 60 ? 6.5 - (m - 26) * 0.07 : 4.2 + Math.max(0, m - 150) * 0.12; g.fillRect(X(m), Y(yy + 1.2), 1.4 * S * 0.5, 0.5 * S); }
-  // impulse exhaust and the deflector
+  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(85), Y(-8), 52 * S, 14 * S); g.fillStyle = P.ice; for (let i = 0; i < 12; i++) g.fillRect(X(90 + i * 3.6), Y(-7), 1.8 * S, 12 * S); g.fillStyle = P.butter; g.fillRect(X(85), Y(-3.4), 52 * S, 0.5 * S); });
+  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(100), Y(-11), 20 * S, 5 * S); g.fillStyle = P.butter; g.fillRect(X(103), Y(-8.8), 14 * S, 0.8 * S); g.fillStyle = P.txt; g.fillRect(X(116), Y(-8.2), 4 * S, 0.5 * S); });
+  clipDraw(p.spar, () => { g.fillStyle = P.plum; g.fillRect(X(130), Y(30), 32 * S, 9 * S); g.fillStyle = P.butter; g.fillRect(X(138), Y(33.6), 18 * S, 0.5 * S); });
+  clipDraw(p.nac, () => { g.fillStyle = P.ice; g.fillRect(X(124), Y(36), 78 * S, 8 * S); g.fillStyle = P.plum; g.fillRect(X(124), Y(41.2), 78 * S, 3 * S); g.fillStyle = P.butter; for (let i = 0; i < 16; i++) g.fillRect(X(137 + i * 3.7), Y(37.6), 2 * S, 2.6 * S); g.fillStyle = P.rose; g.fillRect(X(124), Y(36), 8 * S, 8 * S); g.fillStyle = P.txt; g.fillRect(X(134), Y(40.6), 62 * S, 0.4 * S); });
+  g.fillStyle = P.butter; for (let m = 26; m < 172; m += 3.2) { const yy = m < 60 ? 6.6 - (m - 26) * 0.07 : 4.3 + Math.max(0, m - 150) * 0.12; g.fillRect(X(m), Y(yy + 0.9), 0.7 * S, 0.45 * S); }
   g.fillStyle = P.red; g.fillRect(X(196.6), Y(16.5), 2.6 * S, Y(22) - Y(16.5)); g.fillStyle = P.butter; g.beginPath(); g.ellipse(X(9), Y(20.4), 4.5 * S, 1.6 * S, -0.25, 0, 7); g.fill();
-  // callouts: labels above and below, leaders in lilac
-  g.font = `500 ${16 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
-  const callout = (arr, up) => {
-    const rows = up ? [64, 92, 120, 148] : [560, 588, 616, 644], ends = rows.map(() => -1e9);
-    arr.slice().sort((a, b) => a[1] - b[1]).forEach(([t, m, ym]) => {
-      const px = X(m), py = Y(ym), tw = g.measureText(t).width;
-      let r = rows.findIndex((_, k) => px - tw - 22 * u > ends[k]); if (r < 0) r = 0; ends[r] = px + 8 * u;
-      const ly = L.y + rows[r] * u;
-      g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px - tw - 14 * u, ly); g.lineTo(px, ly); g.lineTo(px, py); g.stroke();
-      g.fillStyle = '#000'; g.fillRect(px - tw - 14 * u, ly - 10 * u, tw + 8 * u, 20 * u);
-      g.fillStyle = P.butter; g.beginPath(); g.arc(px, py, 3.4 * u, 0, 7); g.fill();
-      g.fillStyle = P.tan; g.textAlign = 'right'; g.fillText(t, px - 10 * u, ly + 1);
+  // ---- stacked callout lists at the cutaway's four corners ----
+  const fs = 14 * u, lh = 19 * u; g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'middle';
+  const list = (items, x0, y0, side, vert, order) => {
+    const it = items.slice().sort((a, b) => order * (a[1] - b[1]));
+    it.forEach(([t, m, ym], i) => {
+      const ly = y0 + i * lh, px = X(m), py = Y(ym), tw = g.measureText(t).width, ex = side < 0 ? x0 + tw + 12 * u : x0 - tw - 12 * u;
+      g.strokeStyle = P.ice; g.lineWidth = 1.8 * u; g.beginPath(); g.moveTo(ex, ly); g.lineTo(px, ly); g.lineTo(px, py); g.stroke();
+      g.fillStyle = P.butter; g.beginPath(); g.arc(px, py, 3 * u, 0, 7); g.fill();
+      labels.push([t, x0, ly, side, tw]);
     });
   };
-  callout(MSD_TOP, true); callout(MSD_BOT, false);
-  // deck numbers down the bow side
-  g.font = `600 ${13 * u | 0}px ${DISP}`; g.textAlign = 'right'; for (let d = 1; d <= 12; d++) { g.fillStyle = d <= 2 ? P.acc : P.dim; g.fillText('D' + d, X(-4), Y((d - 0.5) * 3.5)); }
-  // ---- right panel: title, plan view, deck index, readouts ----
-  const rx = R.x + 8 * u, rw = R.w - colW - 24 * u;
-  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${58 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 18 * u, R.y + barH + 62 * u);
-  g.fillStyle = P.tan; g.font = `500 ${20 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 18 * u, R.y + barH + 92 * u);
-  const PS = 2.25 * u, PX = (m) => rx + 70 * u + m * PS, PZ = (m) => R.y + 340 * u + m * PS, pl = msdPlan(PX, PZ);
-  // warp field geometry round the nacelles
-  g.strokeStyle = P.plum; g.lineWidth = 2 * u; [1, 1.18].forEach((k) => { [-1, 1].forEach((sd) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 44 * k * PS, 14 * k * PS, 0, 0, 7); g.stroke(); }); });
-  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#151014', P.txt, 2.2 * u);
-  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-50), 200 * PS, 100 * PS);
-  { const rr = mulberry(77); for (let i = 0; i < 70; i++) { const a = rr() * 190, z = (rr() - 0.5) * 90; g.fillStyle = [P.ice, P.tan, P.plum, P.rose][(rr() * 4) | 0]; g.fillRect(PX(a), PZ(z), (3 + rr() * 8) * PS, (2 + rr() * 6) * PS); } }
-  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 15 * PS, 8 * PS, 0, 0, 7); g.fill(); g.restore();
+  const labels = []; // leaders first, then every label on a black knockout so no line runs through text
+  list(MSD_LISTS.tl, R.x + 52 * u, R.y + 50 * u, -1, 1, -1);
+  list(MSD_LISTS.tr, R.x + R.w - colW - 22 * u, R.y + 112 * u, 1, 1, 1);
+  list(MSD_LISTS.bl, R.x + 52 * u, R.y + 560 * u, -1, -1, 1);
+  list(MSD_LISTS.br, R.x + R.w - colW - 22 * u, R.y + 560 * u, 1, -1, -1);
+  labels.forEach(([t, x0, ly, side, tw]) => {
+    const bx = side < 0 ? x0 - 12 * u : x0 - tw - 8 * u;
+    g.fillStyle = '#000'; g.fillRect(bx, ly - lh * 0.46, tw + 22 * u, lh * 0.92);
+    g.fillStyle = P.butter; g.fillRect(side < 0 ? x0 - 10 * u : x0 + 3 * u, ly - 3.5 * u, 7 * u, 7 * u);
+    g.fillStyle = P.tan; g.textAlign = side < 0 ? 'left' : 'right'; g.fillText(t, side < 0 ? x0 + 2 * u : x0 - 3 * u, ly + 1);
+  });
+  g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${54 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 22 * u, R.y + barH + 56 * u);
+  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
+  hexTab(g, R.x + R.w - colW - 300 * u, R.y + R.h - barH - 34 * u, 280 * u, 24 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = '#000'; g.font = `600 ${16 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('INTERIOR SYSTEMS OVERVIEW', R.x + R.w - colW - 160 * u, R.y + R.h - barH - 16 * u);
+  // ---- left panel: plan view, and the warp field geometry inset ----
+  const pl = msdPlan(PX, PZ);
+  g.strokeStyle = P.plum; g.lineWidth = 1.8 * u; [1, 1.25, 1.5].forEach((k) => [-1, 1].forEach((sd) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 42 * k * PS, 13 * k * PS, 0, 0, 7); g.stroke(); }));
+  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#120d12', P.txt, 2.2 * u);
+  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-52), 200 * PS, 104 * PS);
+  { const rr = mulberry(77); for (let i = 0; i < 140; i++) { const a = rr() * 192, z = (rr() - 0.5) * 92; g.fillStyle = [P.ice, P.tan, P.plum, P.rose, P.ice][(rr() * 5) | 0]; g.fillRect(PX(a), PZ(z), (2 + rr() * 8) * PS, (1.5 + rr() * 5) * PS); } }
+  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
   pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); g.fillStyle = P.butter; for (let i = 0; i < 12; i++) g.fillRect(PX(140 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); g.restore(); });
   pl.spars.forEach((s2) => { g.save(); g.clip(s2); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
-  // deck index and readouts under the plan
-  const dy = R.y + R.h - barH - 214 * u; g.font = `600 ${15 * u | 0}px ${DISP}`;
-  for (let d = 1; d <= 12; d++) { const cx = rx + ((d - 1) % 6) * (rw / 6), cy = dy + Math.floor((d - 1) / 6) * 34 * u, w = rw / 6 - 8 * u; hexTab(g, cx, cy, w, 26 * u, true, true); g.fillStyle = d <= 2 ? P.acc : d === 7 ? P.rose : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('DECK ' + d, cx + w / 2, cy + 14 * u); }
+  const iy = L.y + 486 * u;
+  g.fillStyle = P.acc; g.font = `600 ${22 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText('WARP FIELD GEOMETRY', L.x + L.w - 10 * u, iy);
+  hexTab(g, L.x + colW + 24 * u, iy - 10 * u, 150 * u, 20 * u, true, false); g.fillStyle = P.tan; g.fill(); g.fillStyle = P.ice; g.fillRect(L.x + colW + 180 * u, iy - 10 * u, 90 * u, 20 * u);
+  // side view of a nacelle with its field lobes
+  const fx = L.x + colW + 40 * u, fy = iy + 95 * u;
+  g.strokeStyle = P.plum; g.lineWidth = 1.8 * u; [1, 0.78, 0.56, 0.36].forEach((k) => { g.beginPath(); g.ellipse(fx + 140 * u, fy, 140 * u * (0.6 + k * 0.4), 60 * u * k, 0, 0, 7); g.stroke(); });
+  hexTab(g, fx + 30 * u, fy - 8 * u, 220 * u, 16 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = P.butter; for (let i = 0; i < 12; i++) g.fillRect(fx + 70 * u + i * 13 * u, fy - 6 * u, 6 * u, 12 * u);
   return c;
 }
 function drawMSD(s) {
-  const g = s.g, W = s.w, H = s.h, P = pal(), u = W / 2048;
+  const g = s.g, W = s.w, H = s.h, P = pal(), G = msdGeom(W, H), { u, L, R, S, X, Y, PS, PX, PZ, colW, barH } = G;
   const key = state.alert + '|' + ZONES.map((z) => zoneStatus(z.id)).join('');
   if (MSD.key !== key || !MSD.base || MSD.base.width !== W) { MSD.key = key; MSD.base = msdBase(W, H, P); }
   g.drawImage(MSD.base, 0, 0);
-  const L = { x: 16 * u, y: 16 * u, h: H - 32 * u }, R = { x: 1326 * u, y: 16 * u, w: W - 1342 * u, h: H - 32 * u }, colW = 64 * u, barH = 22 * u;
-  const S = 5.4 * u, X = (m) => L.x + 140 * u + m * S, Y = (m) => L.y + 246 * u + m * S, warp = smooth(30, 300, cur.speed);
-  // warp core: pulses, faster at warp
-  const k = 0.55 + 0.45 * Math.sin(elapsed * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143), Y(17.6), 6 * S, Y(38) - Y(17.6)); g.globalAlpha = 1;
-  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.6 + ((elapsed * (1.2 + warp * 5) + i * 4.1) % 20.4); g.fillRect(X(143), Y(yy), 6 * S, 0.5 * S); }
-  // damage: tint the affected section of the cutaway
+  const t = elapsed, warp = smooth(30, 300, cur.speed);
+  // warp core pulses; plasma rises through it
+  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143), Y(17.6), 6 * S, Y(38) - Y(17.6)); g.globalAlpha = 1;
+  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.6 + ((t * (1.2 + warp * 5) + i * 4.1) % 20.4); g.fillRect(X(143), Y(yy), 6 * S, 0.5 * S); }
+  // power running forward along the EPS trunk and up into the turret
+  g.fillStyle = P.txt; for (let i = 0; i < 9; i++) { const f = ((t * 0.18 + i / 9) % 1); g.fillRect(X(143 - f * 123), Y(19.1), 2.2 * S, 0.75 * S); }
+  for (let i = 0; i < 3; i++) { const f = ((t * 0.3 + i / 3) % 1); g.fillRect(X(109.8), Y(19.2 - f * 22), 0.75 * S, 1.4 * S); }
+  // nacelle coils fire in sequence
+  for (let i = 0; i < 16; i++) { if (((t * (4 + warp * 10) - i) % 16 + 16) % 16 < 2) { g.fillStyle = P.txt; g.fillRect(X(137 + i * 3.7), Y(37.6), 2 * S, 2.6 * S); } }
+  // damage tints, and a scan bar crossing the cutaway
   const ZR = { prow: [0, 9, 26, 24], dorsal: [86, -11, 134, 5], ventral: [50, 25, 150, 35], engines: [124, 13, 200, 33] };
-  Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(elapsed * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
+  Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
   ['portNac', 'stbdNac'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.35; g.fillRect(X(126), Y(36.5 + i * 3.3), X(200) - X(126), 3 * S); g.globalAlpha = 1; });
-  // a slow scan bar crossing the cutaway
-  const sx = X(((elapsed * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.35; g.fillRect(sx, Y(-11), 5 * u, Y(44) - Y(-11)); g.globalAlpha = 1;
-  // plan view: live shield arcs (bow to the left: forward arc on the left)
-  const rx = R.x + 8 * u, rw = R.w - colW - 24 * u, PS = 2.25 * u, PX = (m) => rx + 70 * u + m * PS, PZ = (m) => R.y + 340 * u + m * PS, up = sim.shields.up > 0.01;
-  const arcs = [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]];
-  arcs.forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 12 : 7) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 116 * PS, 88 * PS, 0, a0 + 0.07, a1 - 0.07); g.stroke(); });
+  const sx = X(((t * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.3; g.fillRect(sx, Y(-11), 4 * u, Y(44) - Y(-11)); g.globalAlpha = 1;
+  // plan view: live shield arcs
+  const up = sim.shields.up > 0.01;
+  [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]].forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 11 : 6) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 106 * PS, 86 * PS, 0, a0 + 0.07, a1 - 0.07); g.stroke(); });
   ['port', 'stbd'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.4; g.fillRect(PX(40), PZ(i ? 8 : -46), 100 * PS, 38 * PS); g.globalAlpha = 1; });
-  // readouts and a bank of buttons along the bottom of the right panel
-  const by = R.y + R.h - barH - 136 * u;
-  table(g, { x: rx, y: by, w: rw * 0.46, h: 110 * u }, [['HULL', Math.round(hullIntegrity()) + '%', hullIntegrity() < 50 ? P.red : hullIntegrity() < 90 ? P.yel : P.txt], ['SPEED', SPEEDS[state.speed].screen], ['CONDITION', ALERTS[state.alert].short, P.acc], ['REACTOR', Math.round(reactorOut()) + ' U']], P);
-  numGrid(g, { x: rx + rw * 0.5, y: by, w: rw * 0.5, h: 110 * u }, 61, P);
-  pillBank(g, { x: L.x + colW + 30 * u, y: L.y + 676 * u, w: 520 * u, h: 52 * u }, 71, P, 7);
-  numGrid(g, { x: L.x + 640 * u, y: L.y + 672 * u, w: 620 * u, h: 62 * u }, 83, P);
+  // warp field geometry: readouts and moving numbers
+  const iy = L.y + 486 * u, fx = L.x + colW + 40 * u;
+  numGrid(g, { x: L.x + colW + 330 * u, y: iy + 24 * u, w: L.w - colW - 340 * u, h: 150 * u }, 61, P);
+  table(g, { x: L.x + colW + 24 * u, y: iy + 168 * u, w: L.w - colW - 34 * u, h: 96 * u }, [['FIELD', warp > 0.5 ? 'WARP 6 · STABLE' : 'IDLE', warp > 0.5 ? P.acc : P.tan], ['COILS P/S', Math.round(sim.zones.portNac) + ' / ' + Math.round(sim.zones.stbdNac) + '%'], ['REACTOR', Math.round(reactorOut()) + ' U · ' + ALERTS[state.alert].short]], P);
+  { const ph = t * (1 + warp * 4); g.fillStyle = P.butter; g.globalAlpha = 0.6; for (let i = 0; i < 3; i++) { const kk = ((ph * 0.3 + i / 3) % 1); g.fillRect(fx + 140 * u - 140 * u * kk, iy + 95 * u - 2 * u, 4 * u, 4 * u); g.fillRect(fx + 140 * u + 140 * u * kk, iy + 95 * u - 2 * u, 4 * u, 4 * u); } g.globalAlpha = 1; }
+  // number table in the bottom middle, like a legend
+  numGrid(g, { x: R.x + 462 * u, y: R.y + 616 * u, w: 236 * u, h: 140 * u }, 83, P);
+  pillBank(g, { x: L.x + colW + 24 * u, y: L.y + 30 * u, w: 230 * u, h: 22 * u }, 71, P, 5);
+}
+
+// ---------- the situation table (aft of the command dais), read from the forward side ----------
+// Live sector chart, ship plan with power flowing through it, shield arcs, power, damage, contacts and a lot of chrome.
+function drawTable(s) {
+  const g = s.g, W = s.w, H = s.h, P = pal(), u = W / 2048, t = elapsed;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  // frame: elbows in all four corners, segmented bars along top and bottom
+  const cw = 70 * u, bh = 22 * u, m = 14 * u;
+  elbow(g, m, m, cw, bh, 640 * u, 60 * u, true, P.acc); elbow(g, m, H - m, cw, bh, 520 * u, 60 * u, false, P.tan);
+  g.save(); g.translate(W, 0); g.scale(-1, 1); elbow(g, m, m, cw, bh, 380 * u, 60 * u, true, P.ice); elbow(g, m, H - m, cw, bh, 460 * u, 60 * u, false, P.acc); g.restore();
+  const segs = (y, x0, x1, seed) => { const rr = mulberry(seed); let x = x0; while (x < x1 - 10 * u) { const w = Math.min(x1 - x, (40 + rr() * 150) * u), c = [P.tan, P.butter, P.plum, P.ice, P.acc][(rr() * 5) | 0]; g.fillStyle = c; g.fillRect(x, y, w, bh); if (w > 80 * u) { g.fillStyle = '#000'; g.font = `600 ${bh * 0.8 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(100 + ((x * 7) | 0) % 899), x + w - 5 * u, y + bh / 2 + 1); } x += w + 6 * u; } };
+  segs(m, 1380 * u, W - 400 * u, 5); segs(H - m - bh, 545 * u, W - 480 * u, 9);
+  g.fillStyle = P.acc; g.font = `600 ${40 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('SITUATION TABLE · USS DEFIANCE', 670 * u, 6 * u);
+  // side columns of numbered blocks
+  [[m, 9, 1], [W - m - cw, 8, 2]].forEach(([x, n, sd]) => { const rr = mulberry(sd * 77), top = m + bh + 70 * u, bot = H - m - bh - 70 * u, kh = (bot - top - (n - 1) * 6 * u) / n; for (let i = 0; i < n; i++) { const on = Math.sin(t * (0.4 + rr()) + i * 1.7 + sd) > -0.8; g.fillStyle = on ? [P.ice, P.tan, P.butter, P.plum, P.rose][(rr() * 5) | 0] : P.line; g.fillRect(x, top + i * (kh + 6 * u), cw, kh); g.fillStyle = '#000'; g.font = `600 ${14 * u | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillText(String(10 + i * 9 + sd) + '-' + String(1000 + ((i * 2971 + sd * 13) % 8999)), x + cw - 5 * u, top + i * (kh + 6 * u) + kh - 3 * u); } });
+  const X0 = 110 * u, X1 = W - 110 * u, Y0 = 70 * u, Y1 = H - 66 * u;
+  // ---- left column: sector chart, course, button bank ----
+  const lc = { x: X0, y: Y0, w: 440 * u, h: Y1 - Y0 };
+  const sys = SYSTEMS[state.holo], sc = sub(g, { x: lc.x, y: lc.y, w: lc.w, h: 390 * u }, 'SECTOR · ' + sys.star.toUpperCase(), P.acc, P);
+  { const cx = sc.x + sc.w / 2, cy = sc.y + sc.h / 2, R = Math.min(sc.w, sc.h) / 2 * 0.96;
+    for (let k = 0; k < sys.planets; k++) { const rad = R * (0.24 + k * 0.72 / sys.planets); g.strokeStyle = k === sys.featured ? P.plum : P.line; g.lineWidth = (k === sys.featured ? 7 : 4) * u; g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.stroke(); const a = t * 0.5 / (k + 1.3) + k * 1.9 + state.holo; g.fillStyle = k === sys.featured ? P.butter : P.ice; const ps = (k === sys.featured ? 12 : 8) * u; rrect(g, cx + Math.cos(a) * rad - ps, cy + Math.sin(a) * rad - ps, ps * 2, ps * 2, ps * 0.4); g.fill(); if (k === sys.featured) { g.fillStyle = P.txt; g.font = `500 ${15 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(sys.planet.toUpperCase(), cx + Math.cos(a) * rad + 16 * u, cy + Math.sin(a) * rad); } }
+    g.fillStyle = P.butter; g.beginPath(); g.arc(cx, cy, 16 * u * (1 + 0.06 * Math.sin(t * 3)), 0, 7); g.fill(); g.fillStyle = P.acc; g.beginPath(); g.arc(cx, cy, 9 * u, 0, 7); g.fill();
+    if (state.holoOn) { const sw = t * 0.7; g.fillStyle = P.ice; g.globalAlpha = 0.18; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, sw - 0.35, sw); g.closePath(); g.fill(); g.globalAlpha = 1; }
+    if (state.holo === state.cur) { const a = t * 0.12 + 1, rad = R * (0.24 + sys.featured * 0.72 / sys.planets) + 22 * u; g.fillStyle = P.acc; g.save(); g.translate(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); g.rotate(a + Math.PI / 2); g.beginPath(); g.moveTo(0, -11 * u); g.lineTo(8 * u, 9 * u); g.lineTo(-8 * u, 9 * u); g.closePath(); g.fill(); g.restore(); }
+    g.fillStyle = P.tan; g.font = `500 ${14 * u | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(sys.cls.toUpperCase(), sc.x, sc.y + sc.h - 16 * u); }
+  table(g, sub(g, { x: lc.x, y: lc.y + 405 * u, w: lc.w, h: 170 * u }, 'COURSE', P.ice, P), [['POSITION', sysCur().star.toUpperCase()], ['DESTINATION', sysDest().star.toUpperCase(), P.acc], ['HEADING', sysDest().heading.toUpperCase()], ['SPEED', SPEEDS[state.speed].screen]], P);
+  pillBank(g, { x: lc.x, y: lc.y + 600 * u, w: lc.w, h: Y1 - Y0 - 600 * u }, 301, P, 4);
+  // ---- right column: power, damage, contacts ----
+  const rc = { x: X1 - 440 * u, y: Y0, w: 440 * u };
+  const A = sim.alloc, kR = reactorOut() / SIM.reactor;
+  bars(g, sub(g, { x: rc.x, y: rc.y, w: rc.w, h: 210 * u }, 'POWER · ' + sim.preset.toUpperCase(), P.acc, P), [['WEAPONS', A.weapons * kR / 100, P.acc], ['SHIELDS', A.shields * kR / 100, P.acc], ['ENGINES', A.engines * kR / 100, P.ice], ['SENSORS', A.sensors * kR / 100, P.ice]], P);
+  zonesW(g, sub(g, { x: rc.x, y: rc.y + 225 * u, w: rc.w, h: 200 * u }, 'DAMAGE ZONES', P.acc, P), P);
+  { const pr = sub(g, { x: rc.x, y: rc.y + 440 * u, w: rc.w, h: Y1 - Y0 - 440 * u }, 'CONTACTS', P.ice, P), [pa, pb] = split(pr, [0.9, 1.1], false, 12 * u);
+    plotW(g, pa, P); table(g, pb, CONVOY.map(([n, d]) => [n, d.replace(' AFT', ''), P.ice]).concat([['TRACK 0417', state.alert !== 'green' ? 'UNKNOWN' : 'BEACON', state.alert !== 'green' ? P.acc : P.tan]]), P); }
+  // ---- centre: the ship in plan, with power running through it ----
+  const cx0 = X0 + 470 * u, cx1 = X1 - 470 * u, cwid = cx1 - cx0, PS = cwid / 300, PX = (mm) => cx0 + 70 * u + mm * PS, PZ = (mm) => Y0 + 330 * u + mm * PS, pl = msdPlan(PX, PZ);
+  sub(g, { x: cx0, y: Y0, w: cwid, h: 150 * u }, 'SHIP SYSTEMS · PLAN', P.acc, P);
+  g.strokeStyle = P.plum; g.lineWidth = 3 * u; [-1, 1].forEach((sd) => [1, 1.2].forEach((k) => { g.beginPath(); g.ellipse(PX(163), PZ(sd * 70), 42 * k * PS, 12 * k * PS, 0, 0, 7); g.stroke(); }));
+  const arcs = [['fwd', Math.PI * 0.75, Math.PI * 1.25], ['port', Math.PI * 1.25, Math.PI * 1.75], ['aft', -Math.PI * 0.25, Math.PI * 0.25], ['stbd', Math.PI * 0.25, Math.PI * 0.75]], up = sim.shields.up > 0.01;
+  arcs.forEach(([a, a0, a1]) => { const v = shieldNow(a), f = v / SIM.shield.max; g.strokeStyle = !up || v < 0.5 ? P.line : f > 0.5 ? P.ice : f > 0.2 ? P.yel : P.red; g.lineWidth = (sim.shields.reinforce === a ? 16 : 9) * u; g.beginPath(); g.ellipse(PX(100), PZ(0), 112 * PS, 86 * PS, 0, a0 + 0.06, a1 - 0.06); g.stroke(); });
+  msdUnion(g, [...pl.spars, ...pl.nacs, pl.hull], '#151014', P.txt, 2.4 * u);
+  g.save(); g.clip(pl.hull); g.fillStyle = P.plum; g.fillRect(PX(0), PZ(-52), 200 * PS, 104 * PS);
+  { const rr = mulberry(1212); for (let i = 0; i < 160; i++) { const a = rr() * 192, z = (rr() - 0.5) * 92; g.fillStyle = [P.ice, P.tan, P.plum, P.rose, P.ice][(rr() * 5) | 0]; g.globalAlpha = 0.85; g.fillRect(PX(a), PZ(z), (2 + rr() * 9) * PS, (1.5 + rr() * 5) * PS); } g.globalAlpha = 1; }
+  for (let d = 0; d < 6; d++) { g.strokeStyle = '#000'; g.lineWidth = 2 * u; g.beginPath(); g.ellipse(PX(66), PZ(0), (14 + d * 11) * PS, (9 + d * 7.5) * PS, 0, 0, 7); g.stroke(); }
+  g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
+  pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); for (let i = 0; i < 13; i++) { const on = ((t * 6 - i) % 13 + 13) % 13 < 3; g.fillStyle = on ? P.txt : P.butter; g.fillRect(PX(138 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); } g.restore(); });
+  pl.spars.forEach((sp) => { g.save(); g.clip(sp); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
+  // power conduits: blocks running from the core to the nacelles, the turret and the shield generators
+  const core = [146, 0], routes = [[[146, 0], [150, -20], [164, -66]], [[146, 0], [150, 20], [164, 66]], [[146, 0], [110, 0], [64, 0]], [[146, 0], [140, -26]], [[146, 0], [140, 26]]];
+  routes.forEach((rt, ri) => { for (let i = 0; i + 1 < rt.length; i++) { const [a, b] = [rt[i], rt[i + 1]], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(2, Math.round(L2 / 3)); for (let k = 0; k < n; k++) { const f = ((k / n) + t * (0.35 + ri * 0.04)) % 1, x = a[0] + (b[0] - a[0]) * f, z = a[1] + (b[1] - a[1]) * f, on = ((k + Math.floor(t * 9)) % 4) === 0; g.fillStyle = on ? P.txt : ri < 2 ? P.butter : ri === 2 ? P.acc : P.ice; rrect(g, PX(x) - 3.2 * u, PZ(z) - 3.2 * u, 6.4 * u, 6.4 * u, 1.5 * u); g.fill(); } } });
+  { const k = 0.6 + 0.4 * Math.sin(t * (2 + smooth(30, 300, cur.speed) * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + 0.5 * k; g.beginPath(); g.arc(PX(core[0]), PZ(core[1]), 11 * u, 0, 7); g.fill(); g.globalAlpha = 1; }
+  // zone damage over the plan
+  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [60, -18, 80, 36], port: [30, -48, 110, 22], stbd: [30, 26, 110, 22], engines: [150, -16, 50, 32], portNac: [124, -76, 76, 12], stbdNac: [124, 64, 76, 12] };
+  Object.entries(ZP).forEach(([id, [a, z, w, d]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.3 + 0.2 * Math.sin(t * 5); g.fillRect(PX(a), PZ(z), w * PS, d * PS); g.globalAlpha = 1; });
+  // callouts round the plan
+  g.font = `500 ${15 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
+  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -70, -1, 0], ['STBD NACELLE', 186, 70, 1, 0], ['DORSAL TURRET', 110, -6, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
+  // under the plan: deck status, numbers, a trace and buttons
+  const by = PZ(0) + 270 * u, bw = cwid;
+  for (let d = 1; d <= 12; d++) { const x = cx0 + (d - 1) * bw / 12, w = bw / 12 - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === 12); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
+  const lo = { x: cx0, y: by + 40 * u, w: cwid, h: Y1 - by - 40 * u }, [l1, l2, l3] = split(lo, [1, 1.1, 1], false, 16 * u);
+  numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }
 function drawScreen(s) {
+  { const per = 6 + hash1(s.seed) * 10, ph = (elapsed + hash1(s.seed + 2) * per) % per; BURST = ph < 0.9 ? Math.sin(ph / 0.9 * Math.PI) : 0; }
   if (s.kind === 'strip') drawStrip(s);
   else if (s.kind === 'msd') drawMSD(s);
+  else if (s.kind === 'table') drawTable(s);
   else if (s.kind === 'cmd') drawCmd(s);
   else if (s.kind === 'keys') drawKeys(s);
   else if (s.kind === 'band') drawBand(s);
@@ -768,7 +875,7 @@ function drawScreen(s) {
     if (avail > 14) {
       const n = clamp(Math.round(avail / Math.max(22, H * 0.075)), 1, 10), kh = (avail - (n - 1) * gap) / n, r = mulberry(s.seed), cols = [P.ice, P.tan, P.butter, P.rose, P.tan, P.plum];
       for (let i = 0; i < n; i++) {
-        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8) + r() * 9) > 0.95, num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71) % 8999));
+        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8 + BURST * 6) + r() * 9) > 0.95 - BURST * 0.3, tk = Math.floor(elapsed * (0.1 + r() * 0.4) + i), num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71 + tk * 389) % 8999));
         g.fillStyle = blink ? P.txt : c; g.fillRect(pad, cy0 + i * (kh + gap), colW, kh);
         if (kh > 12) { g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'bottom'; fitFont(g, num, 600, Math.min(kh * 0.36, colW * 0.24), DISP, colW - 6); g.fillText(num, pad + colW - 4, cy0 + i * (kh + gap) + kh - 2); }
       }

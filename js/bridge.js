@@ -112,41 +112,95 @@ function backShape(wb, ws, wt, h, r) {
   s.lineTo(-ws / 2, h * 0.66); s.quadraticCurveTo(-ws / 2 - 0.03, h * 0.32, -wb / 2, 0);
   return s;
 }
+// ---------- chairs (rebuilt): upholstered, on a swivel, and they move when you brush past ----------
+// Cushions are "pillows": a finely divided box with rounded edges, puffed on its face and bent to wrap the sitter.
+// Every chair sits on a pedestal; the seat, back and arms ride a swivel that spins and rocks when the player
+// brushes past (chairsUpdate, called from the frame loop), then slowly settles back.
+const _pillows = new Map();
+function pillow(w, h, d, r, puff, axis, bend, key, taper) {
+  const k = key || [w, h, d, r, puff, axis, bend, taper || 0].join(','); if (_pillows.has(k)) return _pillows.get(k);
+  const g = new THREE.BoxGeometry(w, h, d, 10, Math.max(2, Math.round(h / 0.04)), 10), p = g.attributes.position, v = new THREE.Vector3(), q = new THREE.Vector3();
+  const hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i); q.set(clamp(v.x, -hx, hx), clamp(v.y, -hy, hy), clamp(v.z, -hz, hz));
+    const n = v.clone().sub(q); if (n.lengthSq() > 1e-10) v.copy(q.add(n.normalize().multiplyScalar(r)));
+    const fx = 1 - (v.x / (w / 2)) ** 2, fy = 1 - (v.y / (h / 2)) ** 2, fz = 1 - (v.z / (d / 2)) ** 2;
+    if (axis === 'y' && v.y > 0) v.y += puff * Math.max(0, fx) * Math.max(0, fz);
+    if (axis === '-z' && v.z < 0) v.z -= puff * Math.max(0, fx) * Math.max(0, fy);
+    if (axis === '+z' && v.z > 0) v.z += puff * Math.max(0, fx) * Math.max(0, fy);
+    if (taper) v.x *= 1 - taper * (v.y / h + 0.5); // narrower toward the top, like a moulded shell
+    if (bend) v.z += bend * v.x * v.x; // wrap round the sitter
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals(); _pillows.set(k, g); return g;
+}
 let _baseGeo = null;
 const CHAIR_BASE_MAT = triSurface(new THREE.MeshStandardMaterial({ color: 0x45433f, metalness: 0.85, roughness: 0.34, envMapIntensity: 0.6 }), { set: 'steel', metres: 0.45, ns: 0.5, rv: 0.7, low: 0.3 });
 function chairBase() {
   if (_baseGeo) return _baseGeo;
-  const pts = [[0, 0], [0.36, 0], [0.375, 0.012], [0.36, 0.03], [0.22, 0.06], [0.11, 0.09], [0.075, 0.13], [0.065, 0.33], [0.09, 0.36], [0, 0.36]].map(([x, y]) => new THREE.Vector2(x, y));
+  const pts = [[0, 0], [0.3, 0], [0.315, 0.012], [0.3, 0.028], [0.18, 0.05], [0.085, 0.08], [0.06, 0.12], [0.05, 0.3], [0.07, 0.33], [0.075, 0.36], [0, 0.36]].map(([x, y]) => new THREE.Vector2(x, y));
   _baseGeo = new THREE.LatheGeometry(pts, 40); return _baseGeo;
 }
-function makeChair(parent, kind) {
+// moulded shell: smooth satin composite, warm dark grey (no cast-metal grain, which read as stone)
+const MAT_SHELL = new THREE.MeshStandardMaterial({ color: 0x2e2a27, metalness: 0.1, roughness: 0.5, envMapIntensity: 0.4 });
+const CHAIRS = [];
+// kinds: captain (wide, high back, headrest, long arms), xo (high back, headrest), station (mid back), dining (lighter, short arms)
+function makeChair(parent, kind, leather) {
   const g = new THREE.Group(); parent.add(g);
-  const cap = kind === 'captain', side = kind === 'xo';
-  const s = cap ? 1.1 : side ? 1.0 : 0.9;
-  g.scale.set(s, 1, s);
+  const cap = kind === 'captain', hi = cap || kind === 'xo', dine = kind === 'dining', L = leather || MAT.leather;
+  const sx = cap ? 1.1 : dine ? 0.92 : 1.0;
   mesh(chairBase(), CHAIR_BASE_MAT, 0, 0, 0, g);
-  mesh(new THREE.TorusGeometry(0.36, 0.012, 6, 40), MAT.steel, 0, 0.012, 0, g).rotation.x = Math.PI / 2;
-  // seat pan + waterfall cushion
-  mesh(RBOX(0.58, 0.07, 0.54, 0.03), MAT.gun, 0, 0.395, 0.0, g);
-  mesh(sideGeo('seat', () => { const p = new THREE.Shape(); p.moveTo(-0.25, 0.42); p.lineTo(0.2, 0.42); p.quadraticCurveTo(0.29, 0.42, 0.29, 0.48); p.quadraticCurveTo(0.29, 0.535, 0.2, 0.54); p.lineTo(-0.22, 0.55); p.quadraticCurveTo(-0.27, 0.55, -0.27, 0.49); p.closePath(); return p; }, 0.5, 0.025), MAT.leather, 0, 0, 0, g);
-  // back: tapered shell + cushion with stitch lines
-  const back = new THREE.Group(); back.position.set(0, 0.47, 0.26); back.rotation.x = -0.13; g.add(back);
-  const d = cap ? [0.5, 0.58, 0.42, 0.86, 0.1] : side ? [0.46, 0.52, 0.4, 0.66, 0.09] : [0.44, 0.48, 0.38, 0.56, 0.08];
-  mesh(extrudeX('bshell' + kind, () => backShape(d[0] + 0.04, d[1] + 0.04, d[2] + 0.04, d[3] + 0.03, d[4] + 0.02), 0.08, 0.02), MAT.gun, 0, -0.015, 0.045, back);
-  mesh(extrudeX('bcush' + kind, () => backShape(d[0], d[1], d[2], d[3], d[4]), 0.07, 0.03), MAT.leather, 0, 0, -0.02, back);
-  (cap ? [0.26, 0.48, 0.7] : [0.34, 0.66]).forEach((f) => mesh(BOX(d[1] * 0.74, 0.008, 0.01), MAT.leatherDark, 0, f * d[3], -0.057, back));
-  if (cap) {
-    mesh(BOX(0.36, 0.014, 0.014), STRIP, 0, 0.12, 0.088, back);
-    mesh(extrudeX('crest', () => { const p = new THREE.Shape(); for (let i = 0; i < 6; i++) { const a = (60 * i) * D2R; i ? p.lineTo(Math.cos(a) * 0.045, Math.sin(a) * 0.045) : p.moveTo(0.045, 0); } p.closePath(); return p; }, 0.012, 0.003), MAT.steel, 0, d[3] - 0.18, 0.09, back);
+  const sw = group(0, 0.36, 0, 0, g); sw.scale.set(sx, 1, sx); // the swivel: everything above the pedestal
+  const rock = group(0, 0, 0, 0, sw);                            // and a little rock on top of it
+  // seat: shell, then a deep cushion with a soft waterfall front edge
+  mesh(pillow(0.56, 0.05, 0.52, 0.02, 0, 'y', 0), MAT_SHELL, 0, 0.035, 0.0, rock);
+  mesh(pillow(0.52, 0.1, 0.5, 0.045, 0.018, 'y', 0), L, 0, 0.1, -0.005, rock);
+  mesh(BOX(0.4, 0.006, 0.006), MAT.leatherDark, 0, 0.162, -0.09, rock);
+  // back: shell and a cushion wrapped round the sitter, tilted back; stitch lines across it
+  const bh = hi ? 0.66 : dine ? 0.46 : 0.54, back = group(0, 0.1, 0.25, 0, rock); back.rotation.x = -0.16;
+  // shell: tapers toward the shoulders and bulges at the rear; an upholstered panel is let into its back
+  mesh(pillow(0.52, bh, 0.06, 0.028, 0.035, '+z', -0.12, null, 0.17), MAT_SHELL, 0, bh / 2 + 0.06, 0.03, back);
+  mesh(pillow(0.38, bh * 0.74, 0.03, 0.014, 0.014, '+z', -0.1, null, 0.15), L, 0, bh * 0.5 + 0.06, 0.078, back);
+  mesh(pillow(0.47, bh - 0.05, 0.08, 0.035, 0.022, '-z', -0.14, null, 0.15), L, 0, bh / 2 + 0.06, -0.025, back);
+  [0.3, 0.58].forEach((f) => mesh(BOX(0.36 * (1 - 0.15 * f), 0.006, 0.008), MAT.leatherDark, 0, 0.06 + bh * f, -0.072, back));
+  mesh(BOX(0.006, bh * 0.62, 0.008), MAT.leatherDark, 0, 0.06 + bh * 0.45, -0.074, back); // centre channel
+  if (hi) { // headrest on two posts
+    [-0.07, 0.07].forEach((x) => mesh(CYL(0.012, 0.012, 0.08, 8), MAT.steel, x, bh + 0.1, 0.01, back));
+    mesh(pillow(cap ? 0.34 : 0.3, 0.15, 0.08, 0.035, 0.015, '-z', -0.2), L, 0, bh + 0.2, -0.01, back);
   }
-  // armrests: one swept piece each, rear post into the seat shell
-  const armLen = cap ? 0.3 : 0.22;
+  if (cap) mesh(BOX(0.3, 0.014, 0.014), STRIP, 0, 0.1, 0.06, back);
+  // arms: a cast support from the seat shell up to a padded rest
+  const al = cap ? 0.42 : dine ? 0.26 : 0.34;
   [-1, 1].forEach((sd) => {
-    mesh(sideGeo('arm' + armLen, () => { const p = new THREE.Shape(); p.moveTo(-0.25, 0.4); p.lineTo(-0.17, 0.4); p.quadraticCurveTo(-0.15, 0.6, -0.1, 0.635); p.lineTo(armLen - 0.03, 0.645); p.quadraticCurveTo(armLen + 0.02, 0.65, armLen + 0.02, 0.685); p.quadraticCurveTo(armLen + 0.02, 0.722, armLen - 0.03, 0.722); p.lineTo(-0.2, 0.722); p.quadraticCurveTo(-0.27, 0.72, -0.27, 0.65); p.closePath(); return p; }, 0.085, 0.018), MAT.gun, sd * 0.33, 0, 0, g);
-    if (!cap) mesh(RBOX(0.07, 0.022, 0.32, 0.01), MAT.leather, sd * 0.33, 0.733, -0.02, g);
-    else mesh(RBOX(0.07, 0.022, 0.2, 0.01), MAT.leather, sd * 0.33, 0.733, 0.12, g);
+    mesh(RBOX(0.035, 0.2, 0.07, 0.012), MAT_SHELL, sd * 0.29, 0.16, 0.08, rock);
+    mesh(RBOX(0.035, 0.04, al * 0.7, 0.012), MAT_SHELL, sd * 0.29, 0.26, 0.1 - al * 0.3, rock);
+    mesh(pillow(0.075, 0.045, al, 0.02, 0.008, 'y', 0), L, sd * 0.29, 0.3, 0.1 - al * 0.45, rock);
   });
+  const c = { g, sw, rock, home: 0, yaw: 0, vel: 0, tilt: 0, tiltV: 0, cap, p: null };
+  g.userData.swivel = sw; g.userData.chair = c; CHAIRS.push(c);
   return g;
+}
+// a chair at rest is rarely square: give each a slight, fixed set-off
+function chairRest(c, yaw) { c.home = c.yaw = yaw; c.sw.rotation.y = yaw; }
+let _cpx = null, _cpz = null;
+function chairsUpdate(dt) {
+  if (dt <= 0) return;
+  const vx = _cpx === null ? 0 : (player.x - _cpx) / dt, vz = _cpz === null ? 0 : (player.z - _cpz) / dt; _cpx = player.x; _cpz = player.z;
+  const sp = Math.hypot(vx, vz), wp = new THREE.Vector3();
+  for (const c of CHAIRS) {
+    if (!c.p) { c.g.updateWorldMatrix(true, false); c.p = c.g.getWorldPosition(wp).clone(); }
+    if (Math.abs(c.p.y - deckY(LIFT.deck)) > 1.5 && !(c.p.y > -0.5 && LIFT.deck === 1)) continue;
+    const dx = player.x - c.p.x, dz = player.z - c.p.z, d = Math.hypot(dx, dz);
+    if (d < 0.78 && sp > 0.05 && !state.sitting) {
+      const touch = 1 - d / 0.78, cross = dx * vz - dz * vx; // which way the brush turns the chair
+      c.vel += -cross * 6 * touch * dt; c.tiltV += sp * 1.2 * touch * dt;
+    }
+    if (c.cap && state.sitting) c.vel += (0 - c.yaw) * 8 * dt - c.vel * 6 * dt;
+    else c.vel += (c.home - c.yaw) * 0.35 * dt; // a self-centring swivel brings it back, slowly
+    c.vel *= Math.exp(-dt * 2.2); c.vel = clamp(c.vel, -4, 4); c.yaw += c.vel * dt;
+    c.tiltV += (-c.tilt * 60 - c.tiltV * 7) * dt; c.tilt += c.tiltV * dt;
+    if (Math.abs(c.vel) > 1e-4 || Math.abs(c.tilt) > 1e-4 || Math.abs(c.yaw - c.sw.rotation.y) > 1e-4) { c.sw.rotation.y = c.yaw; c.rock.rotation.x = clamp(c.tilt, -0.08, 0.08); }
+  }
 }
 
 // ---------- station furniture (shared) ----------
@@ -198,8 +252,8 @@ mesh(new THREE.CylinderGeometry(DAIS.r, DAIS.r + 0.04, DAIS.h, 72), [MAT.gun, MA
 { const t = mesh(new THREE.TorusGeometry(DAIS.r + 0.01, 0.025, 8, 120), MAT.steel, DAIS.x, DAIS.h, DAIS.z); t.rotation.x = Math.PI / 2; }
 { const t = mesh(new THREE.TorusGeometry(DAIS.r + 0.03, 0.012, 6, 120), STRIP, DAIS.x, DAIS.h - 0.05, DAIS.z); t.rotation.x = Math.PI / 2; }
 ao(DAIS.x, DAIS.z, DAIS.r * 2.6, DAIS.r * 2.6, 0.55);
-const capChair = group(0, DAIS.h, 0.45); makeChair(capChair, 'captain');
-[-1, 1].forEach((sd) => { const sg = group(sd * 0.363, 0.73, -0.06, 0, capChair); const sc = addScreen(sg, 0.07, 0.3, 128, 352, 'cmd', 'command', 'Command', 'CMD'); sc.mesh.rotation.x = -Math.PI / 2 + 0.06; });
+const capChair = group(0, DAIS.h, 0.45); const capSw = makeChair(capChair, 'captain').userData.swivel;
+[-1, 1].forEach((sd) => { const sg = group(sd * 0.29, 0.33, -0.12, 0, capSw); const sc = addScreen(sg, 0.06, 0.26, 128, 352, 'cmd', 'command', 'Command', 'CMD'); sc.mesh.rotation.x = -Math.PI / 2 + 0.06; });
 ao(0, 0.45, 1.2, 1.2, 0.6, DAIS.h);
 addHit(BOX(1.0, 1.8, 1.0), { station: 'command' }, null, 0, DAIS.h + 0.9, 0.45);
 const SEAT_XO = { x: -1.3, z: 0.65 }, SEAT_TAC = { x: 1.3, z: 0.65 };
@@ -234,7 +288,7 @@ function pod(x, z, station, kindA, titleA, codeA) {
   grille(f, 0, 0.36, 0.02, 0.66, 0.2);
   idPlate(f, codeA, 0, 0.2, 0.022, 0.26);
   addHit(BOX(1.6, 1.5, 1.0), { station }, g, 0, 0.75, 0);
-  const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7);
+  const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7); chairRest(ch.userData.chair, (x > 0 ? -1 : 1) * 0.12);
   ao(x, z, 1.8, 1.2, 0.65); ao(x, z + 0.7, 0.9, 0.9, 0.55);
   pool(x, z + 0.45, 1.6, 1.0, 0xffe2c8, 0.12);
   return g;
@@ -286,7 +340,7 @@ function post(parent, lx, p, wallW, body) {
   addHit(BOX(Math.min(1.5, wallW + 0.1), 2.6, 1.3), { station: p.id }, st, 0, 1.3, 0.1);
   st.updateWorldMatrix(true, false);
   const cw = new THREE.Vector3(); st.localToWorld(cw.set(0, 0, 1.02));
-  const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y;
+  const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y; chairRest(ch.userData.chair, Math.sin(cw.x * 7 + cw.z * 3) * 0.22);
   ao(cw.x, cw.z, 0.9, 0.9, 0.55); extraObs.push({ x: cw.x, z: cw.z, r: 0.36 });
   const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.08);
   const dl = new THREE.Vector3(); st.localToWorld(dl.set(0, 0, 0.7)); DOWNLIGHTS.push([dl.x, dl.z]);
@@ -394,15 +448,25 @@ function rail(ei, t0, t1, y) {
   mesh(BOX(3.1, 0.02, 0.02), SLOT, 0, -0.72, 0.02, g);
   addHit(BOX(3.2, 1.4, 0.4), { station: 'ship' }, g, 0, 0, 0.2);
 }
-const TABLE = { x: 0, z: 3.55 };
+// ---------- systems table aft of the command dais ----------
+// A waist-high display table in the tradition of an engineering master situation table: a sculpted base, a heavy
+// trim slab and one large glass display (DRAW via drawTable in screens.js) read from the forward side.
+const TABLE = { x: 0, z: 3.75, w: 2.5, d: 1.25 };
 {
-  mesh(new THREE.CylinderGeometry(0.42, 0.55, 0.85, 6), MAT.gun, TABLE.x, 0.425, TABLE.z);
-  mesh(new THREE.CylinderGeometry(0.92, 0.88, 0.1, 6), MAT.console, TABLE.x, 0.9, TABLE.z);
-  const r = mesh(new THREE.CylinderGeometry(0.94, 0.94, 0.03, 6, 1, true), STRIP, TABLE.x, 0.94, TABLE.z);
-  const emitC = cnv(256, 256); { const g = emitC.getContext('2d'); const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128); gr.addColorStop(0, '#bff8ef'); gr.addColorStop(0.5, '#2a6a64'); gr.addColorStop(1, '#0b1a1a'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); g.strokeStyle = 'rgba(210,255,248,0.3)'; g.lineWidth = 2; for (let i = 1; i < 6; i++) { g.beginPath(); g.arc(128, 128, i * 22, 0, 7); g.stroke(); } for (let a = 0; a < 6; a++) { const t = a * Math.PI / 3; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.cos(t) * 128, 128 + Math.sin(t) * 128); g.stroke(); } }
-  const em = mesh(new THREE.CircleGeometry(0.78, 6), new THREE.MeshBasicMaterial({ map: tex(emitC), toneMapped: false }), TABLE.x, 0.952, TABLE.z); em.rotation.x = -Math.PI / 2; em.rotation.z = Math.PI / 6;
-  ao(TABLE.x, TABLE.z, 2.2, 2.2, 0.6);
-  pool(TABLE.x, TABLE.z, 3.0, 3.0, 0x6fd6c8, 0.08);
+  const g = group(TABLE.x, 0, TABLE.z, 0); // reads right way up from the aft side, where you walk in from the lift and the MSD
+  mesh(RBOX(2.1, 0.08, 0.84, 0.03), MAT.gunDark, 0, 0.04, 0, g);
+  [-1, 1].forEach((sd) => { mesh(BOX(0.018, 0.018, 0.7), STRIP, sd * 1.02, 0.05, 0, g); mesh(BOX(1.9, 0.018, 0.018), STRIP, 0, 0.05, sd * 0.41, g); });
+  [-0.78, 0.78].forEach((x) => { mesh(RBOX(0.46, 0.76, 0.74, 0.05), MAT_PED, x, 0.46, 0, g); mesh(RBOX(0.05, 0.62, 0.76, 0.015), MAT_TRIM, x + (x > 0 ? -0.24 : 0.24), 0.46, 0, g); grille(g, x, 0.46, 0.372, 0.3, 0.3); });
+  mesh(RBOX(1.12, 0.2, 0.34, 0.03), MAT_TRIM, 0, 0.62, 0, g); idPlate(g, 'SYS·TBL', 0, 0.62, 0.172, 0.28);
+  mesh(RBOX(TABLE.w, 0.09, TABLE.d, 0.035), MAT_TRIM, 0, 0.905, 0, g);
+  mesh(RBOX(TABLE.w + 0.04, 0.03, TABLE.d + 0.04, 0.015), MAT.leatherDark, 0, 0.935, 0, g);
+  mesh(RBOX(TABLE.w - 0.12, 0.012, TABLE.d - 0.12, 0.006), MAT.glassTop, 0, 0.952, 0, g);
+  mesh(BOX(TABLE.w - 0.1, 0.012, 0.012), STRIP, 0, 0.86, TABLE.d / 2 - 0.02, g); mesh(BOX(TABLE.w - 0.1, 0.012, 0.012), STRIP, 0, 0.86, -TABLE.d / 2 + 0.02, g);
+  buttons(g, 9, -1.0, 1.0, 0.958, TABLE.d / 2 - 0.035, 41); buttons(g, 9, -1.0, 1.0, 0.958, -TABLE.d / 2 + 0.035, 43);
+  const sg = group(0, 0.962, 0, 0, g); sg.rotation.x = -Math.PI / 2; addScreen(sg, TABLE.w - 0.2, TABLE.d - 0.2, 2048, 896, 'table', 'carto', 'Situation table', 'SIT·01');
+  ao(TABLE.x, TABLE.z, 3.0, 1.8, 0.6);
+  pool(TABLE.x, TABLE.z, 3.0, 2.0, 0xffd9b0, 0.06);
+  [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].reduce((a, b2) => { addSeg(TABLE.x + a[0] * TABLE.w / 2, TABLE.z + a[1] * TABLE.d / 2, TABLE.x + b2[0] * TABLE.w / 2, TABLE.z + b2[1] * TABLE.d / 2, 0.34); return b2; });
 }
 const holoBeam = mesh(new THREE.CylinderGeometry(0.75, 0.6, 0.7, 6, 1, true), new THREE.MeshBasicMaterial({ color: 0x6fd6c8, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }), TABLE.x, 1.31, TABLE.z);
 const holo = group(TABLE.x, 1.55, TABLE.z);
@@ -425,7 +489,8 @@ function buildHolo(i) {
   holo.rotation.x = 0.35;
 }
 buildHolo(0);
-addHit(new THREE.CylinderGeometry(1.0, 1.0, 2.2, 6), { station: 'carto' }, null, TABLE.x, 1.1, TABLE.z);
+addHit(BOX(TABLE.w + 0.2, 1.3, TABLE.d + 0.2), { station: 'carto' }, null, TABLE.x, 0.65, TABLE.z);
+holo.visible = holoBeam.visible = false; // the old hologram is retired; the table display shows the sector chart
 // doors: Lift + Ready Room (aft), Head (aft-port), Conference Room (aft-starboard)
 const DOORS = [];
 function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }

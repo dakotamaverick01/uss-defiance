@@ -1,9 +1,9 @@
 // USS Defiance · render.js
-// Atmosphere (shadows, light shafts, dust), post-processing, hero shots and the frame loop.
+// Atmosphere (shadows, light shafts), post-processing, hero shots and the frame loop.
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
-// ---------- atmosphere: shadow flags, light shafts, dust ----------
+// ---------- atmosphere: shadow flags, light shafts ----------
 scene.traverse((o) => {
   if (!o.isMesh || o.layers.mask !== 1 || o.visible === false) return;
   const m = o.material, basic = Array.isArray(m) ? false : (m.isMeshBasicMaterial || m.transparent);
@@ -31,25 +31,7 @@ const shafts = [];
 });
 shafts.push(mesh(new THREE.CylinderGeometry(1.35, 1.9, WALL_H - 0.02, 40, 1, true), shaftMat.clone(), COFFER.x, (WALL_H - 0.02) / 2, COFFER.z));
 shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
-const N_DUST = isMobile ? 220 : 420;
-const dustPos = new Float32Array(N_DUST * 3), dustSeed = new Float32Array(N_DUST * 4);
-{
-  const r = mulberry(77);
-  for (let i = 0; i < N_DUST; i++) { dustSeed.set([(r() - 0.5) * 9, 0.3 + r() * 2.8, (r() - 0.5) * 9, r() * 6.28], i * 4); }
-  const dc = cnv(32, 32), dg = dc.getContext('2d'), gr = dg.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,240,220,1)'); gr.addColorStop(1, 'rgba(255,240,220,0)'); dg.fillStyle = gr; dg.fillRect(0, 0, 32, 32);
-  var dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-  var dust = add(new THREE.Points(dustGeo, new THREE.PointsMaterial({ size: 0.014, map: tex(dc), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
-  dust.frustumCulled = false;
-}
-function updateDust(t) {
-  for (let i = 0; i < N_DUST; i++) {
-    const o = i * 4, ph = dustSeed[o + 3];
-    dustPos[i * 3] = dustSeed[o] + Math.sin(t * 0.05 + ph) * 0.4;
-    dustPos[i * 3 + 1] = 0.3 + ((dustSeed[o + 1] + t * 0.03 + Math.sin(t * 0.2 + ph) * 0.05) % 2.9);
-    dustPos[i * 3 + 2] = dustSeed[o + 2] + Math.cos(t * 0.04 + ph) * 0.4;
-  }
-  dustGeo.attributes.position.needsUpdate = true;
-}
+// (no floating dust motes: they read as glowing specks; the light shafts stay)
 
 // ---------- bloom (falls back to a plain render if the effect scripts are missing) ----------
 let composer = null, bloom = null;
@@ -113,6 +95,7 @@ function resize() {
 window.addEventListener('resize', resize); resize();
 
 const clock = { last: performance.now(), getDelta() { const n = performance.now(), d = (n - this.last) / 1000; this.last = n; return d; } };
+const _scrPM = new THREE.Matrix4(), _scrFr = new THREE.Frustum();
 let wasWarp = false, rr = 0, rrTimer = 0, panelTimer = 0, ovTimer = 0, bobT = 0, bobAmp = 0;
 const standV = new THREE.Vector3();
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
@@ -125,6 +108,7 @@ function frame() {
   if (state.open) { livePanelT += dt; if (livePanelT > 0.25) { livePanelT = 0; renderPanel(); } }
 
   liftUpdate(dt);
+  chairsUpdate(dt);
   if (!state.sitting) {
     let f = 0, s = 0;
     if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
@@ -196,8 +180,7 @@ function frame() {
     if (state.scanT > 2.6) { state.scanning = false; state.scanned = true; scanRing.material.opacity = 0; planetMat.uniforms.scan.value = 0; toast(`Scan complete on ${sysCur().planet}.`, 'Science'); beep([2093, 1568], 0.08, 0.035); renderPanel(); redrawAll(); }
   }
 
-  holo.visible = state.holoOn; holoBeam.visible = state.holoOn;
-  if (state.holoOn) {
+  if (false) { // the hologram over the old situation table is retired
     holo.rotation.y += dt * (reduceMotion ? 0.05 : 0.22);
     holoPlanets.forEach((p) => { p.a += dt * p.w; p.m.position.set(Math.cos(p.a) * p.r, 0, Math.sin(p.a) * p.r); });
     holoBeam.material.opacity = 0.05 + Math.sin(elapsed * 2) * 0.015;
@@ -241,15 +224,24 @@ function frame() {
 
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }
 
-  rrTimer += dt;
-  if (rrTimer > 0.04) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72 && shown(sc.mesh)) { drawScreen(sc); break; } } }
+  // screens: every frame, redraw a few of the visible ones, the nearest and longest-waiting first, so they all keep moving
+  { _scrPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _scrFr.setFromProjectionMatrix(_scrPM);
+    const budget = isMobile ? 2 : 4, pick = [];
+    for (const sc of screens) {
+      if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); }
+      const d2 = sc.wp.distanceToSquared(camera.position); if (d2 > 110) continue;
+      const big = sc.w * sc.h > 900000, age = elapsed - (sc.last || -9); if (age < (big ? 1 / 12 : 1 / 30)) continue;
+      if (!shown(sc.mesh)) continue;
+      const score = age * (_scrFr.containsPoint(sc.wp) ? 4 : 0.25) / (0.6 + Math.sqrt(d2)) * (big ? 0.7 : 1);
+      if (pick.length < budget) pick.push([score, sc]); else { let lo = 0; for (let k = 1; k < pick.length; k++) if (pick[k][0] < pick[lo][0]) lo = k; if (score > pick[lo][0]) pick[lo] = [score, sc]; }
+    }
+    pick.forEach(([, sc]) => { drawScreen(sc); sc.last = elapsed; }); }
   if (state.open && byStation[state.open]) { panelTimer += dt; if (panelTimer > 0.15) { panelTimer = 0; byStation[state.open].forEach((s) => { if (s.kind !== 'keys') drawScreen(s); }); } }
   ovTimer += dt; if (ovTimer > 1) { ovTimer = 0; drawOverlay(); }
 
   aimTimer += dt; if (aimTimer > 0.12) { aimTimer = 0; aim(); }
 
   scene.fog = null; renderer.setRenderTarget(rt); if (LIFT.deck === 1) renderer.render(scene, vcam);
-  updateDust(elapsed);
   { const sk = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1) * (1 + Math.sin(elapsed * 0.7) * 0.15); shaftMat.uniforms.k.value = 0.06 * sk; shafts[shafts.length - 1].material.uniforms.k.value = 0.035 * sk; }
   scene.fog = FOG; renderer.setRenderTarget(null);
   if (composer) composer.render(); else renderer.render(scene, camera);

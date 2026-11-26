@@ -12,8 +12,9 @@ function fromEye(yawDeg, pitchDeg, dist) {
 }
 // The sun is off-screen to the right and a little behind the viewer, so the planet's near limb and the ship's flank are lit.
 const SUN = new THREE.Vector3(0.55, 0.3, -0.8).normalize();
-const PLANET_R = 60, PLANET_ANG = 40;
-const PLANET_POS = fromEye(52, 4, PLANET_R / Math.sin(PLANET_ANG * D2R));
+// Standard orbit: the planet fills the bottom of the viewscreen and its limb arcs across the lower third.
+const PLANET_R = 60, PLANET_ANG = 56;
+const PLANET_POS = fromEye(4, -59, PLANET_R / Math.sin(PLANET_ANG * D2R));
 // "Magnify" frames the lit limb, where the atmosphere reads best.
 const TARGET_LOOK = (() => { // the point on the limb nearest straight ahead, nudged just inside the disc
   const d = PLANET_POS.clone().sub(VS_EYE), D = d.length(); d.normalize();
@@ -168,12 +169,12 @@ void main(){
   float ndl=dot(n,L), diff=max(ndl,0.0), day=smoothstep(-0.12,0.18,ndl);
   float c=cl.r;
   vec3 col=s.rgb*(1.0-0.35*c)*diff*sun;
-  vec3 H=normalize(L+V); col+=vec3(1.0,0.93,0.82)*pow(max(dot(n,H),0.0),70.0)*s.a*0.9*day*(1.0-c)*sun;
+  vec3 H=normalize(L+V); col+=vec3(1.0,0.93,0.82)*pow(max(dot(n,H),0.0),160.0)*s.a*0.55*day*(1.0-c)*sun;
   col=mix(col, vec3(0.92,0.93,0.95)*(diff*sun*0.95+0.004), c);
   col*=mix(vec3(1.0,0.50,0.30), vec3(1.0), smoothstep(-0.05,0.30,ndl));
-  float mu=max(dot(n,V),0.0), fr=pow(1.0-mu,2.6);
-  col=mix(col, atmo*diff*sun*0.32, atmoK*(0.16+0.5*fr));
-  col+=atmo*atmoK*(fr*1.6+0.05)*smoothstep(-0.25,0.55,ndl)*sun*0.5;
+  float mu=max(dot(n,V),0.0), fr=pow(1.0-mu,6.0); // a steep rim term: from low orbit most of the disc is seen at a grazing angle
+  col=mix(col, atmo*diff*sun*0.32, atmoK*(0.08+0.45*fr));
+  col+=atmo*atmoK*(fr*1.4+0.03)*smoothstep(-0.25,0.55,ndl)*sun*0.5;
   col+=glowCol*cl.g*(1.2-day)*2.2;
   col+=vec3(0.35,0.9,0.85)*scan*smoothstep(0.02,0.0,abs(fract(vUv.y*40.0)-0.5)-0.47)*0.5;
   gl_FragColor=vec4(col,opacity);
@@ -190,7 +191,7 @@ void main(){
 }`,
 });
 const planet = space(mesh(new THREE.SphereGeometry(PLANET_R, isMobile ? 96 : 160, isMobile ? 64 : 110), planetMat, PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
-planet.rotation.set(0.12, 2.4, 0.22);
+planet.rotation.set(0.0, 0.25, Math.PI / 2 + 0.18); // pole turned sideways so the equator rolls toward the bow as we orbit
 const atmoShell = space(mesh(new THREE.SphereGeometry(PLANET_R * 1.03, isMobile ? 96 : 160, isMobile ? 64 : 110), atmoMat, PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
 const scanRing = space(mesh(new THREE.TorusGeometry(PLANET_R * 1.12, 0.3, 6, 120), new THREE.MeshBasicMaterial({ color: 0x6fd6c8, transparent: true, opacity: 0, depthWrite: false }), PLANET_POS.x, PLANET_POS.y, PLANET_POS.z));
 scanRing.visible = false; // scans now sweep across the surface itself
@@ -216,7 +217,7 @@ const MOON_POS = fromEye(-26, 13, 420);
 const moon = space(mesh(new THREE.SphereGeometry(5.5, 48, 32), moonMat, MOON_POS.x, MOON_POS.y, MOON_POS.z));
 
 // ---------- the convoy freighter we are escorting (original design) ----------
-const SHIP_POS = fromEye(-6, -7, 50);
+const SHIP_POS = fromEye(-11, 3.5, 46);
 const ship = space(new THREE.Group()); ship.position.copy(SHIP_POS); ship.rotation.set(0.16, -0.58, 0.06, 'YXZ'); scene.add(ship);
 const shipLights = [];
 {
@@ -297,8 +298,9 @@ function updateSpace(dt, fade) {
   const on = fade > 0.01;
   planet.visible = atmoShell.visible = moon.visible = on;
   planetMat.uniforms.opacity.value = atmoMat.uniforms.opacity.value = moonMat.uniforms.opacity.value = fade;
-  planet.rotation.y += dt * (reduceMotion ? 0.0004 : 0.0012);
-  planetMat.uniforms.drift.value = spaceT * 0.0004;
+  // orbital motion: the surface slides slowly toward the bow, clouds drift on their own
+  planet.rotation.x -= dt * (reduceMotion ? 0.0012 : 0.0045);
+  planetMat.uniforms.drift.value = spaceT * 0.0011;
   _tmpL.copy(SUN).transformDirection(vcam.matrixWorldInverse);
   [planetMat, atmoMat, moonMat].forEach((m) => m.uniforms.lightDir.value.copy(_tmpL));
   ship.visible = fade > 0.4;
