@@ -390,7 +390,7 @@ function rail(ei, t0, t1, y) {
 // ---------- aft wall: ship profile, situation table, lift and ready room ----------
 {
   const g = group(0, 2.12, AFT_Z - 0.06, Math.PI);
-  display(g, 3.0, 1.2, 1024, 410, 'msd', 'ship', 'USS Defiance · EV-0408', 'BASTION CLASS');
+  display(g, 3.0, 1.2, 2048, 820, 'msd', 'ship', 'USS Defiance · EV-0408', 'BASTION CLASS');
   mesh(BOX(3.1, 0.02, 0.02), SLOT, 0, -0.72, 0.02, g);
   addHit(BOX(3.2, 1.4, 0.4), { station: 'ship' }, g, 0, 0, 0.2);
 }
