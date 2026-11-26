@@ -39,3 +39,38 @@ $('sound-btn').addEventListener('click', () => {
   $('sound-btn').setAttribute('aria-pressed', String(soundOn));
   if (soundOn) { $('snd-wave').removeAttribute('hidden'); $('snd-off').setAttribute('hidden', ''); } else { $('snd-wave').setAttribute('hidden', ''); $('snd-off').removeAttribute('hidden'); }
 });
+
+// ---------- red alert klaxon ----------
+// An original two-tone whoop: a buzzy rising sweep, then a short falling tail, through a
+// band-pass "loudspeaker" and a short echo so it sounds like it is coming from the ship's PA.
+let klaxonNodes = [];
+function klaxonStop() {
+  if (!AC) return; const t = AC.currentTime;
+  klaxonNodes.forEach((n) => { try { if (n.gain) { n.gain.cancelScheduledValues(t); n.gain.setTargetAtTime(0.0001, t, 0.05); } else n.stop(t + 0.3); } catch (e) { /* already stopped */ } });
+  klaxonNodes = [];
+}
+function klaxon(cycles) {
+  if (!AC || !soundOn) return; klaxonStop(); cycles = cycles || 4;
+  const t0 = AC.currentTime + 0.05, per = 1.25;
+  const out = AC.createGain(); out.gain.value = 0.16; out.connect(master);
+  const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.8; // small horn speaker
+  const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 260;
+  const shaper = AC.createWaveShaper(); const curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 2.2); } shaper.curve = curve; // gentle overdrive
+  const echo = AC.createDelay(0.5); echo.delayTime.value = 0.17; const fb = AC.createGain(); fb.gain.value = 0.28; const wet = AC.createGain(); wet.gain.value = 0.35;
+  shaper.connect(hp); hp.connect(bp); bp.connect(out); bp.connect(echo); echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(out);
+  const env = AC.createGain(); env.gain.value = 0.0001; env.connect(shaper);
+  const oA = AC.createOscillator(), oB = AC.createOscillator(); oA.type = 'sawtooth'; oB.type = 'square';
+  const gB = AC.createGain(); gB.gain.value = 0.45; oA.connect(env); oB.connect(gB); gB.connect(env);
+  for (let c = 0; c < cycles; c++) {
+    const s = t0 + c * per;
+    [[oA, 1], [oB, 1.007]].forEach(([o, k]) => {
+      o.frequency.setValueAtTime(300 * k, s); o.frequency.exponentialRampToValueAtTime(690 * k, s + 0.62); // the whoop
+      o.frequency.setValueAtTime(690 * k, s + 0.7); o.frequency.exponentialRampToValueAtTime(520 * k, s + 0.86); // the drop
+    });
+    env.gain.setValueAtTime(0.0001, s); env.gain.exponentialRampToValueAtTime(0.9, s + 0.06);
+    env.gain.setValueAtTime(0.9, s + 0.8); env.gain.exponentialRampToValueAtTime(0.0001, s + 0.92);
+  }
+  const end = t0 + cycles * per + 0.8; oA.start(t0); oB.start(t0); oA.stop(end); oB.stop(end);
+  klaxonNodes = [oA, oB, env, out];
+}

@@ -36,8 +36,9 @@ function sub(g, r, title, color, P) {
   const bx = r.x + tw + th * 0.25, bw = Math.max(0, r.w - tw - th * 0.25);
   if (bw > th) {
     g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill();
-    const hs = hash1(r.x * 0.37 + r.y * 0.11 + title.length), span = bw - th * 0.55 - th, px = bx + ((elapsed * (40 + hs * 90) + hs * 999) % Math.max(1, span));
-    g.fillStyle = P.butter; g.fillRect(px, r.y + th * 0.3, th * (0.6 + hs), th * 0.4);
+    // about a third of header bars carry a slow travelling block; the rest stay still
+    const hs = hash1(r.x * 0.37 + r.y * 0.11 + title.length), span = bw - th * 0.55 - th;
+    if (hs < 0.34) { const px = bx + ((elapsed * (10 + hs * 30) + hs * 999) % Math.max(1, span)); g.fillStyle = P.butter; g.fillRect(px, r.y + th * 0.3, th * (0.6 + hs), th * 0.4); }
   }
   return { x: r.x, y: r.y + th * 1.4, w: r.w, h: r.h - th * 1.4 };
 }
@@ -69,7 +70,7 @@ function lights(g, r, rows, P, cols) {
   const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: P.yel };
   rows.forEach(([k, st, v], i) => {
     const cx = r.x + Math.floor(i / per) * cw, cy = r.y + (i % per) * rh, ph = rh * 0.74, pw = cw - 8 - (v ? cw * 0.28 : 0);
-    const blinkOn = st !== 'blink' || Math.sin(elapsed * (5 + i * 0.9) + i * 2.3) > 0; hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = blinkOn ? C[st] || P.dim : P.line; g.fill();
+    const blinkOn = st !== 'blink' || Math.sin(elapsed * 2.4 + i * 2.3) > -0.2; hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = blinkOn ? C[st] || P.dim : P.line; g.fill();
     g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = st === 'off' ? P.dim : '#000'; fitFont(g, k, 600, fs, DISP, pw - ph); g.fillText(k, cx + ph * 0.55, cy + rh / 2 + 1);
     if (v) { g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${DISP}`; g.fillText(v, cx + cw - 8, cy + rh / 2 + 1); }
   });
@@ -146,32 +147,38 @@ function ringW(g, r, P, value, label) {
 // They carry no information of their own; they make each screen read as a working console with more going on.
 // Everything moves on its own clock: each pill has its own rate and phase, numbers tick at their own moments,
 // columns scroll smoothly, and every screen has occasional bursts of activity, so nothing steps in time.
-let BURST = 0; // 0..1, set per screen by drawScreen
 function hash1(n) { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); }
+// A step counter that advances now and then rather than on a shared beat: every key gets its own
+// period (between minS and maxS) and phase, so neighbouring cells never change together.
+function slowTick(key, minS, maxS) {
+  const per = minS + (maxS - minS) * hash1(key * 1.7 + 0.3);
+  return Math.floor((elapsed + hash1(key) * per) / per);
+}
 function pillBank(g, r, seed, P, cols) {
   const rr = mulberry(seed), cw = r.w / cols, ph = clamp(cw * 0.3, 12, 30), gap = Math.max(3, ph * 0.22), rows = Math.max(1, Math.floor((r.h + gap) / (ph + gap)));
   const pal2 = [P.acc, P.tan, P.butter, P.ice, P.tan, P.rose, P.plum, P.acc], n = rows * cols;
-  // a chase that runs across the bank now and then
-  const cyc = 5 + hash1(seed) * 7, ct = (elapsed + hash1(seed + 1) * cyc) % cyc, wave = ct < 1.4 ? ct / 1.4 * (n + 4) - 2 : -99;
+  // Mostly still, like a real panel: one pill is 'selected' and moves to another every 6-18 s,
+  // one more toggles on or off now and then, and a few numbers update slowly.
+  const sel = (hash1(seed * 5 + slowTick(seed * 3.1, 6, 18)) * n) | 0, tg = slowTick(seed * 7.3, 9, 25), tgk = (hash1(seed + tg * 3) * n) | 0;
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const c = pal2[(rr() * pal2.length) | 0], off = rr() < 0.14, ph2 = rr() * 9, sp = 0.25 + rr() * 1.4, nr = 0.08 + rr() * 0.6, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap, k = j * cols + i;
-    const lit = !off && Math.sin(elapsed * sp + ph2) > -0.8 + BURST * 0.6, flash = Math.sin(elapsed * sp * (3 + BURST * 9) + ph2 * 3) > 0.97 - BURST * 0.25 || Math.abs(k - wave) < 1.2;
-    hexTab(g, x, y, w, ph, i === 0, i === cols - 1 || cols === 1); g.fillStyle = flash ? P.txt : lit ? c : P.line; g.fill();
-    if (ph >= 13 && w > ph * 1.6) { const tk = Math.floor(elapsed * nr + ph2), a2 = 10 + ((seed * 31 + k * 17 + tk * 7) % 89), b2 = 100 + ((seed * 7 + k * 53 + tk * 131) % 899); g.fillStyle = lit || flash ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(a2) + (w > ph * 3 ? '-' + String(b2) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
+    const c = pal2[(rr() * pal2.length) | 0], off0 = rr() < 0.14, ph2 = rr() * 9, live = rr() < 0.25, x = r.x + i * cw, y = r.y + j * (ph + gap), w = cw - gap, k = j * cols + i;
+    const lit = k === tgk && tg % 2 ? off0 : !off0, on = k === sel;
+    hexTab(g, x, y, w, ph, i === 0, i === cols - 1 || cols === 1); g.fillStyle = on ? P.txt : lit ? c : P.line; g.fill();
+    if (ph >= 13 && w > ph * 1.6) { const tk = live ? slowTick(seed * 13 + k, 7, 30) : 0, a2 = 10 + ((seed * 31 + k * 17 + tk * 7) % 89), b2 = 100 + ((seed * 7 + k * 53 + tk * 131) % 899); g.fillStyle = lit || on ? '#000' : P.dim; g.font = `600 ${ph * 0.5 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String(a2) + (w > ph * 3 ? '-' + String(b2) : ''), x + w - ph * 0.45, y + ph / 2 + 1); }
   }
 }
 // columns of numbers that scroll upward smoothly; a few cells change or flash on their own
 function numGrid(g, r, seed, P) {
   const fs = clamp(r.h / 7.5, 9, 15), lh = fs * 1.32, cols = Math.max(2, Math.floor(r.w / (fs * 3.9))), rows = Math.max(1, Math.floor(r.h / lh)), cw = r.w / cols;
-  const sp = 0.35 + hash1(seed) * 0.9 + BURST * 2.5, pos = elapsed * sp + hash1(seed + 3) * 100, base = Math.floor(pos), fr = pos - base;
+  const sp = hash1(seed) < 0.5 ? 0.12 + hash1(seed + 1) * 0.3 : 0, pos = elapsed * sp + hash1(seed + 3) * 100, base = Math.floor(pos), fr = pos - base;
   g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
   g.font = `500 ${fs | 0}px ${DISP}`; g.textBaseline = 'top';
   for (let j = 0; j <= rows; j++) {
     const row = base + j, y = r.y + (j - fr) * lh, hot = hash1(seed * 3 + row) > 0.86;
     for (let i = 0; i < cols; i++) {
-      const cell = seed * 977 + row * 31 + i, tk = Math.floor(elapsed * (0.2 + hash1(cell) * 1.2) + hash1(cell + 5) * 9), digits = 2 + ((hash1(cell + 7) * 4) | 0);
-      const n = String(Math.floor(hash1(cell + tk * 13) * Math.pow(10, digits))), x = r.x + i * cw, fl = Math.sin(elapsed * (5 + hash1(cell) * 9) + cell) > 0.985 - BURST * 0.1;
-      g.fillStyle = fl ? P.txt : hot ? P.butter : i === 0 ? P.acc : (i + row) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
+      const cell = seed * 977 + row * 31 + i, tk = hash1(cell + 2) < 0.3 ? slowTick(cell, 4, 22) : 0, digits = 2 + ((hash1(cell + 7) * 4) | 0);
+      const n = String(Math.floor(hash1(cell + tk * 13) * Math.pow(10, digits))), x = r.x + i * cw;
+      g.fillStyle = hot ? P.butter : i === 0 ? P.acc : (i + row) % 5 === 2 ? P.ice : P.tan; g.textAlign = i === 0 ? 'left' : 'right';
       g.fillText(n, i === 0 ? x : x + cw - 4, y);
     }
   }
@@ -201,7 +208,7 @@ function shieldW(g, r, P) {
     g.lineWidth = lw; g.strokeStyle = P.line; g.beginPath(); g.ellipse(cx, cy, s * 0.95, s * 1.25, 0, a0 + 0.06, a1 - 0.06); g.stroke();
     if (up && v > 0.5) {
       const span = (a1 - a0 - 0.12) * clamp(v / shieldMax(k), 0, 1), mid = (a0 + a1) / 2;
-      g.strokeStyle = f > 0.5 ? P.acc : f > 0.2 ? P.yel : P.red; g.globalAlpha = 0.75 + Math.sin(elapsed * 4 + i) * 0.2;
+      g.strokeStyle = f > 0.5 ? P.acc : f > 0.2 ? P.yel : P.red; g.globalAlpha = 0.8 + Math.sin(elapsed * 1.3 + i) * 0.15;
       g.beginPath(); g.ellipse(cx, cy, s * 0.95, s * 1.25, 0, mid - span / 2, mid + span / 2); g.stroke(); g.globalAlpha = 1;
     }
     const am = (a0 + a1) / 2, lx = cx + Math.cos(am) * s * 1.28, ly = cy + Math.sin(am) * s * 1.48;
@@ -526,7 +533,8 @@ function drawKeys(s) {
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
     const base = r(), rate = 0.3 + r() * 1.6, col = colors[(r() * colors.length) | 0], wide = base > 0.78 && i < cols - 1;
     if (r() < 0.12) continue; // a gap now and then, so the pad reads as laid out rather than tiled
-    const on = Math.sin(elapsed * rate + base * 20) > (base < 0.3 ? -0.92 : -0.4);
+    // keys hold their state; roughly one in eight is 'live' and flips on its own slow timing
+    const live = rate > 1.7, on = live ? slowTick(s.seed * 17 + j * cols + i, 5, 20) % 3 !== 0 : base > 0.22;
     const pw = cw * (wide ? 1.7 : 0.84), ph = ch * 0.7, kx = i * cw + cw * 0.08, ky = j * ch + (ch - ph) / 2;
     hexTab(g, kx, ky, pw, ph, (i + j) % 3 === 0, (i + j) % 3 === 1); g.fillStyle = on ? col : P.line; g.fill();
     if (ph > 14) { g.fillStyle = on ? '#000' : P.dim; g.font = `600 ${ph * 0.42 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String((base * 89 | 0) + 10), kx + pw - ph * 0.3, ky + ph / 2 + 1); }
@@ -564,7 +572,7 @@ function drawStrip(s) {
   g.fillStyle = '#000'; g.font = `600 ${bh * 0.6 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText((s.code.split('·')[1] || ''), p + cap - bh * 0.25, H / 2 + 1);
   const t = s.title.toUpperCase(); fitFont(g, t, 600, bh * 0.92, DISP, W * 0.32); g.fillStyle = P.acc; g.textAlign = 'left'; g.fillText(t, p + cap + bh * 0.3, H / 2 + 2);
   let x = p + cap + bh * 0.6 + g.measureText(t).width; const r = mulberry(s.seed + 5), cols = [P.tan, P.ice, P.butter, P.plum, P.tan, P.rose];
-  while (x < W - p - bh * 0.8) { const w = bh * (0.8 + r() * 3.2), c = cols[(r() * cols.length) | 0], on = Math.sin(elapsed * (0.3 + r()) + r() * 9) > -0.7; g.fillStyle = on ? c : P.line; g.fillRect(x, p, Math.min(w, W - p - bh * 0.8 - x), bh); x += w + bh * 0.25; }
+  while (x < W - p - bh * 0.8) { const w = bh * (0.8 + r() * 3.2), c = cols[(r() * cols.length) | 0], kk = r(), on = kk > 0.85 ? slowTick(s.seed * 23 + x, 6, 24) % 3 !== 0 : r() > 0.12; g.fillStyle = on ? c : P.line; g.fillRect(x, p, Math.min(w, W - p - bh * 0.8 - x), bh); x += w + bh * 0.25; }
   hexTab(g, W - p - bh * 0.6, p, bh * 0.6, bh, false, true); g.fillStyle = P.acc; g.fill();
 }
 // Deck 2: the lobby directory and the wardroom mess board
@@ -833,7 +841,6 @@ function drawTable(s) {
   numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }
 function drawScreen(s) {
-  { const per = 6 + hash1(s.seed) * 10, ph = (elapsed + hash1(s.seed + 2) * per) % per; BURST = ph < 0.9 ? Math.sin(ph / 0.9 * Math.PI) : 0; }
   if (s.kind === 'strip') drawStrip(s);
   else if (s.kind === 'msd') drawMSD(s);
   else if (s.kind === 'table') drawTable(s);
@@ -875,7 +882,7 @@ function drawScreen(s) {
     if (avail > 14) {
       const n = clamp(Math.round(avail / Math.max(22, H * 0.075)), 1, 10), kh = (avail - (n - 1) * gap) / n, r = mulberry(s.seed), cols = [P.ice, P.tan, P.butter, P.rose, P.tan, P.plum];
       for (let i = 0; i < n; i++) {
-        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8 + BURST * 6) + r() * 9) > 0.95 - BURST * 0.3, tk = Math.floor(elapsed * (0.1 + r() * 0.4) + i), num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71 + tk * 389) % 8999));
+        const c = cols[(r() * cols.length) | 0], blink = false, tk = r() < 0.3 ? slowTick(s.seed * 11 + i, 12, 40) : 0, num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71 + tk * 389) % 8999));
         g.fillStyle = blink ? P.txt : c; g.fillRect(pad, cy0 + i * (kh + gap), colW, kh);
         if (kh > 12) { g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'bottom'; fitFont(g, num, 600, Math.min(kh * 0.36, colW * 0.24), DISP, colW - 6); g.fillText(num, pad + colW - 4, cy0 + i * (kh + gap) + kh - 2); }
       }

@@ -126,6 +126,8 @@ const STATIONS = {
       { label: 'Green', on: state.alert === 'green', fn: () => setAlert('green') },
       { label: 'Yellow', on: state.alert === 'yellow', fn: () => setAlert('yellow') },
       { label: 'Red', on: state.alert === 'red', fn: () => setAlert('red') },
+      { label: 'Sound klaxon', fn: () => klaxon(4) },
+      { label: 'Silence klaxon', fn: () => klaxonStop() },
       { label: `Reinforce: ${sim.shields.reinforce ? ARC_NAMES[sim.shields.reinforce] : 'even'}`, on: !!sim.shields.reinforce, fn: () => { const seq = [null, 'fwd', 'port', 'stbd', 'aft'], nx = seq[(seq.indexOf(sim.shields.reinforce) + 1) % seq.length]; order('Tactical', nx ? `Reinforcing ${ARC_NAMES[nx].toLowerCase()} shields.` : 'Shields back to an even spread.', () => reinforceArc(nx)); } },
       sim.drill.on ? { label: 'Stop drill', on: true, fn: () => { stopDrill(); renderPanel(); } } : { label: 'Combat drill', disabled: sim.lost, fn: () => { startDrill(); renderPanel(); } },
     ] }) },
@@ -223,7 +225,8 @@ function setAlert(a) {
   document.documentElement.style.setProperty('--signal-rgb', A.rgb);
   document.documentElement.classList.remove('alert-green', 'alert-yellow', 'alert-red'); document.documentElement.classList.add('alert-' + a);
   ui.chip.textContent = A.label; $('alert-chip-s').textContent = A.short[0] + A.short.slice(1).toLowerCase();
-  if (a === 'red' && prev !== 'red') beep([880, 660, 880, 660], 0.16, 0.05);
+  if (a === 'red' && prev !== 'red') klaxon(4);
+  if (a !== 'red') klaxonStop();
   if (a === 'yellow' && prev !== 'yellow') beep([740, 740], 0.14, 0.04);
   applyLights(); renderPanel(); redrawAll();
 }
