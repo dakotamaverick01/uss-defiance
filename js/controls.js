@@ -17,8 +17,8 @@ const REACH = 4.2;
 function pick(cx, cy) {
   ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const wall = raycaster.intersectObjects(OCCLUDERS, false), wd = wall.length ? wall[0].distance : Infinity;
-  const hits = raycaster.intersectObjects(hitVolumes, false).filter((h) => h.distance < wd && !(state.sitting && h.object.userData.station === 'command'));
+  const wall = raycaster.intersectObjects(OCCLUDERS, false).filter((h) => shown(h.object)), wd = wall.length ? wall[0].distance : Infinity;
+  const hits = raycaster.intersectObjects(hitVolumes, false).filter((h) => h.distance < wd && shown(h.object.parent) && !(state.sitting && h.object.userData.station === 'command'));
   return hits.length ? { station: hits[0].object.userData.station, d: hits[0].distance } : null;
 }
 function inReach(h) { if (!h || !STATIONS[h.station]) return false; if (h.station === 'viewer' || h.station === 'ship') return h.d < 10; if (state.sitting && h.station === 'command') return true; return h.d <= REACH; }

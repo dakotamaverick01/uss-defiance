@@ -27,12 +27,15 @@ EDGES.forEach((e, ei) => {
     wallPiece(MAT.wall, e.A, dir, nrm, 0, e.len, 0, WALL_H, WALL_H, 1.2);
     addSeg(e.A[0], e.A[1], e.B[0], e.B[1], 0.33); stripRun(0.25, e.len - 0.25);
   } else {
-    const sc = gap * e.len;
-    wallPiece(MAT.wall, e.A, dir, nrm, 0, sc - 0.6, 0, WALL_H, WALL_H, 1.2);
-    wallPiece(MAT.wall, e.A, dir, nrm, sc + 0.6, e.len, 0, WALL_H, WALL_H, 1.2);
-    wallPiece(MAT.wall, e.A, dir, nrm, sc - 0.6, sc + 0.6, 2.3, WALL_H, WALL_H, 1.2);
-    let a = P2(0), b = P2(sc - 0.6); addSeg(a[0], a[1], b[0], b[1], 0.33); a = P2(sc + 0.6); b = P2(e.len); addSeg(a[0], a[1], b[0], b[1], 0.33);
-    stripRun(0.25, sc - 0.75); stripRun(sc + 0.75, e.len - 0.25);
+    // one or more 1.2 m openings; the aft wall has two (conference room and the Lift 1 car)
+    const cs = [gap].concat(ei === LIFT_GAP.edge ? [LIFT_GAP.t] : []).sort((p, q) => p - q).map((g2) => g2 * e.len);
+    let s = 0;
+    cs.forEach((sc) => { wallPiece(MAT.wall, e.A, dir, nrm, s, sc - 0.6, 0, WALL_H, WALL_H, 1.2); s = sc + 0.6; });
+    wallPiece(MAT.wall, e.A, dir, nrm, s, e.len, 0, WALL_H, WALL_H, 1.2);
+    cs.forEach((sc) => wallPiece(MAT.wall, e.A, dir, nrm, sc - 0.6, sc + 0.6, 2.3, WALL_H, WALL_H, 1.2));
+    s = 0;
+    cs.forEach((sc) => { const a = P2(s), b = P2(sc - 0.6); addSeg(a[0], a[1], b[0], b[1], 0.33); stripRun(s ? s + 0.15 : 0.25, sc - 0.75); s = sc + 0.6; });
+    { const a = P2(s), b = P2(e.len); addSeg(a[0], a[1], b[0], b[1], 0.33); stripRun(s + 0.15, e.len - 0.25); }
   }
   // cove light under the ceiling, emergency strip at the deck
   const cv = mesh(BOX(e.len - 0.5, 0.04, 0.04), SLOT, e.mx + e.nx * 0.12, WALL_H - 0.16, e.mz + e.nz * 0.12); cv.rotation.y = e.rot;
@@ -375,7 +378,8 @@ function door(ei, t, label, station, auto, room) {
   const g = group(px, 0, pz, e.rot);
   const back = cnv(256, 400); { const c = back.getContext('2d'); const gr = c.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, '#f4f6fa'); gr.addColorStop(1, '#c9d2e0'); c.fillStyle = gr; c.fillRect(0, 0, 256, 400); }
   if (!room) mesh(new THREE.PlaneGeometry(1.2, 2.3), new THREE.MeshBasicMaterial({ map: tex(back), toneMapped: false }), 0, 1.15, 0.012, g);
-  else { [-1, 1].forEach((sd) => mesh(BOX(0.04, 2.3, 0.22), MAT.gun, sd * 0.62, 1.15, -0.1, g)); mesh(BOX(1.28, 0.04, 0.22), MAT.gun, 0, 2.32, -0.1, g); mesh(BOX(1.2, 0.012, 0.24), MAT.steel, 0, 0.006, -0.1, g); }
+  const reveal = [];
+  if (room) { [-1, 1].forEach((sd) => reveal.push(mesh(BOX(0.04, 2.3, 0.22), MAT.gun, sd * 0.62, 1.15, -0.1, g))); reveal.push(mesh(BOX(1.28, 0.04, 0.22), MAT.gun, 0, 2.32, -0.1, g), mesh(BOX(1.2, 0.012, 0.24), MAT.steel, 0, 0.006, -0.1, g)); }
   [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
   mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
   mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
@@ -385,11 +389,11 @@ function door(ei, t, label, station, auto, room) {
   const Rr = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, 0.3, 1.15, 0.06, g);
   [L, Rr].forEach((d, k) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, k ? -0.27 : 0.27, 0, 0.04, d); mesh(BOX(0.4, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
   addHit(BOX(1.6, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
-  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz };
+  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal };
   if (room) dd.seg = [px - e.tx * 0.6, pz - e.tz * 0.6, px + e.tx * 0.6, pz + e.tz * 0.6, 0.2];
   DOORS.push(dd);
 }
-door(4, 0.826, 'LIFT', 'lift', true, false);
+door(4, LIFT_GAP.t, 'LIFT', 'lift', true, true);
 door(4, DOOR_GAPS[4], 'CONFERENCE', 'conference', true, true);
 door(3, DOOR_GAPS[3], 'READY ROOM', 'ready', true, true);
 door(5, DOOR_GAPS[5], 'HEAD', 'head', true, true);

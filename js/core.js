@@ -98,6 +98,8 @@ const EDGES = ROOM.map((A, i) => {
 function onEdge(i, t, d) { const e = EDGES[i]; return [e.A[0] + (e.B[0] - e.A[0]) * t + e.nx * d, e.A[1] + (e.B[1] - e.A[1]) * t + e.nz * d]; }
 // walk-through doorways: edge index -> door position along the edge
 const DOOR_GAPS = { 3: 0.38, 4: 0.174, 5: 0.4 };
+// the Lift 1 car opens off the aft wall too (lift.js builds the car behind it)
+const LIFT_GAP = { edge: 4, t: 0.826 };
 const WALL_SEGS = [], extraObs = [], OCCLUDERS = [];
 function addSeg(ax, az, bx, bz, r) { WALL_SEGS.push([ax, az, bx, bz, r === undefined ? PR : r]); }
 function wallPiece(mat, A, dir, nrm, s0, s1, y0, y1, H, uScale, parent) {
@@ -131,7 +133,7 @@ const ALERTS = {
 const LIGHT_LEVELS = { dim: 0.55, standard: 1, bright: 1.35 };
 const state = {
   speed: 'stop', alert: 'green', light: 'standard', cur: 0, dest: 1, holo: 0, holoOn: true, view: 'forward', logIdx: 0, reports: 4, slide: 0, shutters: 'auto', cup: null,
-  scanning: false, scanned: false, scanT: 0, sitting: false, liftOpen: false, open: null,
+  scanning: false, scanned: false, scanT: 0, sitting: false, open: null,
   comms: [
     { at: 0, who: 'Meridian Station', text: 'Defiance, you are cleared to begin your survey.' },
     { at: 0, who: 'Convoy Lead', text: 'Freighters are formed up behind you. Thanks for the escort.' },

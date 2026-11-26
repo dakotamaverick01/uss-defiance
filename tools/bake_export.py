@@ -15,6 +15,8 @@ EXPORT_JS = r"""() => {
   DOORS.forEach((d) => [d.L, d.Rr].forEach((o) => o.traverse((c) => skip.add(c))));
   SHUTTERS.forEach((s) => s.slats.forEach((o) => skip.add(o)));
   if (typeof cupGroup !== 'undefined' && cupGroup) cupGroup.traverse((c) => skip.add(c));
+  // the Lift 1 car and the sealed lobbies are lit by their own painted light maps (lift.js), not the bake
+  if (typeof LIFT !== 'undefined') [LIFT.root, LIFT.stub].forEach((g) => g.traverse((c) => skip.add(c)));
   const live = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
   const lin = (c) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   const avg = new Map();

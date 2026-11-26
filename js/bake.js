@@ -119,6 +119,7 @@ function bakeLevels(k, alert, stripHex, stripK) {
 let _envRT = null;
 function bakeEnv() {
   if (!BAKE.ok) return;
+  if (typeof LIFT !== 'undefined' && LIFT.deck !== 1) { LIFT.envStale = true; return; } // redone on the way back to Deck 1
   const crt = new THREE.WebGLCubeRenderTarget(isMobile ? 96 : 160, { type: THREE.HalfFloatType });
   const cc = new THREE.CubeCamera(0.05, 40, crt); cc.position.set(0, 1.75, 0.6);
   const fog = scene.fog, env = scene.environment; scene.fog = null; scene.environment = null;
@@ -155,7 +156,7 @@ BAKE.ready = (async () => {
   scene.traverse((o) => {
     if (!o.isMesh || !(o.layers.mask & 1)) return;
     (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
-      if (!m || !m.isMeshStandardMaterial) return;
+      if (!m || !m.isMeshStandardMaterial || m.userData.noBake) return; // the lift car and lobbies carry their own light (lift.js)
       const e = mats.get(m) || { r: 0, o: 0 }; recv.has(o) ? e.r++ : e.o++; mats.set(m, e);
     });
   });

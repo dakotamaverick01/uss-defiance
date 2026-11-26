@@ -17,12 +17,16 @@ function pushSeg(x, z, ax, az, bx, bz, r) {
   if (d < r && d > 1e-5) { x = px + dx / d * r; z = pz + dz / d * r; }
   return [x, z];
 }
+// Only the deck you are on collides (lift.js swaps decks); the Lift 1 car is there on every deck.
 function collide(x, z) {
+  const d1 = LIFT.deck === 1, segs = d1 ? WALL_SEGS : LIFT.stubSegs, ds = LIFT.doorSeg;
   for (let it = 0; it < 4; it++) {
-    for (const o of obstacles) { const dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), m = o.r + PR; if (d < m && d > 1e-5) { x = o.x + dx / d * m; z = o.z + dz / d * m; } }
-    for (const sg of WALL_SEGS) [x, z] = pushSeg(x, z, sg[0], sg[1], sg[2], sg[3], sg[4]);
-    for (const d of DOORS) if (d.seg && d.open < 0.75) [x, z] = pushSeg(x, z, d.seg[0], d.seg[1], d.seg[2], d.seg[3], d.seg[4]);
+    if (d1) for (const o of obstacles) { const dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), m = o.r + PR; if (d < m && d > 1e-5) { x = o.x + dx / d * m; z = o.z + dz / d * m; } }
+    for (const sg of segs) [x, z] = pushSeg(x, z, sg[0], sg[1], sg[2], sg[3], sg[4]);
+    for (const sg of LIFT.carSegs) [x, z] = pushSeg(x, z, sg[0], sg[1], sg[2], sg[3], sg[4]);
+    if (d1) for (const d of DOORS) if (d.seg && d.open < 0.75 && d.station !== 'lift') [x, z] = pushSeg(x, z, d.seg[0], d.seg[1], d.seg[2], d.seg[3], d.seg[4]);
+    if (LIFT.door < 0.75 || liftLocked()) [x, z] = pushSeg(x, z, ds[0], ds[1], ds[2], ds[3], ds[4]);
   }
   return [x, z];
 }
-const floorH = (x, z) => (Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0);
+const floorH = (x, z) => (LIFT.deck === 1 && Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0);

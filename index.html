@@ -210,7 +210,7 @@ html.alert-red { --ice: #5D7F92; }
 </script>
 <script type="module">
 // Loads three.js, then the ship's code files in order. The code files are plain scripts that share one scope.
-const FILES = ['core', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'lighting', 'bake', 'collision', 'screens', 'sound', 'ui', 'controls', 'render'];
+const FILES = ['core', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'lighting', 'bake', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render'];
 const fail = () => { window.DEFIANCE_FAILED = true; document.getElementById('nogl').hidden = false; document.getElementById('intro').hidden = true; };
 try {
   const [T, { EffectComposer }, { RenderPass }, { ShaderPass }, { UnrealBloomPass }, { GammaCorrectionShader }] = await Promise.all([

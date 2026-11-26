@@ -124,6 +124,7 @@ function frame() {
   { const now = performance.now(); simUpdate(Math.min(1, (now - simLast) / 1000)); simLast = now; drainSimEvents(dt); }
   if (state.open) { livePanelT += dt; if (livePanelT > 0.25) { livePanelT = 0; renderPanel(); } }
 
+  liftUpdate(dt);
   if (!state.sitting) {
     let f = 0, s = 0;
     if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
@@ -155,7 +156,7 @@ function frame() {
     camera.lookAt(ATTRACT_LOOK);
   } else {
     if (attract) { attract = false; }
-    camera.position.copy(standV).lerp(SEAT, eb);
+    camera.position.copy(standV).lerp(SEAT, eb); camera.position.y += LIFT.shake;
     camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp, 'YXZ');
   }
   camera.updateMatrixWorld();
@@ -204,8 +205,8 @@ function frame() {
 
   DOORS.forEach((d) => {
     const near = d.auto && !state.sitting && Math.hypot(camera.position.x - d.wx, camera.position.z - d.wz) < (d.room ? 1.7 : 1.5);
-    const want = (d.station === 'lift' && state.liftOpen) || near ? 1 : 0;
-    d.open += (want - d.open) * Math.min(1, dt * 5);
+    if (d.station === 'lift') d.open = LIFT.door; // lift.js runs the lift doors
+    else d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
     d.L.position.x = -0.3 - d.open * 0.56; d.Rr.position.x = 0.3 + d.open * 0.56;
   });
   // rooms: light the one you are in or approaching, name it in the HUD
@@ -216,7 +217,7 @@ function frame() {
       const near = Math.hypot(camera.position.x - r.door[0], camera.position.z - r.door[1]) < 3.2;
       r.k += ((inside ? 1 : near ? 0.75 : 0) - r.k) * Math.min(1, dt * 3);
     });
-    const ll = here ? here.label : 'Main Bridge'; if (ll !== lastLoc) { lastLoc = ll; locNode.nodeValue = ll + ' · Deck 1'; } }
+    const ll = liftLocation(here && here.label); if (ll !== lastLoc) { lastLoc = ll; locNode.nodeValue = ll; } }
   { const closed = state.shutters === 'closed' || (state.shutters === 'auto' && state.alert === 'red');
     SHUTTERS.forEach((sh) => { sh.cur += ((closed ? 1 : 0) - sh.cur) * Math.min(1, dt * 2.2); const a = sh.cur * (Math.PI / 2 - 0.05); sh.slats.forEach((sl) => { sl.rotation.x = a; }); }); }
   if (cur.speed > 0.3) {
@@ -241,13 +242,13 @@ function frame() {
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }
 
   rrTimer += dt;
-  if (rrTimer > 0.04) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72) { drawScreen(sc); break; } } }
+  if (rrTimer > 0.04 && LIFT.deck === 1) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72) { drawScreen(sc); break; } } }
   if (state.open && byStation[state.open]) { panelTimer += dt; if (panelTimer > 0.15) { panelTimer = 0; byStation[state.open].forEach((s) => { if (s.kind !== 'keys') drawScreen(s); }); } }
   ovTimer += dt; if (ovTimer > 1) { ovTimer = 0; drawOverlay(); }
 
   aimTimer += dt; if (aimTimer > 0.12) { aimTimer = 0; aim(); }
 
-  scene.fog = null; renderer.setRenderTarget(rt); renderer.render(scene, vcam);
+  scene.fog = null; renderer.setRenderTarget(rt); if (LIFT.deck === 1) renderer.render(scene, vcam);
   updateDust(elapsed);
   { const sk = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1) * (1 + Math.sin(elapsed * 0.7) * 0.15); shaftMat.uniforms.k.value = 0.06 * sk; shafts[shafts.length - 1].material.uniforms.k.value = 0.035 * sk; }
   scene.fog = FOG; renderer.setRenderTarget(null);

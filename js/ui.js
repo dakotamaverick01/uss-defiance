@@ -156,11 +156,6 @@ const STATIONS = {
     note: 'A compact hull wrapped around engines and weapons built for a ship twice her size. She runs ahead of convoys, cuts supply lines deep behind the front, and stands her ground when the line breaks.',
     acts: [],
   }) },
-  lift: { title: 'Lift', role: 'Deck 1 · Main Bridge', panel: () => ({
-    read: [['Current deck', 'Deck 1, Main Bridge'], ['Other decks', 'Not built yet']],
-    note: 'More of the ship will open up here as we build it.',
-    acts: [{ label: state.liftOpen ? 'Close doors' : 'Open doors', on: state.liftOpen, fn: () => { state.liftOpen = !state.liftOpen; renderPanel(); } }],
-  }) },
   ready: { title: 'Ready Room', role: 'Captain’s office', panel: () => ({
     read: [['Inside', 'Desk, settee, synthesizer'], ['Viewport', 'Armored, shuttered at Red Alert']],
     note: 'Walk up to the door to go in.',
