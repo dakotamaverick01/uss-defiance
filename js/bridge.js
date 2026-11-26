@@ -215,10 +215,23 @@ const GRILLE = (() => {
   const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, metalness: 0.4, envMapIntensity: 0.3 });
 })();
 const BTN_MATS = ['#E8A06A', '#D9B07E', '#B693C4', '#F2C88F', '#C67A86'].map((h) => new THREE.MeshBasicMaterial({ color: new THREE.Color(h).multiplyScalar(0.85), toneMapped: false }));
+// Crisp text in 3D space (troika-three-text: glyphs drawn from the font's outlines as signed-distance fields, so the
+// edges stay sharp at any distance). Returns null when the library didn't load, so callers fall back to canvas text.
+const FONT3D = 'fonts/antonio-600.woff2';
+function text3d(parent, txt, size, color, x, y, z, anchorX) {
+  if (!THREE.TroikaText) return null;
+  const t = new THREE.TroikaText();
+  Object.assign(t, { text: txt, font: FONT3D, fontSize: size, anchorX: anchorX || 'left', anchorY: 'middle', letterSpacing: 0.02, sdfGlyphSize: 64 });
+  t.material = new THREE.MeshBasicMaterial({ color, toneMapped: false });
+  t.position.set(x, y, z); parent.add(t); t.sync(); return t;
+}
 function idPlate(parent, code, x, y, z, w) {
-  const c = cnv(256, 64), g = c.getContext('2d'); g.fillStyle = '#b9a789'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#2b2229'; g.fillRect(6, 6, 244, 52);
-  g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 36, 52); g.fillStyle = '#F5E6CF'; g.font = `600 30px ${DISP}`; g.textBaseline = 'middle'; g.fillText(code, 54, 33);
-  return mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.4, metalness: 0.6 }), x, y, z, parent);
+  const crisp = !!THREE.TroikaText, c = cnv(256, 64), g = c.getContext('2d'); g.fillStyle = '#b9a789'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#2b2229'; g.fillRect(6, 6, 244, 52);
+  g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 36, 52);
+  if (!crisp) { g.fillStyle = '#F5E6CF'; g.font = `600 30px ${DISP}`; g.textBaseline = 'middle'; g.fillText(code, 54, 33); }
+  const m = mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.4, metalness: 0.6 }), x, y, z, parent);
+  if (crisp) text3d(m, code, w * 0.13, 0xF5E6CF, -w / 2 + w * 54 / 256, 0, 0.0015);
+  return m;
 }
 function grille(parent, x, y, z, w, h) { const m = mesh(new THREE.PlaneGeometry(w, h), GRILLE.clone(), x, y, z, parent); m.material.map = GRILLE.map.clone(); m.material.map.repeat.set(w / 0.3, h / 0.15); m.material.map.needsUpdate = true; return m; }
 function buttons(parent, n, x0, x1, y, z, seed) {
@@ -227,6 +240,54 @@ function buttons(parent, n, x0, x1, y, z, seed) {
 }
 
 
+const MAT_PAD = triSurface(new THREE.MeshStandardMaterial({ color: 0x080b12, roughness: 0.62, metalness: 0.04, envMapIntensity: 0.25 }), { set: 'leather', metres: 0.3, ns: 1.6, rv: 0.8, low: 0 });
+const MAT_FRAME = triSurface(new THREE.MeshStandardMaterial({ color: 0x423d37, roughness: 0.5, metalness: 0.06, envMapIntensity: 0.35 }), { set: 'paint', metres: 0.7, ns: 0.5, rv: 0.5, edge: 0.3 });
+const MAT_BEZEL = triSurface(new THREE.MeshStandardMaterial({ color: 0x332e29, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.35 }), { set: 'paint', metres: 0.7, ns: 0.6, rv: 0.6, edge: 0.35 });
+const MAT_SLAT = new THREE.MeshStandardMaterial({ color: 0x1e1c1a, roughness: 0.38, metalness: 0.55, envMapIntensity: 0.6 });
+const MAT_VOID = new THREE.MeshBasicMaterial({ color: 0x000000 });
+// many small boxes merged into one mesh (the grille slats), so the run stays a handful of draw calls
+const _merged = new Map();
+function mergedBoxes(key, list) {
+  if (_merged.has(key)) return _merged.get(key);
+  const parts = list.map(([w, h, d, x, y, z]) => new THREE.BoxGeometry(w, h, d).translate(x, y, z).toNonIndexed());
+  const n = parts.reduce((a, q) => a + q.attributes.position.count, 0), out = new THREE.BufferGeometry();
+  ['position', 'normal', 'uv'].forEach((k) => { const sz = parts[0].attributes[k].itemSize, arr = new Float32Array(n * sz); let o = 0; parts.forEach((q) => { arr.set(q.attributes[k].array, o); o += q.attributes[k].array.length; }); out.setAttribute(k, new THREE.BufferAttribute(arr, sz)); });
+  _merged.set(key, out); return out;
+}
+// a soft glow that a display throws onto the bezel around it: a frame-shaped additive card, clear in the middle
+const _spill = new Map();
+function spillTex(ax, ay) {
+  const k = ax.toFixed(2) + 'x' + ay.toFixed(2); if (_spill.has(k)) return _spill.get(k);
+  const W = 256, H = Math.max(32, Math.round(256 * ay)), c = cnv(W, H), g = c.getContext('2d'), mx = W * 0.16, my = H * 0.16 / ay;
+  g.shadowColor = 'rgba(255,214,170,1)'; g.shadowBlur = Math.min(mx, my) * 0.9; g.fillStyle = 'rgba(255,214,170,1)'; g.fillRect(mx, my, W - 2 * mx, H - 2 * my);
+  g.shadowBlur = 0; g.globalCompositeOperation = 'destination-out'; g.fillRect(mx + 1, my + 1, W - 2 * mx - 2, H - 2 * my - 2);
+  const t = tex(c); _spill.set(k, t); return t;
+}
+function spill(parent, w, h, strength) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.47, h + w * 0.47), new THREE.MeshBasicMaterial({ map: spillTex(1, (h + w * 0.47) / (w * 1.47)), transparent: true, opacity: strength, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  parent.add(m); return m;
+}
+// a desktop that is one display: a black bed, the desk screen (kind 'desk', drawing the station's own readouts in
+// its middle panel), its glow on the bezel, and optionally a small hooded viewer standing up behind it.
+// d: a group whose +y is up out of the desk and +z toward the sitter; yTop: the bezel's top surface.
+// Desk displays lie nearly flat and look straight up at the ceiling lights, so their smudged glass reflects at a
+// fraction of the strength of the upright screens' glass (otherwise the whole desktop washes out white).
+const DESK_GLASS = copyPatches(GLASS_MAT, GLASS_MAT.clone()); DESK_GLASS.opacity = 0.22;
+SURF.ready().then(() => { DESK_GLASS.roughnessMap = GLASS_MAT.roughnessMap; DESK_GLASS.needsUpdate = true; });
+function deskSurface(d, W, dd, yTop, zc, p, sub, hoodX) {
+  const dw = W - 0.16;
+  mesh(BOX(dw + 0.02, 0.004, dd + 0.02), MAT_VOID, 0, yTop - 0.001, zc, d);
+  const ds = group(0, yTop + 0.0015, zc, 0, d); ds.rotation.x = -Math.PI / 2;
+  const sc = addScreen(ds, dw, dd, 1024, Math.round(1024 * dd / dw), 'desk', p.id, p.title, p.code); sc.sub = sub;
+  sc.mesh.children.forEach((c) => { if (c.material === GLASS_MAT) c.material = DESK_GLASS; });
+  const dsp = spill(ds, dw, dd, 0.12); dsp.position.z = 0.002;
+  if (hoodX === undefined) return;
+  const hv = group(hoodX, yTop - 0.0025, zc - dd / 2 - 0.07, 0, d);
+  mesh(RBOX(0.36, 0.1, 0.15, 0.025), MAT_BEZEL, 0, 0.05, 0, hv);
+  mesh(RBOX(0.38, 0.022, 0.19, 0.01), MAT_BEZEL, 0, 0.105, 0.02, hv);
+  mesh(BOX(0.3, 0.058, 0.01), MAT_VOID, 0, 0.052, 0.074, hv);
+  const vs = group(0, 0.052, 0.08, 0, hv); vs.rotation.x = -0.12; addScreen(vs, 0.28, 0.05, 336, 60, 'scope', p.id, p.title, p.code);
+}
 // a low desk in front of a dais seat; screens tilt toward the seat (+z)
 function lowDesk(x, z, rot, w, kind, station, title, code) {
   const g = group(x, DAIS.h, z, rot);
@@ -236,13 +297,9 @@ function lowDesk(x, z, rot, w, kind, station, title, code) {
   mesh(BOX(w - 0.12, 0.016, 0.016), STRIP, 0, 0.05, 0.17, g);
   grille(g, 0, 0.3, 0.212, w * 0.5, 0.12);
   const top = group(0, 0.62, 0, 0, g); top.rotation.x = 0.32;
-  mesh(RBOX(w + 0.04, 0.05, 0.52, 0.02), MAT_TRIM, 0, 0, 0, top);
-  mesh(RBOX(w - 0.04, 0.012, 0.46, 0.01), MAT.glassTop, 0, 0.018, 0, top);
-  mesh(BOX(w - 0.06, 0.012, 0.014), STRIP, 0, 0, 0.26, top);
-  const sg = group(0, 0.03, -0.02, 0, top); sg.rotation.x = -Math.PI / 2;
-  const sw = w * 0.62;
-  addScreen(sg, sw, 0.34, 600, 340, kind, station, title, code).mesh.position.x = -(w - sw) / 2 + 0.06;
-  const kg = group((w - (w - sw - 0.1)) / 2 - 0.02, 0, 0, 0, sg); addScreen(kg, w - sw - 0.16, 0.34, 140, 340, 'keys', station, '', '');
+  mesh(RBOX(w + 0.04, 0.05, 0.52, 0.02), MAT_BEZEL, 0, 0, 0, top);
+  mesh(pillow(w + 0.04, 0.06, 0.08, 0.025, 0.006, 'y', 0), MAT_PAD, 0, 0.004, 0.29, top);
+  deskSurface(top, w + 0.04, 0.4, 0.025, 0.0, { id: station, title, code }, kind);
   addHit(BOX(w + 0.2, 1.2, 1.3), { station }, g, 0, 0.6, 0.45);
   return g;
 }
@@ -275,13 +332,11 @@ function pod(x, z, station, kindA, titleA, codeA) {
   mesh(RBOX(1.18, 0.08, 0.36, 0.02), MAT.gunDark, 0, 0.04, 0.12, g);
   mesh(BOX(1.1, 0.018, 0.018), STRIP, 0, 0.05, -0.08, g);
   [-1, 1].forEach((sd) => mesh(BOX(0.018, 0.018, 0.3), STRIP, sd * 0.56, 0.05, 0.12, g));
-  // sloped glass top: main display, key strip, a row of lit buttons
+  // sloped top: one desk display under a thick bezel, a padded lip toward the operator, a hooded viewer behind
   const top = group(0, 0.07 + 0.86, 0.02, 0, g); top.rotation.x = 0.235;
-  mesh(RBOX(1.3, 0.04, 0.84, 0.02), MAT_TRIM, 0, -0.01, 0, top);
-  mesh(RBOX(1.2, 0.012, 0.76, 0.01), MAT.glassTop, 0, 0.012, 0, top);
-  const sg = group(0, 0.02, -0.08, 0, top); sg.rotation.x = -Math.PI / 2; addScreen(sg, 1.12, 0.5, 600, 268, kindA, station, titleA, codeA);
-  const kg = group(0, 0.02, 0.26, 0, top); kg.rotation.x = -Math.PI / 2; addScreen(kg, 1.12, 0.13, 560, 64, 'keys', station, '', '');
-  buttons(top, 7, -0.5, 0.5, 0.03, 0.37, codeA.length * 13 + x * 10);
+  mesh(RBOX(1.3, 0.07, 0.84, 0.024), MAT_BEZEL, 0, 0.0, 0, top);
+  mesh(pillow(1.3, 0.07, 0.08, 0.028, 0.006, 'y', 0), MAT_PAD, 0, 0.004, 0.45, top);
+  deskSurface(top, 1.3, 0.46, 0.035, 0.06, { id: station, title: titleA, code: codeA }, kindA, -0.3);
   // front face toward the viewscreen: a second screen, the grille and the station plate
   const f = group(0, 0.07, -0.455, Math.PI, g); f.rotation.x = 0.11;
   const fs = group(0, 0.7, 0.012, 0, f); display(fs, 0.66, 0.24, 420, 152, kindA, station, titleA, codeA);
@@ -301,42 +356,71 @@ const RUNS = [
   { side: -1, posts: [{ id: 'science', kind: 'sci', title: 'Science', code: 'SCI·03', z: -1.55 }, { id: 'intel', kind: 'intel', title: 'Intelligence', code: 'INT·04', z: 0 }, { id: 'comms', kind: 'com', title: 'Communications', code: 'COM·05', z: 1.55 }] },
   { side: 1, posts: [{ id: 'engineering', kind: 'sys', title: 'Engineering', code: 'ENG·06', z: -1.55 }, { id: 'env', kind: 'env', title: 'Environment', code: 'ENV·07', z: 0 }, { id: 'damage', kind: 'dmg', title: 'Damage Control', code: 'DMG·08', z: 1.55 }] },
 ];
-// the run-wide body: plinth with underglow, tan cabinet with access panels, sloped glass desk, upright screen bank, status shelf
-function consoleBody(g, L) {
-  mesh(RBOX(L - 0.08, 0.09, 0.46, 0.02), MAT.gunDark, 0, 0.045, -0.04, g);
-  mesh(BOX(L - 0.16, 0.018, 0.018), STRIP, 0, 0.06, 0.2, g);
-  mesh(RBOX(L, 0.7, 0.54, 0.035), MAT_PED, 0, 0.44, -0.03, g);
-  const np = Math.max(2, Math.round(L / 0.48));
-  for (let i = 1; i < np; i++) mesh(BOX(0.012, 0.56, 0.012), MAT_TRIM, -L / 2 + i * L / np, 0.44, 0.243, g);
-  mesh(BOX(L - 0.04, 0.03, 0.02), MAT_TRIM, 0, 0.77, 0.25, g);
-  const desk = group(0, 0.86, 0.03, 0, g); desk.rotation.x = 0.2;
-  mesh(RBOX(L + 0.06, 0.05, 0.7, 0.022), MAT_TRIM, 0, 0, 0, desk);
-  mesh(RBOX(L - 0.04, 0.012, 0.6, 0.01), MAT.glassTop, 0, 0.024, -0.01, desk);
-  [-1, 1].forEach((sd) => { mesh(RBOX(0.08, 2.36, 0.74, 0.025), MAT_PED, sd * (L / 2 + 0.04), 1.18, -0.02, g); mesh(BOX(0.02, 2.2, 0.02), MAT_TRIM, sd * (L / 2 + 0.04), 1.18, 0.35, g); });
-  // the screen bank leans back a little, like a drafting board
-  const bank = group(0, 1.52, -0.25, 0, g); bank.rotation.x = -0.1;
-  mesh(RBOX(L + 0.04, 0.98, 0.1, 0.03), MAT_TRIM, 0, 0, -0.03, bank);
-  mesh(RBOX(L + 0.12, 0.26, 0.34, 0.03), MAT_TRIM, 0, 2.3 - 1.52, 0.06, bank);
-  return { desk, bank };
+const DOWNLIGHTS = [[-1.4, -3.15], [1.4, -3.15], [0, 3.55]];
+// Workstation furniture (screens pass 3). The screens are the furniture: each position is a deep sloped desk whose
+// whole top is one display under a thick bezel with a padded dark lip, a small hooded viewer standing up at the back,
+// a ribbed grille band on the wall behind, and the upper displays let into a thick wall frame with deep cut-outs and
+// a lit ledge. Below the desk, a recessed apron of padded panels. Local axes: x along the run, +z toward the room,
+// the wall face at z = -0.34.
+// the frame that holds the upper displays: one thick extruded panel with rounded cut-outs
+function cutFrame(key, W, H, holes) {
+  const k = 'cut:' + key; if (_xg.has(k)) return _xg.get(k);
+  const s = new THREE.Shape(); s.moveTo(-W / 2, -H / 2); s.lineTo(W / 2, -H / 2); s.lineTo(W / 2, H / 2); s.lineTo(-W / 2, H / 2); s.closePath();
+  holes.forEach(([cx, cy, hw, hh, r]) => { const p = new THREE.Path(), x0 = cx - hw / 2, y0 = cy - hh / 2; p.moveTo(x0 + r, y0); p.lineTo(x0 + hw - r, y0); p.quadraticCurveTo(x0 + hw, y0, x0 + hw, y0 + r); p.lineTo(x0 + hw, y0 + hh - r); p.quadraticCurveTo(x0 + hw, y0 + hh, x0 + hw - r, y0 + hh); p.lineTo(x0 + r, y0 + hh); p.quadraticCurveTo(x0, y0 + hh, x0, y0 + hh - r); p.lineTo(x0, y0 + r); p.quadraticCurveTo(x0, y0, x0 + r, y0); s.holes.push(p); });
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.13, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2, curveSegments: 6 });
+  _xg.set(k, geo); return geo;
 }
-function post(parent, lx, p, wallW, body) {
-  const st = group(lx, 0, 0, 0, parent), seed = p.code.charCodeAt(0) * 7 + p.code.length;
-  const w = Math.min(1.26, wallW - 0.1);
-  // desk: touch panel and key strip, lit push-buttons on the lip
-  const dg = group(lx, 0.038, -0.06, 0, body.desk); dg.rotation.x = -Math.PI / 2;
-  addScreen(dg, w, 0.3, 840, 150, p.kind, p.id, p.title, p.code);
-  const kg = group(lx, 0.038, 0.2, 0, body.desk); kg.rotation.x = -Math.PI / 2; addScreen(kg, w, 0.11, 600, 52, 'keys', p.id, '', '');
-  buttons(body.desk, 6, lx - w / 2 + 0.06, lx + w / 2 - 0.06, 0.04, 0.315, seed);
-  // screen bank: the main display with a narrow auxiliary panel beside it, and a status strip above
-  const mw = w * 0.7, aw = w - mw - 0.16;
-  const mg = group(lx - (w - mw) / 2, 0.02, 0.025, 0, body.bank); display(mg, mw, 0.72, Math.round(740 * mw / 0.72), 740, p.kind, p.id, p.title, p.code);
-  const ag = group(lx + (w - aw) / 2, 0.02, 0.025, 0, body.bank); display(ag, aw, 0.72, Math.round(740 * aw / 0.72), 740, 'aux', p.id, p.title, p.code);
-  const sg = group(lx, 2.3 - 1.52, 0.24, 0, body.bank); sg.rotation.x = 0.35; addScreen(sg, w, 0.13, 760, 80, 'strip', p.id, p.title, p.code);
-  // cabinet front: grille, plate, an access panel with a handle
-  grille(st, -w * 0.25, 0.5, 0.252, w * 0.36, 0.16);
-  idPlate(st, p.code, w * 0.22, 0.6, 0.252, 0.24);
-  mesh(RBOX(0.26, 0.24, 0.012, 0.01), MAT_TRIM, w * 0.22, 0.33, 0.25, st);
-  mesh(BOX(0.12, 0.016, 0.02), MAT.steel, w * 0.22, 0.33, 0.262, st);
+const DESK = { y: 0.8, z: 0.02, tilt: 0.14, depth: 0.76 };
+// one bay of the console run, wallW wide, centred on lx; with a post (p) it carries that station's displays
+const FH = 0.84, FY = 1.33 + FH / 2;
+function bay(parent, lx, wallW, p, holes) {
+  const b = group(lx, 0, 0, 0, parent), W = wallW - 0.012;
+  // kick plinth with its underglow, the recessed apron and its padded panels
+  mesh(RBOX(W, 0.1, 0.34, 0.02), MAT.gunDark, 0, 0.05, -0.14, b);
+  mesh(BOX(W - 0.06, 0.016, 0.016), STRIP, 0, 0.06, 0.04, b);
+  mesh(RBOX(W, 0.62, 0.36, 0.02), MAT_TRIM, 0, 0.41, -0.15, b);
+  const np = Math.max(1, Math.round(W / 0.4)), pw = W / np;
+  for (let i = 0; i < np; i++) mesh(pillow(pw - 0.026, 0.56, 0.05, 0.02, 0.012, '+z', 0), MAT_PAD, -W / 2 + pw * (i + 0.5), 0.41, 0.05, b);
+  // the desk: a thick bezel sloping toward the sitter, a padded lip along the front edge
+  const d = group(0, DESK.y, DESK.z, 0, b); d.rotation.x = DESK.tilt;
+  mesh(RBOX(W, 0.065, DESK.depth, 0.028), MAT_BEZEL, 0, 0, 0, d);
+  mesh(pillow(W, 0.07, 0.1, 0.03, 0.008, 'y', 0), MAT_PAD, 0, 0.006, DESK.depth / 2 + 0.035, d);
+  // the wall behind: a ribbed grille band, then the frame for the upper displays on a lit ledge, then the status shelf
+  mesh(BOX(W, 0.44, 0.02), MAT.gunDark, 0, 1.1, -0.33, b);
+  const slats = []; for (let k = 0; k < 15; k++) slats.push([W - 0.03, 0.011, 0.028, 0, 0.905 + k * 0.0275, 0]);
+  mesh(mergedBoxes('slats' + W.toFixed(3), slats), MAT_SLAT, 0, 0, -0.31, b);
+  mesh(RBOX(W, 0.035, 0.2, 0.012), MAT_FRAME, 0, 1.315, -0.24, b);
+  mesh(BOX(W - 0.04, 0.012, 0.012), STRIP, 0, 1.295, -0.145, b);
+  mesh(RBOX(W, 0.24, 0.3, 0.03), MAT_TRIM, 0, 2.3, -0.2, b);
+  if (!p) return { b, d };
+  const w = W - 0.14, mw = w * 0.72, aw = w - mw - 0.08, sh = 0.56, mx = -w / 2 + mw / 2, ax = w / 2 - aw / 2;
+  if (holes) holes.push([lx + mx, 0.01, mw + 0.07, sh + 0.08, 0.05], [lx + ax, 0.01, aw + 0.07, sh + 0.08, 0.05]);
+  // displays sit at the back of the cut-outs, inside a dark inner bezel
+  [[mx, mw, p.kind], [ax, aw, 'aux']].forEach(([x, sw, kind]) => {
+    const sg = group(x, FY + 0.01, -0.285, 0, b);
+    mesh(RBOX(sw + 0.05, sh + 0.05, 0.03, 0.012), MAT.gunDark, 0, 0, -0.016, sg);
+    const s = addScreen(sg, sw, sh, Math.round(700 * sw / sh), 700, kind, p.id, p.title, p.code); s.mesh.position.z = 0.002;
+    const sp = spill(sg, sw, sh, 0.1); sp.position.z = 0.004;
+  });
+  const sg = group(0, 2.3, -0.048, 0, b); sg.rotation.x = 0.35; addScreen(sg, w, 0.13, 760, 80, 'strip', p.id, p.title, p.code);
+  idPlate(b, p.code, -W / 2 + 0.2, 1.315, -0.138, 0.2);
+  // the desk display fills the desk; a hooded viewer stands up at the back on the left
+  deskSurface(d, W, 0.46, 0.0325, 0.03, p, p.kind, -W * 0.26);
+  return { b, d };
+}
+// the run-wide body: end fins with a lit pillar in each, and plain bays filling from the last post out to the fins
+function consoleBody(g, L, used, holes) {
+  mesh(cutFrame('run' + L + ':' + holes.map((h) => h[0].toFixed(3)).join(','), L, FH, holes), MAT_FRAME, 0, FY, -0.34 + 0.012, g);
+  [-1, 1].forEach((sd) => {
+    mesh(RBOX(0.08, 2.36, 0.74, 0.025), MAT_FRAME, sd * (L / 2 + 0.04), 1.18, -0.02, g);
+    mesh(BOX(0.02, 2.2, 0.02), MAT_TRIM, sd * (L / 2 + 0.04), 1.18, 0.35, g);
+    mesh(RBOX(0.05, 1.5, 0.03, 0.012), SLOT, sd * (L / 2 + 0.04), 1.3, 0.36, g);
+    const fw = (L - used) / 2; if (fw > 0.05) bay(g, sd * (used / 2 + fw / 2), fw, null);
+  });
+}
+function post(parent, lx, p, wallW, holes) {
+  const st = group(lx, 0, 0, 0, parent);
+  bay(parent, lx, wallW, p, holes);
   addHit(BOX(Math.min(1.5, wallW + 0.1), 2.6, 1.3), { station: p.id }, st, 0, 1.3, 0.1);
   st.updateWorldMatrix(true, false);
   const cw = new THREE.Vector3(); st.localToWorld(cw.set(0, 0, 1.02));
@@ -345,21 +429,22 @@ function post(parent, lx, p, wallW, body) {
   const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.08);
   const dl = new THREE.Vector3(); st.localToWorld(dl.set(0, 0, 0.7)); DOWNLIGHTS.push([dl.x, dl.z]);
 }
-const DOWNLIGHTS = [[-1.4, -3.15], [1.4, -3.15], [0, 3.55]];
 RUNS.forEach((run) => {
   const rot = -run.side * Math.PI / 2;
   const g = group(run.side * SIDE_X - run.side * 0.34, 0, 0, rot);
-  const body = consoleBody(g, 4.7);
+  const holes = [];
+  run.posts.forEach((p) => post(g, run.side < 0 ? -p.z : p.z, p, 1.55, holes));
+  consoleBody(g, 4.7, 1.55 * 3, holes);
   mesh(BOX(4.7, 0.02, 0.02), SLOT, 0, 2.71, -0.03, g);
-  run.posts.forEach((p) => post(g, run.side < 0 ? -p.z : p.z, p, 1.38, body));
   const aoc = new THREE.Vector3(); g.updateMatrixWorld(true); g.localToWorld(aoc.set(0, 0, 0)); ao(aoc.x, aoc.z, 1.3, 5.2, 0.6);
 });
 // ---------- forward-angled walls: Weapons Control and Electronic Warfare ----------
 [[1, { id: 'weapons', kind: 'wpn', title: 'Weapons Control', code: 'WPN·09' }], [7, { id: 'ew', kind: 'ew', title: 'Electronic Warfare', code: 'EW·10' }]].forEach(([ei, p]) => {
   const e = EDGES[ei];
   const g = group(e.mx + e.nx * 0.34, 0, e.mz + e.nz * 0.34, e.rot);
-  const body = consoleBody(g, 2.1);
-  post(g, 0, p, 1.9, body);
+  const holes = [];
+  post(g, 0, p, 1.9, holes);
+  consoleBody(g, 2.1, 1.9, holes);
   g.updateMatrixWorld(true);
   const c1 = new THREE.Vector3(); [-0.7, 0, 0.7].forEach((lx) => { g.localToWorld(c1.set(lx, 0, 0)); extraObs.push({ x: c1.x, z: c1.z, r: 0.4 }); });
   const aoc = new THREE.Vector3(); g.localToWorld(aoc.set(0, 0, 0)); ao(aoc.x, aoc.z, 2.4, 1.4, 0.6);
@@ -504,8 +589,9 @@ function doorAt(px, pz, rot, label, station, auto, room, parent, deck) {
   [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
   mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
   mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
-  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'd2sealed' ? '#E05A50' : '#E8A06A'; c.fill(); c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); }
-  mesh(new THREE.PlaneGeometry(1.0, 0.175), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.45, 0.276, g);
+  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'd2sealed' ? '#E05A50' : '#E8A06A'; c.fill(); if (!THREE.TroikaText) { c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); } }
+  const lpm = mesh(new THREE.PlaneGeometry(1.0, 0.175), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.45, 0.276, g);
+  text3d(lpm, label, 0.085, 0xF5E6CF, -0.325, 0.004, 0.002);
   const L = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, -0.3, 1.15, 0.06, g);
   const Rr = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, 0.3, 1.15, 0.06, g);
   [L, Rr].forEach((d, k) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, k ? -0.27 : 0.27, 0, 0.04, d); mesh(BOX(0.4, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });

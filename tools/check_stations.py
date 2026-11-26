@@ -9,6 +9,9 @@ async def route(r):
   u = r.request.url
   try:
     if 'three@0.186.0/' in u: f = THREE_DIR + '/' + u.split('three@0.186.0/')[1]
+    elif 'cdn.jsdelivr.net/npm/' in u:  # other pinned packages (postprocessing, n8ao, troika...) from the local install
+      pkg = u.split('cdn.jsdelivr.net/npm/')[1]; name, rest = pkg.split('@', 1) if not pkg.startswith('@') else ('@' + pkg[1:].split('@', 1)[0], pkg[1:].split('@', 1)[1])
+      f = os.path.join(os.path.dirname(THREE_DIR), name, rest.split('/', 1)[1])
     elif 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
     elif u.startswith('https://example.test/'): f = os.path.join(root, u.split('https://example.test/')[1].split('?')[0] or 'index.html')
     else: return await r.abort()

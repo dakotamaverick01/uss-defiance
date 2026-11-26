@@ -33,25 +33,44 @@ shafts.push(mesh(new THREE.CylinderGeometry(1.35, 1.9, WALL_H - 0.02, 40, 1, tru
 shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
 // (no floating dust motes: they read as glowing specks; the light shafts stay)
 
-// ---------- bloom (falls back to a plain render if the effect scripts are missing) ----------
-let composer = null, bloom = null;
+// ---------- post effects ----------
+// Materials tone-map themselves (so screens marked toneMapped:false keep their exact colours); three.js only does that
+// when drawing to the screen or an XR target, so the effect buffers are flagged as XR targets.
+// Preferred: pmndrs "postprocessing" with N8AO (soft ambient occlusion: the contact shadows where things meet) and a
+// mip-mapped bloom for screen glow. AO runs on desktop only (phones keep their frame rate). If those libraries didn't
+// load, three.js's own bloom is used as before; if that fails too, a plain render.
+let composer = null, bloom = null, aoPass = null;
+const POST = { kind: 'none' };
+function flagXR(t) { if (t) { t.isXRRenderTarget = true; t.texture.colorSpace = THREE.LinearSRGBColorSpace; } }
 try {
-  if (THREE.EffectComposer && THREE.UnrealBloomPass && THREE.GammaCorrectionShader) {
+  if (THREE.PP) {
+    const PP = THREE.PP;
+    composer = new PP.EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: isMobile ? 0 : 4 });
+    flagXR(composer.inputBuffer); flagXR(composer.outputBuffer);
+    composer.addPass(new PP.RenderPass(scene, camera));
+    if (THREE.N8AOPostPass && !isMobile) {
+      aoPass = new THREE.N8AOPostPass(scene, camera, window.innerWidth, window.innerHeight);
+      Object.assign(aoPass.configuration, { aoRadius: 0.45, distanceFalloff: 0.45, intensity: 1.7, aoSamples: 12, denoiseSamples: 6, denoiseRadius: 6, halfRes: false, gammaCorrection: false, color: new THREE.Color(0x000000) });
+      aoPass.setQualityMode && aoPass.setQualityMode('Medium'); aoPass.configuration.halfRes = false; aoPass.configuration.gammaCorrection = false;
+      composer.addPass(aoPass);
+    }
+    bloom = new PP.BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.8, luminanceSmoothing: 0.12, intensity: 0.75, radius: 0.62, levels: isMobile ? 5 : 7 });
+    composer.addPass(new PP.EffectPass(camera, bloom));
+    POST.kind = aoPass ? 'pmndrs+ao' : 'pmndrs';
+  } else if (THREE.EffectComposer && THREE.UnrealBloomPass && THREE.GammaCorrectionShader) {
     const pr = renderer.getPixelRatio();
     const target = new THREE.WebGLRenderTarget(window.innerWidth * pr, window.innerHeight * pr, { type: THREE.UnsignedByteType, samples: 4 });
     composer = new THREE.EffectComposer(renderer, target);
-    // 8-bit buffer as in r128: over-bright strips clip at white before bloom. Stage 2 moves this to a full HDR pipeline.
-    // Tone map inside each material (as r128 did) so screens marked toneMapped:false keep their exact colours.
-    // three.js only does that for screen or XR targets, so the composer's buffers are flagged as XR targets.
-    [composer.renderTarget1, composer.renderTarget2].forEach((t) => { t.isXRRenderTarget = true; t.texture.colorSpace = THREE.LinearSRGBColorSpace; });
+    [composer.renderTarget1, composer.renderTarget2].forEach(flagXR);
     composer.addPass(new THREE.RenderPass(scene, camera));
     bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.62 / 3, 0.55, 0.84); // newer bloom triples strength internally
-    // r128's bloom used 8-bit buffers, which capped the glow; keep that until Stage 2 retunes bloom in HDR.
     [bloom.renderTargetBright, ...bloom.renderTargetsHorizontal, ...bloom.renderTargetsVertical].forEach((t) => { t.texture.type = THREE.UnsignedByteType; });
     composer.addPass(bloom);
     composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+    POST.kind = 'three';
   }
-} catch (e) { console.warn('Post-processing unavailable', e); composer = null; }
+} catch (e) { console.warn('Post-processing unavailable', e); composer = null; POST.kind = 'none'; }
+window.DEFIANCE_POST = POST;
 
 // attract mode: a slow glide around the bridge while the title card is up
 let attract = true, attractT = 0;
@@ -90,7 +109,7 @@ function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.fov = w < h ? 80 : 66; camera.updateProjectionMatrix();
-  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  if (composer) { if (POST.kind === 'three') composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); flagXR(composer.inputBuffer); flagXR(composer.outputBuffer); }
 }
 window.addEventListener('resize', resize); resize();
 

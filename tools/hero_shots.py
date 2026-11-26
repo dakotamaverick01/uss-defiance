@@ -15,6 +15,9 @@ async def route(r):
     if 'three.js/r128/three.min.js' in u: f = PKG128 + '/build/three.min.js'
     elif 'three@0.128.0/' in u: f = PKG128 + '/' + u.split('three@0.128.0/')[1]
     elif 'three@0.186.0/' in u: f = NEW + '/' + u.split('three@0.186.0/')[1]
+    elif 'cdn.jsdelivr.net/npm/' in u:  # other pinned packages (postprocessing, n8ao, troika...) from the local install
+      pkg = u.split('cdn.jsdelivr.net/npm/')[1]; name, rest = pkg.split('@', 1)
+      f = os.path.join(os.path.dirname(NEW), name, rest.split('/', 1)[1])
     elif 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
     elif u.startswith('https://example.test/'):
       path = u.split('https://example.test/')[1].split('?')[0] or 'index.html'; f = os.path.join(root, path)

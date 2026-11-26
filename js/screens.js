@@ -840,6 +840,133 @@ function drawTable(s) {
   const lo = { x: cx0, y: by + 40 * u, w: cwid, h: Y1 - by - 40 * u }, [l1, l2, l3] = split(lo, [1, 1.1, 1], false, 16 * u);
   numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }
+// ---------- layered look (screens pass 3) ----------
+// Every display is built in two layers. Underneath, a still, dim layer: deep navy regions, a faint grid, a faint
+// schematic and tiny reference codes. On top, the crisp blocks and readouts. The still layer is drawn once into an
+// offscreen canvas (keyed by size, seed and alert) and stamped down on each redraw, so it costs nothing to keep.
+const LOOK3 = { all: true, only: new Set() };
+const look3 = (s) => LOOK3.all || LOOK3.only.has(s.station);
+const UNDER = new Map();
+const NAVY = { g: ['#081022', '#0f1d3a', '#162a52', '#22406f', '#2f5288', '#4268a0'], r: ['#10070a', '#1a0b10', '#261018', '#3a1822', '#52222e', '#6a2e3a'] };
+function microText(g, x, y, txt, col, fs) { g.font = `500 ${fs | 0}px ${DISP}`; g.fillStyle = col; g.textBaseline = 'top'; g.fillText(txt, x, y); }
+function underlay(s, W, H, R) {
+  const red = state.alert === 'red', key = s.kind + ':' + W + 'x' + H + ':' + s.seed + (red ? 'r' : 'g');
+  let c = UNDER.get(key); if (c) return c;
+  c = cnv(W, H); const g = c.getContext('2d'), N = NAVY[red ? 'r' : 'g'], r = mulberry(s.seed * 13 + 5), u = Math.min(W, H) / 400;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  // The panels follow the frame's own areas (R: the content field, the side rail, the bottom deck), so the dim
+  // shapes read as the back layer of one designed layout rather than stains behind it.
+  const fx = R.x0 - R.gap, fy = R.y0 - R.gap * 0.5, fw = R.x1 - R.x0 + R.gap * 2, fh = R.y1 - R.y0 + R.gap, rad = 22 * u;
+  rrect(g, fx, fy, fw, fh, rad); g.fillStyle = N[0]; g.fill();
+  // the lower-left block: a stepped panel, lighter at the top, with a faint grid
+  const sp = 0.5 + r() * 0.12, bx = fx, by = fy + fh * (0.42 + r() * 0.08), bw = fw * sp, bh = fy + fh - by;
+  let gr = g.createLinearGradient(0, by, 0, by + bh); gr.addColorStop(0, N[2]); gr.addColorStop(1, N[1]);
+  g.beginPath(); g.moveTo(bx, by + bh); g.lineTo(bx, by + rad); g.quadraticCurveTo(bx, by, bx + rad, by); g.lineTo(bx + bw * 0.62, by);
+  g.quadraticCurveTo(bx + bw * 0.7, by, bx + bw * 0.72, by + bh * 0.16); g.lineTo(bx + bw - rad, by + bh * 0.16); g.quadraticCurveTo(bx + bw, by + bh * 0.16, bx + bw, by + bh * 0.16 + rad);
+  g.lineTo(bx + bw, by + bh - rad); g.quadraticCurveTo(bx + bw, by + bh, bx + bw - rad, by + bh); g.closePath(); g.fillStyle = gr; g.fill();
+  g.save(); g.clip(); g.strokeStyle = N[3]; g.globalAlpha = 0.5; g.lineWidth = Math.max(1, u * 0.8); const gs = Math.max(12, 20 * u);
+  g.beginPath(); for (let x = bx + gs; x < bx + bw; x += gs) { g.moveTo(x, by); g.lineTo(x, by + bh); } for (let y = by + gs; y < by + bh; y += gs) { g.moveTo(bx, y); g.lineTo(bx + bw, y); } g.stroke(); g.restore(); g.globalAlpha = 1;
+  // the right-hand block: a tall panel under an elbow, carrying a faint schematic
+  const qx = fx + fw * (0.6 + r() * 0.06), qy = fy + fh * 0.08, qw = fx + fw - qx, qh = fh * 0.92;
+  elbow(g, qx, qy, qw * 0.14, Math.max(3, 6 * u), qw, Math.max(8, 16 * u), true, N[2]);
+  gr = g.createLinearGradient(qx, 0, qx + qw, 0); gr.addColorStop(0, N[1]); gr.addColorStop(1, N[0]);
+  rrect(g, qx + qw * 0.14 + R.gap, qy + Math.max(8, 16 * u) + R.gap, qw * 0.86 - R.gap, qh - Math.max(8, 16 * u) - R.gap, rad * 0.8); g.fillStyle = gr; g.fill();
+  const kind = (s.seed + s.kind.length) % 3, sx = qx + qw * 0.58, sy = qy + qh * 0.56, sr = Math.min(qw, qh) * 0.36;
+  g.strokeStyle = N[4]; g.lineWidth = Math.max(1, 1.3 * u); g.globalAlpha = 0.55;
+  if (kind === 0) {
+    [1, 0.72, 0.44].forEach((f) => { g.beginPath(); g.arc(sx, sy, sr * f, 0, 7); g.stroke(); });
+    for (let i = 0; i < 48; i++) { const a = i / 48 * Math.PI * 2, l = i % 4 ? 0.05 : 0.12; g.beginPath(); g.moveTo(sx + Math.cos(a) * sr, sy + Math.sin(a) * sr); g.lineTo(sx + Math.cos(a) * sr * (1 + l), sy + Math.sin(a) * sr * (1 + l)); g.stroke(); }
+    g.beginPath(); g.moveTo(sx - sr * 1.2, sy); g.lineTo(sx + sr * 1.2, sy); g.moveTo(sx, sy - sr * 1.2); g.lineTo(sx, sy + sr * 1.2); g.stroke();
+  } else if (kind === 1) {
+    g.save(); g.translate(sx, sy); g.rotate(-Math.PI / 2); hullTop(g, 0, 0, sr); g.stroke(); hullTop(g, 0, 0, sr * 0.7); g.stroke(); g.restore();
+    for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(sx - sr * 1.1, sy + i * sr * 0.18); g.lineTo(sx - sr * 0.95, sy + i * sr * 0.18); g.stroke(); }
+  } else {
+    for (let k = 0; k < 6; k++) { g.beginPath(); for (let i = 0; i <= 40; i++) { const t = i / 40, x = sx - sr * 1.1 + t * sr * 2.2, y = sy - sr * 0.7 + k * sr * 0.28 + Math.sin(t * 6 + k * 1.3 + s.seed) * sr * 0.08; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  }
+  g.globalAlpha = 1;
+  // behind the side rail and the bottom deck: their own dim trays
+  if (R.rail) { rrect(g, R.rail.x - R.gap, R.rail.y - R.gap, R.rail.w + R.gap * 2, R.rail.h + R.gap * 2, rad * 0.7); g.fillStyle = N[1]; g.fill(); }
+  if (R.deck) { rrect(g, R.deck.x - R.gap, R.deck.y - R.gap * 0.6, R.deck.w + R.gap * 2, R.deck.h + R.gap * 1.2, rad * 0.6); g.fillStyle = N[1]; g.fill(); }
+  // a hairline ruler along the lower block, and tiny reference codes tucked in panel corners, only noticed up close
+  g.fillStyle = N[3]; const ry = by + bh - 8 * u;
+  g.fillRect(bx + 14 * u, ry, bw - 28 * u, Math.max(1, u)); for (let x = bx + 14 * u, i = 0; x < bx + bw - 14 * u; x += 9 * u, i++) g.fillRect(x, ry - (i % 5 ? 3 : 7) * u, Math.max(1, u), (i % 5 ? 3 : 7) * u);
+  const fsm = clamp(8.5 * u, 8, 12), code = () => String(10 + (r() * 89 | 0)) + '-' + String(1000 + (r() * 8999 | 0));
+  [[bx + bw - 70 * u, by + bh * 0.16 + 6 * u], [qx + qw - 70 * u, qy + qh - 18 * u], [fx + 10 * u, fy + 6 * u]].forEach(([x, y]) => microText(g, x, y, code(), N[5], fsm));
+  UNDER.set(key, c); return c;
+}
+// ---------- desk display: the whole desktop is a control surface ----------
+// Big colour pads carry the look (the rows of rounded blocks with tiny numbers), a segmented ring gauge, and the
+// station's own readouts in a compact panel in the middle. Still except for: one selected pad that moves now and
+// then, one pad that toggles, and a slow filling bar.
+const DESK_C = new Map();
+function deskStatic(s, W, H, P) {
+  const red = state.alert === 'red', key = W + 'x' + H + ':' + s.seed + (red ? 'r' : 'g');
+  let c = DESK_C.get(key); if (c) return c;
+  c = cnv(W, H); const g = c.getContext('2d'), N = NAVY[red ? 'r' : 'g'], r = mulberry(s.seed * 31 + 9), u = H / 400, m = 14 * u;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const L = s.layout = { pads: [], ring: null, mid: null, fill: null };
+  // left: a big navy field holding the pad clusters
+  rrect(g, m, m, W * 0.31, H - 2 * m, 22 * u); g.fillStyle = N[1]; g.fill();
+  elbow(g, m, m, 26 * u, 16 * u, W * 0.26, 22 * u, true, P.tan);
+  const cols = [P.tan, P.butter, P.acc, P.ice, P.tan, P.butter, P.rose, P.plum], ph = 30 * u, gp = 7 * u;
+  let y = m + 52 * u;
+  for (let row = 0; y + ph < H - m - 12 * u; row++, y += ph + gp) {
+    let x = m + 34 * u; const x1 = m + W * 0.31 - 12 * u;
+    while (x < x1 - 30 * u) {
+      const w = Math.min(x1 - x, (r() < 0.25 ? 2.3 : 1) * (44 + r() * 26) * u), col = cols[(r() * cols.length) | 0], off = r() < 0.12;
+      L.pads.push({ x, y, w, h: ph, col, off, l: x === m + 34 * u, n: String(10 + (r() * 89 | 0)) + (w > 90 * u ? '-' + String(100 + (r() * 899 | 0)) : '') });
+      x += w + gp;
+    }
+  }
+  L.pads.forEach((q) => { hexTab(g, q.x, q.y, q.w, q.h, q.l, false); g.fillStyle = q.off ? P.line : q.col; g.fill(); if (!q.off) { g.fillStyle = '#000'; g.font = `600 ${q.h * 0.42 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(q.n, q.x + q.w - 6 * u, q.y + q.h / 2 + 1); } });
+  // middle: a frame for the station's readouts
+  const mx = m + W * 0.31 + 18 * u, mw = W * 0.5;
+  L.mid = { x: mx + 30 * u, y: m + 40 * u, w: mw - 36 * u, h: Math.min(H * 0.52, 165) };
+  rrect(g, mx, m + 28 * u, mw, L.mid.h + 26 * u, 18 * u); g.fillStyle = N[0]; g.fill();
+  elbow(g, mx, m, 22 * u, 14 * u, mw * 0.55, 20 * u, true, P.acc);
+  const t = s.title.toUpperCase(); fitFont(g, t, 600, 26 * u, DISP, mw * 0.4); g.fillStyle = P.acc; g.textAlign = 'right'; g.textBaseline = 'top'; g.fillText(t, mx + mw, m - 3 * u);
+  // below it: three long bars, the first one live (a slow fill), and a run of thin tick blocks
+  const by = L.mid.y + L.mid.h + 26 * u, bw = mw;
+  L.fill = { x: mx, y: by, w: bw * 0.7, h: 16 * u };
+  [[0, P.line], [26 * u, P.ice], [52 * u, P.tan]].forEach(([dy, col], i) => { hexTab(g, mx, by + dy, i ? bw * (0.35 + r() * 0.4) : bw * 0.7, 16 * u, true, true); g.fillStyle = col; g.fill(); });
+  for (let i = 0, x = mx; x < mx + bw - 8 * u && by + 84 * u < H - m; i++, x += 13 * u) { g.fillStyle = [P.tan, P.plum, P.ice][i % 7 === 3 ? 2 : i % 3 === 1 ? 1 : 0]; g.fillRect(x, by + 82 * u, 8 * u, (i % 4 ? 12 : 22) * u); }
+  // right: the segmented ring gauge in its own navy field, with a cluster of small pads beside it
+  const rx = mx + mw + 18 * u, rw = W - m - rx;
+  rrect(g, rx, m, rw, H - 2 * m, 22 * u); g.fillStyle = N[1]; g.fill();
+  const cx = rx + rw * 0.42, cy = H * 0.5, rad = Math.min(rw * 0.38, H * 0.36);
+  L.ring = { cx, cy, rad };
+  const segs = [[P.tan, 8], [P.ice, 6], [P.acc, 10]], ringW = rad * 0.2;
+  segs.forEach(([col, n], k) => { const rr2 = rad * (1 - k * 0.27); for (let i = 0; i < n; i++) { if (r() < 0.18) continue; const a0 = -Math.PI * 0.75 + i / n * Math.PI * 1.5 + 0.04, a1 = a0 + Math.PI * 1.5 / n - 0.08; g.strokeStyle = col; g.lineWidth = ringW * (1 - k * 0.15); g.beginPath(); g.arc(cx, cy, rr2, a0, a1); g.stroke(); } });
+  g.fillStyle = P.butter; g.beginPath(); g.arc(cx, cy, rad * 0.2, 0, 7); g.fill();
+  for (let i = 0; i < 6; i++) { const qx = rx + rw * 0.8, qy = m + 30 * u + i * 34 * u; if (qy + 24 * u > H - m) break; hexTab(g, qx, qy, rw * 0.16, 24 * u, false, true); g.fillStyle = [P.acc, P.tan, P.ice, P.butter, P.tan, P.rose][i]; g.fill(); }
+  microText(g, rx + 12 * u, H - m - 22 * u, String(s.code || '').replace('·', ' ') + ' · ' + String(200 + s.seed % 700), N[5], clamp(9 * u, 8, 12));
+  DESK_C.set(key, c); return c;
+}
+function drawDesk(s) {
+  const g = s.g, W = s.w, H = s.h, P = pal(), u = H / 400;
+  g.drawImage(deskStatic(s, W, H, P), 0, 0); const L = s.layout;
+  // one pad is selected (cream) and moves on every 8-20 s; another toggles on its own slower timing
+  const n = L.pads.length, sel = (hash1(s.seed * 5 + slowTick(s.seed * 3.7, 8, 20)) * n) | 0, tg = slowTick(s.seed * 9.1, 11, 27), tk = (hash1(s.seed + tg * 3) * n) | 0;
+  [[sel, P.txt], [tk, tg % 2 ? P.line : null]].forEach(([i, col]) => { const q = L.pads[i]; if (!q || !col) return; hexTab(g, q.x, q.y, q.w, q.h, q.l, false); g.fillStyle = col; g.fill(); });
+  // the slow fill: a bar that creeps along over a minute or so, then starts again
+  { const f = L.fill, t = ((elapsed + hash1(s.seed) * 60) / (50 + hash1(s.seed + 2) * 40)) % 1; g.fillStyle = P.line; hexTab(g, f.x, f.y, f.w, f.h, true, true); g.fill(); hexTab(g, f.x, f.y, Math.max(f.h, f.w * t), f.h, true, true); g.fillStyle = P.butter; g.fill(); }
+  // the station's own readouts, compact
+  const M = L.mid; g.fillStyle = NAVY[state.alert === 'red' ? 'r' : 'g'][0]; g.fillRect(M.x - 4, M.y - 2, M.w + 8, M.h + 4);
+  if (DRAW[s.sub]) DRAW[s.sub](g, M.x, M.y, M.w, M.h, P, s);
+  s.tex.needsUpdate = true;
+}
+// the hooded viewer: a slow trace crawling across a faint grid
+function drawScope(s) {
+  const g = s.g, W = s.w, H = s.h, P = pal(), N = NAVY[state.alert === 'red' ? 'r' : 'g'];
+  g.fillStyle = N[0]; g.fillRect(0, 0, W, H);
+  g.fillStyle = N[2]; for (let x = 0; x < W; x += 24) g.fillRect(x, 0, 1, H); for (let y = H / 2 % 12; y < H; y += 12) g.fillRect(0, y, W, 1);
+  const t = elapsed * (0.08 + hash1(s.seed) * 0.06) + s.seed;
+  g.strokeStyle = P.ice; g.lineWidth = 2; g.beginPath();
+  for (let x = 0; x <= W; x += 3) { const v = Math.sin(x * 0.045 + t * 2) * 0.5 + Math.sin(x * 0.11 - t * 1.3) * 0.25 + Math.sin(x * 0.023 + t) * 0.2; const y = H / 2 - v * H * 0.34; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.fillStyle = P.tan; g.fillRect(4, 4, 30, 8); g.fillStyle = P.acc; g.fillRect(W - 22, H - 12, 18, 8);
+  s.tex.needsUpdate = true;
+}
 function drawScreen(s) {
   if (s.kind === 'strip') drawStrip(s);
   else if (s.kind === 'msd') drawMSD(s);
@@ -847,12 +974,18 @@ function drawScreen(s) {
   else if (s.kind === 'cmd') drawCmd(s);
   else if (s.kind === 'keys') drawKeys(s);
   else if (s.kind === 'band') drawBand(s);
+  else if (s.kind === 'desk') { drawDesk(s); return; }
+  else if (s.kind === 'scope') { drawScope(s); return; }
   else {
     const g = s.g, W = s.w, H = s.h, P = pal(), small = H < 200;
-    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     const pad = Math.max(4, Math.round(Math.min(W, H) * 0.035)), gap = Math.max(3, Math.round(pad * 0.7));
     const colW = Math.round(clamp(W * 0.085, 22, 92)), barH = Math.round(clamp(H * (small ? 0.075 : 0.042), 6, 22));
     const fs = Math.round(clamp(Math.min(H * (small ? 0.13 : 0.068), W * 0.075), 11, 46)), ext = Math.round(clamp(H * 0.1, 8, 64));
+    // frame geometry first (the dim back layer follows it), then draw
+    const R = { gap, x0: pad + colW + gap * 2.5, y0: pad + Math.max(fs * 1.02, barH + ext * 0.4) + gap, x1: W - pad, y1: H - pad - barH - gap * 1.6, rail: null, deck: null };
+    if (W >= 520 && s.kind !== 'msd') { const rw = Math.round(clamp(W * (small ? 0.2 : 0.15), 70, 160)); R.rail = { x: W - pad - rw, y: R.y0, w: rw, h: R.y1 - R.y0 }; R.x1 = R.rail.x - gap * 3; }
+    if (H >= 420 && W >= 300) { const bh = Math.round(clamp(H * 0.1, 34, 78)); R.deck = { x: R.x0, y: R.y1 - bh, w: R.x1 - R.x0, h: bh }; }
+    if (look3(s)) g.drawImage(underlay(s, W, H, R), 0, 0); else { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
     const title = s.title.toUpperCase(); fitFont(g, title, 600, fs, DISP, W * 0.5); const tw = g.measureText(title).width;
     const tx = W - pad - fs * 0.55 - gap, barEnd = tx - tw - gap * 2;
     // top elbow and bar: peach, a tan block, a lilac block, then the title on black and a peach end cap

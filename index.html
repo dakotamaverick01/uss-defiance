@@ -204,7 +204,15 @@ html.alert-red { --ice: #5D7F92; }
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/",
+  "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/",
+  "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.39.6/build/index.js",
+  "n8ao": "https://cdn.jsdelivr.net/npm/n8ao@2.1.0/dist/N8AO.js",
+  "troika-three-text": "https://cdn.jsdelivr.net/npm/troika-three-text@0.54.0/dist/troika-three-text.esm.js",
+  "troika-three-utils": "https://cdn.jsdelivr.net/npm/troika-three-utils@0.54.0/dist/troika-three-utils.esm.js",
+  "troika-worker-utils": "https://cdn.jsdelivr.net/npm/troika-worker-utils@0.54.0/dist/troika-worker-utils.esm.js",
+  "webgl-sdf-generator": "https://cdn.jsdelivr.net/npm/webgl-sdf-generator@1.1.1/dist/webgl-sdf-generator.mjs",
+  "bidi-js": "https://cdn.jsdelivr.net/npm/bidi-js@1.1.0/dist/bidi.mjs"
 } }
 </script>
 <script type="module">
@@ -222,6 +230,12 @@ try {
   ]);
   window.THREE = Object.assign({}, T, { EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, GammaCorrectionShader });
 } catch (e) { fail(); throw e; }
+// Optional extras (MIT licence): sharper post effects with soft contact shadows, and crisp 3D text. If either fails
+// to load, the ship falls back to three.js's own bloom and to canvas-drawn labels.
+await Promise.all([
+  Promise.all([import('postprocessing'), import('n8ao')]).then(([PP, AO]) => { window.THREE.PP = PP; window.THREE.N8AOPostPass = AO.N8AOPostPass; }),
+  import('troika-three-text').then((TT) => { window.THREE.TroikaText = TT.Text; }),
+].map((p) => p.catch((e) => console.warn('Optional library unavailable', e))));
 for (const f of FILES) {
   await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'js/' + f + '.js'; s.onload = ok; s.onerror = bad; document.body.appendChild(s); }).catch(() => fail());
   if (window.DEFIANCE_FAILED) break;
