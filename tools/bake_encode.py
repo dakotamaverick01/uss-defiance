@@ -26,6 +26,9 @@ meta = {'atlas': scn['atlas'], 'exposure': EXPOSURE, 'strip': 1.0, 'env': 1.0, '
 lw, ls = np.load(os.path.join(work, 'lm_w.npy')), np.load(os.path.join(work, 'lm_s.npy')).mean(2, keepdims=True)
 mask = lw.sum(2) > 0
 lw = blur_masked(lw, mask, 2); ls = blur_masked(ls, mask, 2)
+# big flat walls and ceilings vary slowly: smooth their remaining low-sample noise harder (confined to each surface by
+# the mask), which removes the cloudy blotches without softening the floors' contact shadows much
+LM_EXTRA = int(os.environ.get('LM_EXTRA', 6)); lw = blur_masked(lw, mask, LM_EXTRA); ls = blur_masked(ls, mask, LM_EXTRA)
 mw = float(np.percentile(lw[mask], 99.8)) * 1.1; ms = float(np.percentile(ls[mask], 99.8)) * 1.1
 Image.fromarray(enc(lw, mw)).save(os.path.join(out, 'lm_w.png'), optimize=True)
 Image.fromarray(enc(ls[..., 0], ms)).save(os.path.join(out, 'lm_s.png'), optimize=True)

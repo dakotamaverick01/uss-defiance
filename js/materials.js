@@ -34,11 +34,15 @@ function wallCanvases() {
   g.fillStyle = gr; g.fillRect(0, Y(2.72), W, Y(1.02) - Y(2.72));
   [[2.62, 1.92], [1.86, 1.1]].forEach(([top, bot]) => {
     const x0 = 14, x1 = W - 14, y0 = Y(top), y1 = Y(bot);
-    g.fillStyle = 'rgba(176,140,92,0.28)'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle = 'rgba(120,112,100,0.07)'; g.fillRect(x0, y0, x1 - x0, y1 - y0); // a barely-there inset, clean paint
     g.fillStyle = 'rgba(255,250,240,0.5)'; g.fillRect(x0, y1 - 2, x1 - x0, 2); g.fillRect(x1 - 2, y0, 2, y1 - y0);
     g.fillStyle = 'rgba(40,28,18,0.4)'; g.fillRect(x0, y0, x1 - x0, 2); g.fillRect(x0, y0, 2, y1 - y0);
     [[x0 + 8, y0 + 8], [x1 - 8, y0 + 8], [x0 + 8, y1 - 8], [x1 - 8, y1 - 8]].forEach(([fx, fy]) => fastener(g, fx, fy, 2.2));
   });
+  // a small dark-red ID tag on the upper panel and a faint stencil code on the lower one
+  { const tx = 24, ty = Y(2.62) + 14; g.fillStyle = '#5a1a1e'; g.fillRect(tx, ty, 46, 11); g.fillStyle = '#e8d8c0'; g.fillRect(tx + 2, ty + 2, 9, 7);
+    g.fillStyle = 'rgba(232,216,192,0.75)'; g.fillRect(tx + 14, ty + 3, 28, 2); g.fillRect(tx + 14, ty + 7, 18, 1);
+    g.fillStyle = 'rgba(70,62,54,0.35)'; g.font = `600 8px ${MONO}`; g.textBaseline = 'top'; g.fillText('WL-' + 'A4', W - 46, Y(1.86) + 10); }
   // steel rail
   g.fillStyle = '#7d7871'; g.fillRect(0, Y(1.02), W, Y(0.95) - Y(1.02));
   g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(0, Y(1.02), W, 2);
@@ -49,7 +53,7 @@ function wallCanvases() {
   [[20, Y(0.84)], [W - 20, Y(0.84)], [20, Y(0.24)], [W - 20, Y(0.24)], [W / 2, Y(0.84)], [W / 2, Y(0.24)]].forEach(([x, y]) => fastener(g, x, y, 2.6));
   // kick plate
   g.fillStyle = '#262422'; g.fillRect(0, Y(0.12), W, H - Y(0.12));
-  noise(g, W, H, 2600, 0.035, 5);
+  noise(g, W, H, 1400, 0.02, 5);
   // light seams
   g.fillStyle = '#1e1a16'; g.fillRect(0, Y(2.62), 3, Y(1.1) - Y(2.62)); g.fillRect(W - 3, Y(2.62), 3, Y(1.1) - Y(2.62)); g.fillRect(0, Y(2.72) - 3, W, 5);
   ge.fillStyle = '#000'; ge.fillRect(0, 0, W, H);

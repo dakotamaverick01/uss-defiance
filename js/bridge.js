@@ -239,7 +239,7 @@ const GRILLE = (() => {
 const BTN_MATS = ['#E8A06A', '#D9B07E', '#B693C4', '#F2C88F', '#C67A86'].map((h) => new THREE.MeshBasicMaterial({ color: new THREE.Color(h).multiplyScalar(0.85), toneMapped: false }));
 // Crisp text in 3D space (troika-three-text: glyphs drawn from the font's outlines as signed-distance fields, so the
 // edges stay sharp at any distance). Returns null when the library didn't load, so callers fall back to canvas text.
-const FONT3D = 'fonts/antonio-600.woff2';
+const FONT3D = 'fonts/antonio-600.woff'; // woff, not woff2: troika's parser doesn't read woff2
 function text3d(parent, txt, size, color, x, y, z, anchorX) {
   if (!THREE.TroikaText) return null;
   const t = new THREE.TroikaText();
@@ -267,6 +267,8 @@ const MAT_FRAME = triSurface(new THREE.MeshStandardMaterial({ color: 0x423d37, r
 const MAT_BEZEL = triSurface(new THREE.MeshStandardMaterial({ color: 0x332e29, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.35 }), { set: 'paint', metres: 0.7, ns: 0.6, rv: 0.6, edge: 0.35 });
 const MAT_SLAT = new THREE.MeshStandardMaterial({ color: 0x1e1c1a, roughness: 0.38, metalness: 0.55, envMapIntensity: 0.6 });
 const MAT_VOID = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const TAG_MAT = new THREE.MeshStandardMaterial({ color: 0x5a1a1e, roughness: 0.45, metalness: 0.2, envMapIntensity: 0.4 });
+const TAG_INK = new THREE.MeshBasicMaterial({ color: 0xE8D8C0, toneMapped: false });
 // many small boxes merged into one mesh (the grille slats), so the run stays a handful of draw calls
 const _merged = new Map();
 function mergedBoxes(key, list) {
@@ -425,6 +427,12 @@ function bay(parent, lx, wallW, p, holes) {
     const sp = spill(sg, sw, sh, 0.1); sp.position.z = 0.004;
   });
   const sg = group(0, 2.3, -0.048, 0, b); sg.rotation.x = 0.35; addScreen(sg, w, 0.13, 760, 80, 'strip', p.id, p.title, p.code);
+  // small dark-red tags in the frame's top margin over each display, like stencilled panel labels
+  [[mx - mw / 2 + 0.09, 'A'], [ax - aw / 2 + 0.07, 'B']].forEach(([tx, sfx], i) => {
+    const tg = mesh(BOX(0.13, 0.03, 0.004), TAG_MAT, tx, FY + FH / 2 - 0.045, -0.184, b);
+    mesh(BOX(0.022, 0.018, 0.002), TAG_INK, -0.045, 0, 0.003, tg);
+    if (!text3d(tg, String(p.code).replace('·', ' ') + sfx, 0.016, 0xE8D8C0, -0.028, 0, 0.0025)) mesh(BOX(0.07, 0.004, 0.002), TAG_INK, 0.015, 0, 0.003, tg);
+  });
   idPlate(b, p.code, -W / 2 + 0.2, 1.315, -0.138, 0.2);
   // the desk display fills the desk; a hooded viewer stands up at the back on the left
   deskSurface(d, W, 0.46, 0.0325, 0.03, p, p.kind, -W * 0.26);
