@@ -24,7 +24,6 @@ CHECK_JS = r"""() => {
     ok('no room overlaps the lift shaft', hit.length === 0, hit.join(',')); }
   // walk: auto doors open, sealed ones stay shut
   DOORS.forEach((d) => { if (d.deck === 2 && d.auto) d.open = 1; });
-  const room = (l) => D2.rooms.find((r) => r.label === l);
   const walk = (name, pts, label) => {
     let [x, z] = pts[0];
     for (let i = 1; i < pts.length; i++) {
@@ -35,14 +34,14 @@ CHECK_JS = r"""() => {
         if (d < best - 0.005) { best = d; stuck = 0; } else if (++stuck > 60) { ok('walk ' + name, false, `stuck near ${x.toFixed(2)},${z.toFixed(2)} heading for ${tx},${tz}`); return; }
       }
     }
-    const r = room(label); ok('walk ' + name, r && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1, `${x.toFixed(2)},${z.toFixed(2)}`);
+    const inR = D2.rooms.some((r) => r.label === label && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1); ok('walk ' + name, inR, `${x.toFixed(2)},${z.toFixed(2)}`);
   };
   walk('first officer day cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-1.9, 10.2]], 'First officer’s quarters');
   walk('first officer sleeping cabin', [[1.3, 5.0], [1.3, 9.6], [-1.0, 9.6], [-2.15, 10.4], [-2.15, 12.0], [-2.15, 13.3], [-2.6, 13.9]], 'First officer’s quarters');
   walk('senior cabin 1', [[1.3, 5.0], [1.3, 7.2], [3.4, 7.2], [4.3, 5.4]], 'Senior officers’ cabin 1');
   walk('senior cabin 2', [[1.3, 5.0], [1.3, 12.0], [3.4, 12.0], [4.3, 13.8]], 'Senior officers’ cabin 2');
   walk('passage', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 22.0]], 'Officers’ passage');
-  walk('lounge', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 24.0], [-4.3, 25.6], [0.0, 27.4]], 'Observation lounge');
+  walk('lounge', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 24.0], [-4.3, 25.6], [-1.0, 26.0], [0.0, 28.6]], 'Observation lounge');
   walk('wardroom', [[1.3, 5.0], [1.3, 16.5], [1.3, 18.2]], 'Officers’ wardroom');
   // the set piece outside the lounge: inside DECK2, no baked (standard) materials
   const ext = typeof EXTSET !== 'undefined' ? EXTSET : null; let std = 0, tris = 0;

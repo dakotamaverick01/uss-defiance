@@ -593,6 +593,12 @@ DRAW.cabin = function (g, x, y, w, h, P, s) {
   table(g, sub(g, a, 'MESSAGES', P.acc, P), [['FROM HOME', n ? '1 NEW' : '2 NEW'], ['DEPT REPORT', 'DUE 1700'], ['WARDROOM', 'DINNER 1830'], ['TRAINING', n ? 'SIM BAY 4' : 'DAMAGE DRILL']], P);
   lights(g, sub(g, b, 'MY WATCHES', P.ice, P), [['ALPHA', n ? 'off' : 'act'], ['BETA', n ? 'act' : 'off'], ['GAMMA', 'off'], ['ON CALL', state.alert === 'green' ? 'ok' : 'alert']], P);
 };
+// the observation lounge board: what you are looking at out of the aft window
+DRAW.lounge = function (g, x, y, w, h, P) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), red = state.alert === 'red', warp = state.speed === 'warp';
+  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['DORSAL TURRET', red ? 'MANNED' : 'STOWED', red ? P.red : P.txt], ['PORT NACELLE', warp ? 'WARP FIELD' : 'IDLE'], ['STBD NACELLE', warp ? 'WARP FIELD' : 'IDLE'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
+  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ARCH FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
+};
 DRAW.mess = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
   table(g, sub(g, a, 'MESS · TODAY', P.acc, P), [['0630', 'BREAKFAST · ALPHA WATCH'], ['1200', 'MIDDAY · ALL WATCHES'], ['1830', 'OFFICERS’ DINNER'], ['2200', 'NIGHT GALLEY'], ['HOST', 'FIRST OFFICER']], P);
