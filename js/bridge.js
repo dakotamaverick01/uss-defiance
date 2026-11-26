@@ -144,38 +144,60 @@ function chairBase() {
 // moulded shell: smooth satin composite, warm dark grey (no cast-metal grain, which read as stone)
 const MAT_SHELL = new THREE.MeshStandardMaterial({ color: 0x2e2a27, metalness: 0.1, roughness: 0.5, envMapIntensity: 0.4 });
 const CHAIRS = [];
-// kinds: captain (wide, high back, headrest, long arms), xo (high back, headrest), station (mid back), dining (lighter, short arms)
+// Chairs (pass 3): one sculpted shell rather than stacked boxes. A single side profile (seat flowing round a soft
+// corner into a reclined back) is extruded across the chair; one continuous cushion follows it from a waterfall front
+// edge up the back; side wings sweep from the seat up the back edge. Lower, wider and more reclined than before.
+// kinds: captain (widest, tallest back, padded arms), xo (tall back, padded arms), station (mid back), dining (low).
+const CHAIR_DIM = { captain: { H: 0.7, arm: true }, xo: { H: 0.66, arm: true }, station: { H: 0.56, arm: false }, dining: { H: 0.48, arm: false } };
+const RECLINE = 0.3; // back leans about 17 degrees
+// profile helpers: x = forward, y = up (sideGeo turns x to face -z, the way the sitter faces)
+function chairLines(H) {
+  const B0 = new THREE.Vector2(-0.17, 0.16), B1 = new THREE.Vector2(-0.17 - (H - 0.16) * RECLINE, H);
+  const d = B1.clone().sub(B0).normalize(), nf = new THREE.Vector2(d.y, -d.x); // nf: out of the back toward the sitter
+  return { B0, B1, nf, at: (P, k) => P.clone().add(nf.clone().multiplyScalar(k)) };
+}
+function shellShape(H) {
+  const { B0, B1, at } = chairLines(H), o = -0.045, s = new THREE.Shape();
+  const B0o = at(B0, o), B1o = at(B1, o);
+  s.moveTo(0.27, 0.07); s.lineTo(-0.08, 0.07); s.quadraticCurveTo(-0.17, 0.07, B0.x, B0.y); s.lineTo(B1.x, B1.y);
+  s.quadraticCurveTo(B1.x - 0.005, B1.y + 0.03, (B1.x + B1o.x) / 2, B1.y + 0.03); s.quadraticCurveTo(B1o.x, B1o.y + 0.025, B1o.x, B1o.y);
+  s.lineTo(B0o.x, B0o.y - 0.02); s.quadraticCurveTo(-0.2, 0.025, -0.1, 0.02); s.lineTo(0.22, 0.02); s.quadraticCurveTo(0.28, 0.02, 0.28, 0.05); s.closePath();
+  return s;
+}
+function cushionShape(H) {
+  const { B0, B1, at } = chairLines(H), t = 0.07, s = new THREE.Shape();
+  const B0c = at(B0, t), top = at(B1, t).add(new THREE.Vector2(0.008, -0.04));
+  s.moveTo(0.25, 0.07); s.quadraticCurveTo(0.295, 0.07, 0.295, 0.11); s.quadraticCurveTo(0.295, 0.148, 0.24, 0.148);
+  s.lineTo(-0.01, 0.142); s.quadraticCurveTo(B0c.x + 0.02, 0.142, B0c.x, B0c.y + 0.02); s.lineTo(top.x, top.y);
+  s.quadraticCurveTo(top.x - 0.01, B1.y + 0.012, B1.x + 0.005, B1.y - 0.004); s.lineTo(B0.x, B0.y); s.quadraticCurveTo(-0.17, 0.07, -0.08, 0.07); s.closePath();
+  return s;
+}
+// side wing: covers the seat side, rises to an arm line, then follows the back's rear edge up to the shoulder
+function wingShape(H, arm) {
+  const { B0, B1, at } = chairLines(H), o = -0.045, s = new THREE.Shape(), ay = arm ? 0.27 : 0.19;
+  const B1o = at(B1, o), sh = at(B0.clone().lerp(B1, 0.82), 0.02);
+  s.moveTo(0.25, 0.02); s.quadraticCurveTo(0.27, ay, 0.16, ay); s.lineTo(-0.02, ay);
+  s.quadraticCurveTo(-0.13, ay, sh.x, sh.y); s.quadraticCurveTo(B1.x + 0.01, B1.y - 0.02, B1o.x, B1o.y - 0.04);
+  s.lineTo(at(B0, o).x, at(B0, o).y - 0.02); s.quadraticCurveTo(-0.2, 0.025, -0.1, 0.02); s.closePath();
+  return s;
+}
 function makeChair(parent, kind, leather) {
   const g = new THREE.Group(); parent.add(g);
-  const cap = kind === 'captain', hi = cap || kind === 'xo', dine = kind === 'dining', L = leather || MAT.leather;
-  const sx = cap ? 1.1 : dine ? 0.92 : 1.0;
+  const cap = kind === 'captain', dine = kind === 'dining', L = leather || MAT.leather, D = CHAIR_DIM[kind] || CHAIR_DIM.station;
+  const sx = cap ? 1.1 : dine ? 0.92 : 1.0, H = D.H;
   mesh(chairBase(), CHAIR_BASE_MAT, 0, 0, 0, g);
   const sw = group(0, 0.36, 0, 0, g); sw.scale.set(sx, 1, sx); // the swivel: everything above the pedestal
   const rock = group(0, 0, 0, 0, sw);                            // and a little rock on top of it
-  // seat: shell, then a deep cushion with a soft waterfall front edge
-  mesh(pillow(0.56, 0.05, 0.52, 0.02, 0, 'y', 0), MAT_SHELL, 0, 0.035, 0.0, rock);
-  mesh(pillow(0.52, 0.1, 0.5, 0.045, 0.018, 'y', 0), L, 0, 0.1, -0.005, rock);
-  mesh(BOX(0.4, 0.006, 0.006), MAT.leatherDark, 0, 0.162, -0.09, rock);
-  // back: shell and a cushion wrapped round the sitter, tilted back; stitch lines across it
-  const bh = hi ? 0.66 : dine ? 0.46 : 0.54, back = group(0, 0.1, 0.25, 0, rock); back.rotation.x = -0.16;
-  // shell: tapers toward the shoulders and bulges at the rear; an upholstered panel is let into its back
-  mesh(pillow(0.52, bh, 0.06, 0.028, 0.035, '+z', -0.12, null, 0.17), MAT_SHELL, 0, bh / 2 + 0.06, 0.03, back);
-  mesh(pillow(0.38, bh * 0.74, 0.03, 0.014, 0.014, '+z', -0.1, null, 0.15), L, 0, bh * 0.5 + 0.06, 0.078, back);
-  mesh(pillow(0.47, bh - 0.05, 0.08, 0.035, 0.022, '-z', -0.14, null, 0.15), L, 0, bh / 2 + 0.06, -0.025, back);
-  [0.3, 0.58].forEach((f) => mesh(BOX(0.36 * (1 - 0.15 * f), 0.006, 0.008), MAT.leatherDark, 0, 0.06 + bh * f, -0.072, back));
-  mesh(BOX(0.006, bh * 0.62, 0.008), MAT.leatherDark, 0, 0.06 + bh * 0.45, -0.074, back); // centre channel
-  if (hi) { // headrest on two posts
-    [-0.07, 0.07].forEach((x) => mesh(CYL(0.012, 0.012, 0.08, 8), MAT.steel, x, bh + 0.1, 0.01, back));
-    mesh(pillow(cap ? 0.34 : 0.3, 0.15, 0.08, 0.035, 0.015, '-z', -0.2), L, 0, bh + 0.2, -0.01, back);
-  }
-  if (cap) mesh(BOX(0.3, 0.014, 0.014), STRIP, 0, 0.1, 0.06, back);
-  // arms: a cast support from the seat shell up to a padded rest
-  const al = cap ? 0.42 : dine ? 0.26 : 0.34;
-  [-1, 1].forEach((sd) => {
-    mesh(RBOX(0.035, 0.2, 0.07, 0.012), MAT_SHELL, sd * 0.29, 0.16, 0.08, rock);
-    mesh(RBOX(0.035, 0.04, al * 0.7, 0.012), MAT_SHELL, sd * 0.29, 0.26, 0.1 - al * 0.3, rock);
-    mesh(pillow(0.075, 0.045, al, 0.02, 0.008, 'y', 0), L, sd * 0.29, 0.3, 0.1 - al * 0.45, rock);
-  });
+  // the shell, the continuous cushion, and the two side wings
+  mesh(sideGeo('shell' + H, () => shellShape(H), 0.58, 0.02), MAT_SHELL, 0, 0, 0.04, rock);
+  mesh(sideGeo('cush' + H, () => cushionShape(H), 0.5, 0.028), L, 0, 0, 0.04, rock);
+  [-1, 1].forEach((sd) => mesh(sideGeo('wing' + H + D.arm, () => wingShape(H, D.arm), 0.04, 0.014), MAT_SHELL, sd * 0.3, 0, 0.04, rock));
+  // seams: across the seat, and two across the back, following its lean
+  mesh(BOX(0.42, 0.006, 0.008), MAT.leatherDark, 0, 0.146, -0.12, rock);
+  const { B0, B1, nf } = chairLines(H);
+  [0.3, 0.62].forEach((f) => { const q = B0.clone().lerp(B1, f).add(nf.clone().multiplyScalar(0.071)); const m = mesh(BOX(0.42, 0.008, 0.006), MAT.leatherDark, 0, q.y, 0.04 - q.x, rock); m.rotation.x = -RECLINE; });
+  if (D.arm) [-1, 1].forEach((sd) => mesh(pillow(0.08, 0.045, cap ? 0.4 : 0.34, 0.02, 0.008, 'y', 0), L, sd * 0.3, 0.29, -0.04, rock));
+  if (cap) { const q = B1.clone(); const m = mesh(BOX(0.3, 0.014, 0.014), STRIP, 0, q.y - 0.12, 0.04 - q.x + 0.07, rock); m.rotation.x = -RECLINE; }
   const c = { g, sw, rock, home: 0, yaw: 0, vel: 0, tilt: 0, tiltV: 0, cap, p: null };
   g.userData.swivel = sw; g.userData.chair = c; CHAIRS.push(c);
   return g;
@@ -456,7 +478,7 @@ const VS_W = 5.0, VS_H = 2.25, VS_Y = 1.86, VS_Z = FWD_Z + 0.1;
 const rt = new THREE.WebGLRenderTarget(isMobile ? 1024 : 1600, isMobile ? 460 : 720, { type: THREE.HalfFloatType, generateMipmaps: false, samples: 4 });
 const vcam = new THREE.PerspectiveCamera(36, VS_W / VS_H, 0.5, 900); vcam.position.set(0, 2, FWD_Z); vcam.layers.set(1);
 const vLook = new THREE.Vector3(0, 2, -300), vFwd = new THREE.Vector3(0, 2, -300);
-mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: rt.texture }), 0, VS_Y, VS_Z);
+mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshBasicMaterial({ map: rt.texture, color: new THREE.Color(1.24, 1.24, 1.24) }), 0, VS_Y, VS_Z); // a touch brighter than the raw render
 const ovC = cnv(1024, 460), ovG = ovC.getContext('2d'), ovTex = tex(ovC);
 const ovMat = new THREE.MeshBasicMaterial({ map: ovTex, transparent: true, toneMapped: false, depthWrite: false, opacity: 0 });
 mesh(new THREE.PlaneGeometry(VS_W, VS_H), ovMat, 0, VS_Y, VS_Z + 0.01);
@@ -474,17 +496,26 @@ mesh(new THREE.PlaneGeometry(VS_W, VS_H), ovMat, 0, VS_Y, VS_Z + 0.01);
   mesh(new THREE.PlaneGeometry(VS_W, VS_H), new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.06, metalness: 0, envMapIntensity: 0.9, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false }), 0, VS_Y, VS_Z + 0.03);
 }
 {
-  const fz = FWD_Z + 0.2;
-  mesh(RBOX(VS_W + 0.9, 0.36, 0.34, 0.05), MAT.gun, 0, VS_Y + VS_H / 2 + 0.18, fz);
-  mesh(RBOX(VS_W + 0.9, 0.42, 0.4, 0.05), MAT.gun, 0, VS_Y - VS_H / 2 - 0.21, fz + 0.02);
+  const fz = FWD_Z + 0.2, OP = 0.11; // OP: the armoured frame stands this far out from the picture, round a chamfered reveal
+  mesh(RBOX(VS_W + 0.9 + OP * 2, 0.36, 0.34, 0.05), MAT.gun, 0, VS_Y + VS_H / 2 + 0.18 + OP, fz);
+  mesh(RBOX(VS_W + 0.9 + OP * 2, 0.42, 0.4, 0.05), MAT.gun, 0, VS_Y - VS_H / 2 - 0.21 - OP, fz + 0.02);
+  // the reveal: four dark panels angled from the picture's edge out to the frame's face, so the picture sits back
+  // inside the hull like a window, and the edges catch a little of its light
+  { const dz = 0.25, z0 = VS_Z + 0.005, ang = Math.atan2(OP, dz), len = Math.hypot(OP, dz);
+    [[0, 1, VS_W], [0, -1, VS_W], [1, 0, VS_H], [-1, 0, VS_H]].forEach(([sx, sy, run]) => {
+      const pg = group(sx * (VS_W / 2 + OP / 2), VS_Y + sy * (VS_H / 2 + OP / 2), z0 + dz / 2, 0);
+      if (sy) { mesh(BOX(run + OP * 2, 0.018, len), MAT.gunDark, 0, 0, 0, pg).rotation.x = -sy * ang; }
+      else { mesh(BOX(0.018, run + OP * 2, len), MAT.gunDark, 0, 0, 0, pg).rotation.y = sx * ang; }
+    });
+  }
   [-1, 1].forEach((sd) => {
-    mesh(RBOX(0.42, VS_H + 0.8, 0.38, 0.05), MAT.gun, sd * (VS_W / 2 + 0.24), VS_Y, fz);
-    const gus = mesh(RBOX(0.36, 0.36, 0.3, 0.03), MAT.steel, sd * (VS_W / 2 + 0.02), VS_Y + VS_H / 2 - 0.02, fz + 0.06); gus.rotation.z = Math.PI / 4;
-    const gus2 = mesh(RBOX(0.36, 0.36, 0.3, 0.03), MAT.steel, sd * (VS_W / 2 + 0.02), VS_Y - VS_H / 2 + 0.02, fz + 0.06); gus2.rotation.z = Math.PI / 4;
-    for (let k = 0; k < 7; k++) mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 8), MAT.steel, sd * (VS_W / 2 + 0.24), VS_Y - VS_H / 2 + 0.2 + k * 0.32, fz + 0.2).rotation.x = Math.PI / 2;
+    mesh(RBOX(0.42, VS_H + 0.8 + OP * 2, 0.38, 0.05), MAT.gun, sd * (VS_W / 2 + 0.24 + OP), VS_Y, fz);
+    const gus = mesh(RBOX(0.36, 0.36, 0.3, 0.03), MAT.steel, sd * (VS_W / 2 + 0.02 + OP), VS_Y + VS_H / 2 - 0.02 + OP, fz + 0.06); gus.rotation.z = Math.PI / 4;
+    const gus2 = mesh(RBOX(0.36, 0.36, 0.3, 0.03), MAT.steel, sd * (VS_W / 2 + 0.02 + OP), VS_Y - VS_H / 2 + 0.02 - OP, fz + 0.06); gus2.rotation.z = Math.PI / 4;
+    for (let k = 0; k < 7; k++) mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 8), MAT.steel, sd * (VS_W / 2 + 0.24 + OP), VS_Y - VS_H / 2 + 0.2 + k * 0.32, fz + 0.2).rotation.x = Math.PI / 2;
   });
-  mesh(BOX(VS_W + 0.1, 0.02, 0.02), SLOT, 0, VS_Y + VS_H / 2 + 0.01, fz - 0.16);
-  for (let k = 0; k < 18; k++) mesh(BOX(0.09, 0.03, 0.02), k % 5 === 2 ? new THREE.MeshBasicMaterial({ color: 0x34e89e, toneMapped: false }) : STRIP, -1.53 + k * 0.18, VS_Y - VS_H / 2 - 0.21, fz + 0.23);
+  mesh(BOX(VS_W + 0.1 + OP * 2, 0.02, 0.02), SLOT, 0, VS_Y + VS_H / 2 + 0.01 + OP, fz - 0.16);
+  for (let k = 0; k < 18; k++) mesh(BOX(0.09, 0.03, 0.02), k % 5 === 2 ? new THREE.MeshBasicMaterial({ color: 0x34e89e, toneMapped: false }) : STRIP, -1.53 + k * 0.18, VS_Y - VS_H / 2 - 0.21 - OP + 0.15, fz + 0.23); // above the floor plinth
   mesh(RBOX(VS_W + 1.2, 0.5, 0.5, 0.05), MAT.gunDark, 0, 0.25, FWD_Z + 0.25);
   mesh(MAT.hazard ? BOX(VS_W + 1.1, 0.04, 0.01) : BOX(1, 1, 1), MAT.hazard, 0, 0.52, FWD_Z + 0.5);
   ao(0, FWD_Z + 0.5, VS_W + 2, 1.4, 0.55);

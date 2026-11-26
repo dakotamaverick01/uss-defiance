@@ -104,6 +104,19 @@ window.DEFIANCE_HERO = function (n) {
   return S.name;
 };
 
+// ---------- the viewscreen as a window ----------
+// An off-axis projection: the space camera's view is skewed so its edges pass through the screen's edges as seen from
+// the player's eye. Step left and more of the right-hand scene comes into view; step closer and the view widens,
+// as through a real window. Damped (VIEW_PARALLAX) so the composition holds.
+const VIEW_PARALLAX = { side: 0.55, depth: 0.3 };
+function viewWindow() {
+  const tH = Math.tan(vcam.fov * D2R / 2), tW = tH * vcam.aspect, d0 = (VS_H / 2) / tH, n = vcam.near;
+  const e = camera.position, ex = (e.x - 0) * VIEW_PARALLAX.side, ey = (e.y - VS_Y) * VIEW_PARALLAX.side;
+  const d = Math.max(1.2, d0 + (Math.max(0.8, e.z - VS_Z) - d0) * VIEW_PARALLAX.depth), k = d0 / d;
+  vcam.projectionMatrix.makePerspective(n * (-tW * k - ex / d), n * (tW * k - ex / d), n * (tH * k - ey / d), n * (-tH * k - ey / d), n, vcam.far);
+  vcam.projectionMatrixInverse.copy(vcam.projectionMatrix).invert();
+}
+
 // ---------- loop ----------
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -186,6 +199,7 @@ function frame() {
   vLook.lerp(wantTarget ? TARGET_LOOK : vFwd, k2);
   const wantFov = wantTarget ? TARGET_FOV : 36; if (Math.abs(vcam.fov - wantFov) > 0.01) { vcam.fov += (wantFov - vcam.fov) * k2; vcam.updateProjectionMatrix(); }
   vcam.lookAt(vLook); vcam.updateMatrixWorld();
+  viewWindow();
   updateSpace(dt, fade); updateViewscreen(dt);
   const warpGlow = smooth(20, 300, cur.speed);
   // the screen's steady glow is baked; this live light adds only the warp flare

@@ -24,6 +24,7 @@ const TARGET_LOOK = (() => { // the point on the limb nearest straight ahead, nu
 const TARGET_FOV = 17;
 
 // ---------- stars: many faint, few bright, no colour wash ----------
+const STARS = [];
 function starfield(n, size, seed, bMin, bMax, rad) {
   const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), r = mulberry(seed);
   for (let i = 0; i < n; i++) {
@@ -33,7 +34,7 @@ function starfield(n, size, seed, bMin, bMax, rad) {
     col.set(t < 0.15 ? [b, b * 0.86, b * 0.7] : t > 0.85 ? [b * 0.8, b * 0.88, b] : [b, b * 0.97, b * 0.93], i * 3);
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return space(add(new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, depthWrite: false }))));
+  const p = space(add(new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, depthWrite: false })))); STARS.push(p); return p;
 }
 starfield(isMobile ? 2600 : 5200, isMobile ? 1.0 : 1.25, 11, 0.05, 0.55, 480);
 starfield(420, isMobile ? 1.5 : 1.9, 12, 0.35, 1.1, 470);
@@ -299,7 +300,9 @@ function updateSpace(dt, fade) {
   planet.visible = atmoShell.visible = moon.visible = on;
   planetMat.uniforms.opacity.value = atmoMat.uniforms.opacity.value = moonMat.uniforms.opacity.value = fade;
   // orbital motion: the surface slides slowly toward the bow, clouds drift on their own
-  planet.rotation.x -= dt * (reduceMotion ? 0.0012 : 0.0045);
+  const orb = dt * (reduceMotion ? 0.0012 : 0.0045);
+  planet.rotation.x -= orb;
+  STARS.forEach((st) => { st.rotation.x -= orb; }); // the sky turns with the orbit, at the same slow rate as the ground
   planetMat.uniforms.drift.value = spaceT * 0.0011;
   _tmpL.copy(SUN).transformDirection(vcam.matrixWorldInverse);
   [planetMat, atmoMat, moonMat].forEach((m) => m.uniforms.lightDir.value.copy(_tmpL));
