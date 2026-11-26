@@ -28,14 +28,14 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = '#4a4540'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
     g.fillStyle = '#3a3530'; g.fillRect(0, 0, Wd, Y(H - 0.18));
   } else {
-    g.fillStyle = '#35302b'; g.fillRect(0, 0, Wd, Y(H - 0.26));
-    const gr = g.createLinearGradient(0, Y(H - 0.26), 0, Y(1.02)); gr.addColorStop(0, '#7f7263'); gr.addColorStop(1, '#6f6253');
+    g.fillStyle = '#58514a'; g.fillRect(0, 0, Wd, Y(H - 0.26));
+    const gr = g.createLinearGradient(0, Y(H - 0.26), 0, Y(1.02)); gr.addColorStop(0, '#c2b39c'); gr.addColorStop(1, '#b3a48d');
     g.fillStyle = gr; g.fillRect(0, Y(H - 0.26), Wd, Y(1.02) - Y(H - 0.26));
     const r = mulberry(29);
     for (let i = 0; i < 5000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,240,220,0.035)' : 'rgba(0,0,0,0.05)'; g.fillRect(r() * Wd, Y(H - 0.26) + r() * (Y(1.02) - Y(H - 0.26)), 1.2, 1.2); }
     [0, 96].forEach((x) => { g.fillStyle = 'rgba(30,22,16,0.55)'; g.fillRect(x, Y(H - 0.26), 3, Y(1.02) - Y(H - 0.26)); g.fillStyle = 'rgba(255,240,220,0.12)'; g.fillRect(x + 3, Y(H - 0.26), 1, Y(1.02) - Y(H - 0.26)); });
     g.fillStyle = '#5b3b26'; g.fillRect(0, Y(1.02), Wd, Y(0.95) - Y(1.02)); g.fillStyle = 'rgba(255,220,180,0.35)'; g.fillRect(0, Y(1.02), Wd, 2);
-    g.fillStyle = '#3a332d'; g.fillRect(0, Y(0.95), Wd, Y(0.12) - Y(0.95));
+    g.fillStyle = '#5c524a'; g.fillRect(0, Y(0.95), Wd, Y(0.12) - Y(0.95));
     g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 2; g.strokeRect(10, Y(0.88), Wd - 20, Y(0.2) - Y(0.88));
     g.fillStyle = '#211e1b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   }
@@ -90,7 +90,7 @@ function roomShell(g, o) {
   // room-side door frame and label
   [-1, 1].forEach((sd) => mesh(RBOX(0.16, 2.45, 0.1, 0.02), MAT.gun, sd * 0.68, 1.225, z0 + 0.05, g));
   mesh(RBOX(1.52, 0.16, 0.1, 0.02), MAT.gun, 0, 2.38, z0 + 0.05, g);
-  const lp = cnv(256, 48); { const c2 = lp.getContext('2d'); c2.fillStyle = '#000'; c2.fillRect(0, 0, 256, 48); hexNode(c2, 24, 24, 14); c2.fillStyle = '#E3A23B'; c2.fill(); c2.fillStyle = '#EEF2F5'; c2.font = `700 22px ${DISP}`; c2.textBaseline = 'middle'; c2.fillText('BRIDGE', 48, 26); }
+  const lp = cnv(256, 48); { const c2 = lp.getContext('2d'); c2.fillStyle = '#000'; c2.fillRect(0, 0, 256, 48); hexNode(c2, 24, 24, 14); c2.fillStyle = '#E8A06A'; c2.fill(); c2.fillStyle = '#F5E6CF'; c2.font = `700 22px ${DISP}`; c2.textBaseline = 'middle'; c2.fillText('BRIDGE', 48, 26); }
   mesh(new THREE.PlaneGeometry(0.62, 0.116), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.38, z0 + 0.102, g);
   // collision: walls with the door gap
   lseg(g, xa, z0, -0.6, z0, 0.33); lseg(g, 0.6, z0, xb, z0, 0.33);
@@ -145,16 +145,17 @@ function plaqueTex(lines, w, h) {
   const n = 1800, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), r = mulberry(404);
   for (let i = 0; i < n; i++) { const u = r() * 2 - 1, th = r() * Math.PI * 2, s = Math.sqrt(1 - u * u); pos.set([Math.cos(th) * s * 260, u * 260, Math.sin(th) * s * 260], i * 3); const b = 0.5 + r() * 0.5, t = r(); col.set([b * (t < 0.3 ? 0.82 : 1), b * 0.93, b * (t > 0.75 ? 0.82 : 1)], i * 3); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  add(new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: false, vertexColors: true, depthWrite: false, toneMapped: false, fog: false })));
+  // the view outside is shared by every deck's windows, so it stays in the scene when decks are swapped (lift.js)
+  add(new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: false, vertexColors: true, depthWrite: false, toneMapped: false, fog: false }))).userData.keep = true;
   const nb = new THREE.Sprite(new THREE.SpriteMaterial({ map: nebula.material.map, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }));
-  nb.position.set(150, 30, 330); nb.scale.set(560, 330, 1); scene.add(nb);
+  nb.position.set(150, 30, 330); nb.scale.set(560, 330, 1); nb.userData.keep = true; scene.add(nb);
 }
 const EXT_N = 600, extPos = new Float32Array(EXT_N * 6), extCol = new Float32Array(EXT_N * 6), extXYZ = new Float32Array(EXT_N * 3);
 function seedExt(i, z) { let x, y; do { x = (Math.random() - 0.5) * 150; y = (Math.random() - 0.5) * 80; } while (Math.abs(x) < 18 && Math.abs(y) < 12); extXYZ[i * 3] = x; extXYZ[i * 3 + 1] = y; extXYZ[i * 3 + 2] = z; }
 for (let i = 0; i < EXT_N; i++) { seedExt(i, -90 + Math.random() * 180); const b = 0.6 + Math.random() * 0.4; extCol.set([b, b, b, 0.1, 0.25 * b, 0.45 * b], i * 6); }
 const extGeo = new THREE.BufferGeometry(); extGeo.setAttribute('position', new THREE.BufferAttribute(extPos, 3)); extGeo.setAttribute('color', new THREE.BufferAttribute(extCol, 3));
 const extMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false });
-const extStreaks = add(new THREE.LineSegments(extGeo, extMat)); extStreaks.frustumCulled = false; extStreaks.visible = false;
+const extStreaks = add(new THREE.LineSegments(extGeo, extMat)); extStreaks.frustumCulled = false; extStreaks.visible = false; extStreaks.userData.keep = true;
 
 // ---------- READY ROOM (off the aft-starboard wall) ----------
 // About 6 x 6.5 m inside. The room runs forward from its door along the outside of the starboard bridge wall,
@@ -240,7 +241,7 @@ let cupLiquid, cupGroup;
     mesh(new THREE.PlaneGeometry(0.5, 0.66), new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.4, metalness: 0.5 }), 0, 1.25, 0.012, sn);
     mesh(new THREE.PlaneGeometry(0.46, 0.035), new THREE.MeshBasicMaterial({ color: 0xffd9a8, toneMapped: false }), 0, 1.55, 0.016, sn);
     mesh(RBOX(0.5, 0.025, 0.16, 0.008), MAT.steel, 0, 0.965, 0.1, sn);
-    const lb = cnv(256, 40); { const x = lb.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 256, 40); hexNode(x, 20, 20, 11); x.fillStyle = '#E3A23B'; x.fill(); x.fillStyle = '#EEF2F5'; x.font = `700 18px ${DISP}`; x.textBaseline = 'middle'; x.fillText('SYNTHESIZER', 40, 21); }
+    const lb = cnv(256, 40); { const x = lb.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 256, 40); hexNode(x, 20, 20, 11); x.fillStyle = '#E8A06A'; x.fill(); x.fillStyle = '#F5E6CF'; x.font = `700 18px ${DISP}`; x.textBaseline = 'middle'; x.fillText('SYNTHESIZER', 40, 21); }
     mesh(new THREE.PlaneGeometry(0.44, 0.07), new THREE.MeshBasicMaterial({ map: tex(lb), toneMapped: false }), 0, 1.74, 0.012, sn);
     cupGroup = group(0, 0.978, 0.1, 0, sn); cupGroup.visible = false;
     mesh(lathe([[0, 0], [0.034, 0], [0.04, 0.006], [0.043, 0.095], [0.039, 0.095], [0.035, 0.008], [0, 0.008]], 24), CERAMIC, 0, 0, 0, cupGroup);
@@ -344,7 +345,7 @@ let cupLiquid, cupGroup;
   mesh(RBOX(0.04, 1.84, 1.36, 0.01), MAT.panel, 0.15, 1.04, 1.93, g);
   mesh(RBOX(0.84, 1.84, 0.04, 0.01), MAT.panel, 0.58, 1.04, 1.25, g);
   mesh(BOX(0.04, 0.16, 0.03), MAT.steel, 0.25, 1.05, 1.22, g);
-  { const c = cnv(128, 40), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 128, 40); hexNode(x, 18, 20, 10); x.fillStyle = '#5FA97A'; x.fill(); x.fillStyle = '#EEF2F5'; x.font = `700 18px ${DISP}`; x.textBaseline = 'middle'; x.fillText('VACANT', 36, 21);
+  { const c = cnv(128, 40), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 128, 40); hexNode(x, 18, 20, 10); x.fillStyle = '#5FA97A'; x.fill(); x.fillStyle = '#F5E6CF'; x.font = `700 18px ${DISP}`; x.textBaseline = 'middle'; x.fillText('VACANT', 36, 21);
     const pl = mesh(new THREE.PlaneGeometry(0.2, 0.0625), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), 0.58, 1.55, 1.228, g); pl.rotation.y = Math.PI; }
   mesh(lathe([[0, 0], [0.13, 0], [0.16, 0.2], [0.19, 0.38], [0.17, 0.4], [0, 0.4]], 28), CERAMIC, 0.6, 0, 2.25, g);
   mesh(RBOX(0.38, 0.4, 0.18, 0.03), CERAMIC, 0.6, 0.6, 2.5, g);
@@ -352,9 +353,9 @@ let cupLiquid, cupGroup;
   // dryer + reclamation sign on the side wall
   { const s = group(-0.98, 0, 1.0, Math.PI / 2, g);
     mesh(RBOX(0.3, 0.34, 0.14, 0.03), MAT.steel, 0, 1.15, 0.07, s); mesh(BOX(0.2, 0.01, 0.06), MAT.gunDark, 0, 0.975, 0.1, s);
-    const c = cnv(512, 160), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 512, 160); hexNode(x, 40, 44, 22); x.fillStyle = '#E3A23B'; x.fill();
-    x.fillStyle = '#EEF2F5'; x.font = `700 34px ${DISP}`; x.textBaseline = 'middle'; x.fillText('WATER RECLAMATION', 78, 46);
-    x.fillStyle = '#E3A23B'; x.font = `700 44px ${DISP}`; x.fillText('98.2%', 30, 112); x.fillStyle = '#7F8994'; x.font = `500 20px ${MONO}`; x.fillText('EVERY DROP. WE ARE A LONG WAY FROM ANYWHERE.', 160, 114);
+    const c = cnv(512, 160), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 512, 160); hexNode(x, 40, 44, 22); x.fillStyle = '#E8A06A'; x.fill();
+    x.fillStyle = '#F5E6CF'; x.font = `700 34px ${DISP}`; x.textBaseline = 'middle'; x.fillText('WATER RECLAMATION', 78, 46);
+    x.fillStyle = '#E8A06A'; x.font = `700 44px ${DISP}`; x.fillText('98.2%', 30, 112); x.fillStyle = '#9A8678'; x.font = `500 20px ${MONO}`; x.fillText('EVERY DROP. WE ARE A LONG WAY FROM ANYWHERE.', 160, 114);
     mesh(new THREE.PlaneGeometry(0.62, 0.194), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), 0, 1.7, 0.012, s); }
   { const lp = mesh(new THREE.PlaneGeometry(1.0, 0.5), downlightMat, -0.3, 2.594, 1.6, g); lp.rotation.x = Math.PI / 2; lpool(g, -0.3, 1.8, 1.8, 1.8, 0xfff0e0, 0.12); }
 }

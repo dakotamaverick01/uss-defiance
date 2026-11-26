@@ -13,7 +13,7 @@
 // Decks Lift 1 serves (from docs/master-systems-display.html)
 const LIFT_DECKS = [
   { n: 1, name: 'Main Bridge', short: 'BRIDGE', built: true },
-  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', rooms: ['Captain’s quarters', 'First officer’s quarters', 'Officers’ wardroom', 'Senior officers’ quarters', 'Observation lounge'] },
+  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'Officers’ wardroom'], sealed: ['First officer’s quarters', 'Senior officers’ quarters', 'Observation lounge'] },
   { n: 3, name: 'Medical and officers', short: 'MEDICAL', rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
   { n: 4, name: 'Crew deck', short: 'CREW', rooms: ['Mess hall and galley', 'Crew lounge and gym', 'Crew quarters', 'Auxiliary control'] },
   { n: 5, name: 'Weapons and transport', short: 'WEAPONS', rooms: ['Torpedo bays 1 and 2', 'Armory and security', 'Transporter rooms', 'Science labs'] },
@@ -70,15 +70,15 @@ function liftWallMat(H, upper, lm) {
   return noBake(new THREE.MeshStandardMaterial({ map, normalMap: nm, roughness: 0.85, metalness: 0.05, envMapIntensity: 0.25, lightMap: lm, lightMapIntensity: 1 }), 1);
 }
 function plainMat(color, metal, rough, env, lm, lmK) { return noBake(new THREE.MeshStandardMaterial({ color, metalness: metal, roughness: rough, envMapIntensity: env, lightMap: lm || null, lightMapIntensity: lmK || 1 }), lmK || 1); }
-const LM_CAR = lmWall(235, 175, 95), LM_LOBBY = lmWall(205, 150, 85);
+const LM_CAR = lmWall(255, 215, 150), LM_LOBBY = lmWall(250, 210, 150);
 const LIFT_MAT = {
-  carWall: liftWallMat(CAR.h, ['#8c8274', '#7a7062'], LM_CAR),
-  lobbyWall: liftWallMat(LOBBY.h, ['#6f685f', '#615a52'], LM_LOBBY),
+  carWall: liftWallMat(CAR.h, ['#cbbfac', '#bcae9a'], LM_CAR),
+  lobbyWall: liftWallMat(LOBBY.h, ['#c2b6a4', '#b2a592'], LM_LOBBY),
   steel: plainMat(0xa29c94, 0.9, 0.28, 1.1, LM_CAR, 0.6),
   gun: plainMat(0x34322f, 0.6, 0.45, 0.6, LM_CAR, 0.8),
-  ceil: plainMat(0x3a3835, 0.2, 0.8, 0.2, null),
-  carFloor: plainMat(0x37332e, 0.45, 0.55, 0.5, lmFloor(1.6, 2.0, [[0.5, 0.5, 0.6, 0.9]], 120), 1),
-  lobbyFloor: plainMat(0x3b3732, 0.45, 0.6, 0.45, lmFloor(6.0, 4.2, [[0.5, 0.5, 0.42, 0.85], [0.5, 0.88, 0.22, 0.5]], 95), 1),
+  ceil: plainMat(0x9a948b, 0.2, 0.8, 0.2, LM_LOBBY, 0.6),
+  carFloor: plainMat(0x5a5650, 0.45, 0.55, 0.5, lmFloor(1.6, 2.0, [[0.5, 0.5, 0.6, 0.9]], 120), 1),
+  lobbyFloor: plainMat(0x6a6f78, 0.45, 0.6, 0.45, lmFloor(6.0, 4.2, [[0.5, 0.5, 0.42, 0.85], [0.5, 0.88, 0.22, 0.5]], 95), 1),
   panel: plainMat(0x9a9184, 0.15, 0.6, 0.45, LM_LOBBY, 0.9),
   hazard: noBake(new THREE.MeshStandardMaterial({ map: MAT.hazard.map, roughness: 0.6, lightMap: LM_LOBBY, lightMapIntensity: 0.8 }), 0.8),
 };
@@ -267,15 +267,18 @@ function liftSetDeck(n) {
   if (n !== 1 && !LIFT.deck1) {
     // first time away: gather everything that makes up Deck 1 into one group so it can be hidden in one go
     LIFT.deck1 = new THREE.Group(); LIFT.deck1.name = 'Deck 1';
-    scene.children.slice().forEach((o) => { if (o !== LIFT.root && o !== LIFT.stub && !o.isLight && !o.isCamera) LIFT.deck1.add(o); });
+    scene.children.slice().forEach((o) => { if (o !== LIFT.root && o !== LIFT.stub && o !== DECK2 && !o.userData.keep && !o.isLight && !o.isCamera) LIFT.deck1.add(o); });
     scene.add(LIFT.deck1);
   }
   LIFT.deck = n;
   if (LIFT.deck1) LIFT.deck1.visible = n === 1;
-  LIFT.stub.visible = n !== 1;
+  DECK2.visible = n === 2;
+  LIFT.stub.visible = n > 2; LIFT.stub.position.y = deckY(n);
   if (n === 1 && LIFT.envStale) { LIFT.envStale = false; bakeEnv(); }
   LIFT.panels.forEach(liftPanelDraw);
 }
+// each deck is 3.5 m below the one above; the car really travels between them
+const deckY = (n) => -(n - 1) * 3.5;
 function liftGo(n) {
   if (LIFT.phase !== 'idle' || n === LIFT.deck) return;
   if (!inCar(player.x, player.z)) { toast('Step into the lift car first, then choose a deck on the panel.', 'Lift'); return; }
@@ -298,7 +301,10 @@ function liftUpdate(dt) {
     const a = clamp(LIFT.t / LIFT.dur, 0, 1), dir = LIFT.to > LIFT.from ? 1 : -1;
     // a little lift when the car starts down (and a sink when it starts up), easing out as it settles
     if (!reduceMotion) LIFT.shake = 0.03 * dir * Math.sin(Math.PI * a) * (1 - a) + 0.0025 * Math.sin(LIFT.t * 43) * Math.sin(Math.PI * a);
+    const e = a * a * (3 - 2 * a); LIFT.root.position.y = deckY(LIFT.from) + (deckY(LIFT.to) - deckY(LIFT.from)) * e;
+    if (inside) player.y = LIFT.root.position.y + EYE;
     if (a >= 1) {
+      LIFT.root.position.y = deckY(LIFT.to);
       LIFT.phase = 'opening'; LIFT.t = 0; beep([784, 1046, 1318], 0.1, 0.04); liftDoorSound(); LIFT.hiss = true;
       const d = liftDeck(LIFT.deck); toast(d.built ? `Deck ${d.n}, ${d.name}.` : `Deck ${d.n}, ${d.name}. This deck is still sealed for fitting-out.`, 'Lift');
     }
@@ -306,9 +312,9 @@ function liftUpdate(dt) {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
-  const s = LIFT.stubDoor; s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56;
+  [LIFT.stubDoor, D2.door].forEach((s) => { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; });
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
-  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.62 : 1);
+  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
   if (k !== LIFT.k) { LIFT.k = k; LIFT.mats.forEach((m) => { m.lightMapIntensity = m.userData.lmBase * k; }); LUM.forEach((m) => m.color.setHex(state.alert === 'red' ? 0xffb0a0 : 0xffffff).multiplyScalar(LIFT.lum * Math.min(1, 0.4 + 0.6 * k))); }
   CAR_SLOT.color.copy(SLOT.color).multiplyScalar(0.22);
   const key = liftPanelKey(); LIFT.panels.forEach((p) => { if (p.key !== key) liftPanelDraw(p); });
@@ -318,6 +324,7 @@ const liftLocked = () => LIFT.phase === 'closing' || LIFT.phase === 'moving';
 function liftLocation(roomLabel) {
   const d = liftDeck(LIFT.deck);
   if (LIFT.inside) return `Lift 1 · Deck ${d.n}`;
+  if (LIFT.deck === 2) { const r = D2.rooms.find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1); return `${r ? r.label : d.name} · Deck 2`; }
   if (LIFT.deck !== 1) return `${d.name} · Deck ${d.n}`;
   return (roomLabel || 'Main Bridge') + ' · Deck 1';
 }
@@ -333,18 +340,31 @@ Object.assign(STATIONS, {
   } },
   liftcar: { title: 'Lift 1', role: 'Choose a deck', panel: () => {
     const d = liftDeck(LIFT.deck);
-    return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Deck 1 only, so far']],
-      note: LIFT.inside ? 'Decks 2 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
+    return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Decks 1 and 2']],
+      note: LIFT.inside ? 'Deck 2 has the captain’s quarters and the wardroom. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
       acts: LIFT_DECKS.map((x) => ({ label: `${x.n} · ${x.short.charAt(0) + x.short.slice(1).toLowerCase()}`, on: x.n === LIFT.deck, disabled: x.n === LIFT.deck || LIFT.phase !== 'idle', fn: () => liftGo(x.n) })) };
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {
     const d = liftDeck(LIFT.deck); STATIONS.deckdir.role = `Deck ${d.n} · ${d.name}`;
+    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')], ['Still sealed', d.sealed.join(', ')]], note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft to the wardroom.', acts: [] };
     return { read: [['On this deck', (d.rooms || []).join(', ') || 'Main bridge, ready room, conference room'], ['Status', d.built ? 'Open' : 'Sealed for fitting-out']],
-      note: d.n === 2 ? 'This is the next deck to be built: the lift lobby, the captain’s quarters and the wardroom come first.' : 'Not built yet. Take the lift back to Deck 1, or look around another deck.', acts: [] };
+      note: 'Not built yet. Take the lift back up, or look around another deck.', acts: [] };
   } },
   sealed: { title: 'Sealed bulkhead', role: '', panel: () => {
     STATIONS.sealed.role = `Deck ${LIFT.deck} · fitting-out`;
     return { read: [['Beyond', 'The rest of the deck'], ['Access', 'Closed to the crew']], note: 'Construction crews are still fitting out this deck. Ride back up to the bridge in Lift 1.', acts: [] };
   } },
 });
+Object.assign(STATIONS, {
+  capq: { title: 'Captain’s quarters', role: 'Deck 2 · forward', panel: () => ({ read: [['Inside', 'Day cabin, dining table, desk, galley, sleeping cabin'], ['Viewport', 'Forward, armored, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
+  wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, sideboard, the ship’s crest'], ['Viewport', 'Starboard']], note: 'Walk up to the door to go in.', acts: [] }) },
+  d2sealed: { title: 'Sealed cabin', role: 'Deck 2 · fitting-out', panel: () => ({ read: [['Status', 'Sealed'], ['Next', 'First officer’s and senior officers’ quarters, then the observation lounge']], note: 'These cabins open in the next stage of the build.', acts: [] }) },
+  qdesk: { title: 'Captain’s desk', role: 'Personal log', panel: () => ({ read: [['Entry', LOG[state.logIdx].d], ['Reports', state.reports ? state.reports + ' to sign' : 'All signed']], note: LOG[state.logIdx].t,
+    acts: [{ label: 'Next entry', fn: () => { state.logIdx = (state.logIdx + 1) % LOG.length; redrawStation('qdesk'); redrawStation('desk'); renderPanel(); } }, { label: 'Sign a report', disabled: !state.reports, fn: () => { state.reports = Math.max(0, state.reports - 1); toast('Report signed.', 'Yeoman'); renderPanel(); } }] }) },
+  qgalley: { title: 'Galley', role: 'Captain’s quarters', panel: () => ({ read: [['Synthesizer', 'Ready'], ['Last order', state.qcup || 'None']], note: 'A small galley for the captain’s own table.',
+    acts: [['Coffee, black'], ['Mint tea'], ['Hot chocolate'], ['Soup of the day']].map(([n]) => ({ label: n, on: state.qcup === n, fn: () => { state.qcup = n; beep([660, 990], 0.08, 0.04); toast(`${n}. Ready in the niche.`, 'Galley'); renderPanel(); } })) }) },
+  wardroom: { title: 'Wardroom', role: 'Mess board', panel: () => ({ read: [['Next meal', 'Officers’ dinner, 1830'], ['Host', 'First officer'], ['Seats', '10, two guests tonight']], note: 'The officers eat here and meet off watch. The captain dines here on the first night of every patrol.', acts: [] }) },
+});
 FUNC.liftcar = FUNC.deckdir = FUNC.sealed = 'acc';
+// Deck 2 is in the light bake (it had to be showing when the bake layout was made); hide it until you ride down
+DECK2.visible = false;

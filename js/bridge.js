@@ -149,14 +149,41 @@ function makeChair(parent, kind) {
   return g;
 }
 
+// ---------- station furniture (shared) ----------
+// Stations are built in layers, like working consoles: a sculpted tan pedestal on a dark plinth with an
+// alert-coloured underglow, a sloped glass desk with a touch panel and key strip, an upright screen bank,
+// and physical details: speaker grilles, ID plates, access panels and lit push-buttons.
+const MAT_PED = triSurface(new THREE.MeshStandardMaterial({ color: 0xc9b89d, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.35 }), { set: 'paint', metres: 0.7, ns: 0.6, rv: 0.6, edge: 0.35 });
+const MAT_TRIM = triSurface(new THREE.MeshStandardMaterial({ color: 0x3a3632, roughness: 0.42, metalness: 0.5, envMapIntensity: 0.6 }), { set: 'paint', metres: 0.7, ns: 0.8, rv: 0.7, edge: 0.5 });
+const GRILLE = (() => {
+  const c = cnv(128, 64), g = c.getContext('2d'); g.fillStyle = '#26231f'; g.fillRect(0, 0, 128, 64);
+  for (let y = 4; y < 64; y += 6) for (let x = 4 + (y % 12 ? 3 : 0); x < 128; x += 6) { g.fillStyle = '#0b0a09'; g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, metalness: 0.4, envMapIntensity: 0.3 });
+})();
+const BTN_MATS = ['#E8A06A', '#D9B07E', '#B693C4', '#F2C88F', '#C67A86'].map((h) => new THREE.MeshBasicMaterial({ color: new THREE.Color(h).multiplyScalar(0.85), toneMapped: false }));
+function idPlate(parent, code, x, y, z, w) {
+  const c = cnv(256, 64), g = c.getContext('2d'); g.fillStyle = '#b9a789'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#2b2229'; g.fillRect(6, 6, 244, 52);
+  g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 36, 52); g.fillStyle = '#F5E6CF'; g.font = `600 30px ${DISP}`; g.textBaseline = 'middle'; g.fillText(code, 54, 33);
+  return mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.4, metalness: 0.6 }), x, y, z, parent);
+}
+function grille(parent, x, y, z, w, h) { const m = mesh(new THREE.PlaneGeometry(w, h), GRILLE.clone(), x, y, z, parent); m.material.map = GRILLE.map.clone(); m.material.map.repeat.set(w / 0.3, h / 0.15); m.material.map.needsUpdate = true; return m; }
+function buttons(parent, n, x0, x1, y, z, seed) {
+  const r = mulberry(seed);
+  for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * (n === 1 ? 0.5 : i / (n - 1)); mesh(RBOX(0.045, 0.022, 0.03, 0.008), BTN_MATS[(r() * BTN_MATS.length) | 0], x, y, z, parent); }
+}
+
+
 // a low desk in front of a dais seat; screens tilt toward the seat (+z)
 function lowDesk(x, z, rot, w, kind, station, title, code) {
   const g = group(x, DAIS.h, z, rot);
-  mesh(RBOX(w, 0.56, 0.42, 0.05), MAT.console, 0, 0.3, 0, g);
-  mesh(RBOX(w - 0.08, 0.05, 0.36, 0.02), MAT.gunDark, 0, 0.025, 0, g);
-  mesh(BOX(w - 0.12, 0.016, 0.016), SLOT, 0, 0.06, 0.21, g);
-  const top = group(0, 0.6, 0, 0, g); top.rotation.x = 0.32;
-  mesh(RBOX(w + 0.04, 0.05, 0.52, 0.02), MAT.cap, 0, 0, 0, top);
+  mesh(RBOX(w, 0.56, 0.42, 0.05), MAT_PED, 0, 0.32, 0, g);
+  [-1, 1].forEach((sd) => mesh(RBOX(0.04, 0.58, 0.44, 0.015), MAT_TRIM, sd * (w / 2 + 0.01), 0.32, 0, g));
+  mesh(RBOX(w - 0.08, 0.06, 0.32, 0.02), MAT.gunDark, 0, 0.03, 0, g);
+  mesh(BOX(w - 0.12, 0.016, 0.016), STRIP, 0, 0.05, 0.17, g);
+  grille(g, 0, 0.3, 0.212, w * 0.5, 0.12);
+  const top = group(0, 0.62, 0, 0, g); top.rotation.x = 0.32;
+  mesh(RBOX(w + 0.04, 0.05, 0.52, 0.02), MAT_TRIM, 0, 0, 0, top);
+  mesh(RBOX(w - 0.04, 0.012, 0.46, 0.01), MAT.glassTop, 0, 0.018, 0, top);
   mesh(BOX(w - 0.06, 0.012, 0.014), STRIP, 0, 0, 0.26, top);
   const sg = group(0, 0.03, -0.02, 0, top); sg.rotation.x = -Math.PI / 2;
   const sw = w * 0.62;
@@ -184,18 +211,28 @@ lowDesk(SEAT_TAC.x + 0.07, SEAT_TAC.z - 0.72, 0.1, 1.05, 'tac', 'defense', 'Tact
 const TAC = { x: SEAT_TAC.x, z: SEAT_TAC.z };
 
 // ---------- flight and operations pods ----------
+// Seen from the side: a wedge that leans toward the viewscreen, with a recess for the operator's knees.
+// The operator sits aft (+z); the sloped glass top faces them; the front face carries a second screen and a grille.
+function podShape() { const s = new THREE.Shape(); s.moveTo(-0.08, 0); s.lineTo(0.34, 0); s.lineTo(0.44, 0.9); s.quadraticCurveTo(0.45, 0.95, 0.4, 0.95); s.lineTo(-0.36, 0.76); s.lineTo(-0.36, 0.69); s.quadraticCurveTo(-0.14, 0.62, -0.1, 0.42); s.closePath(); return s; }
 function pod(x, z, station, kindA, titleA, codeA) {
-  const g = group(x, 0, z, 0); // console faces aft (+z) toward its operator
-  mesh(RBOX(1.36, 0.66, 0.56, 0.05), MAT.console, 0, 0.36, 0, g);
-  mesh(RBOX(1.3, 0.06, 0.5, 0.02), MAT.gunDark, 0, 0.03, 0, g);
-  mesh(BOX(1.2, 0.02, 0.02), SLOT, 0, 0.08, 0.27, g);
-  [-1, 1].forEach((sd) => mesh(RBOX(0.06, 0.84, 0.66, 0.02), MAT.steel, sd * 0.7, 0.44, 0, g));
-  const desk = group(0, 0.74, 0.08, 0, g); desk.rotation.x = 0.2;
-  mesh(RBOX(1.4, 0.07, 0.7, 0.03), MAT.cap, 0, 0, 0, desk);
-  mesh(BOX(1.3, 0.014, 0.016), STRIP, 0, 0.0, 0.36, desk);
-  const kg = group(0, 0.04, 0.14, 0, desk); kg.rotation.x = -Math.PI / 2; addScreen(kg, 1.1, 0.2, 440, 80, 'keys', station, '', '');
-  const sc = group(0, 0.9, -0.16, 0, g); sc.rotation.x = -0.95;
-  display(sc, 1.08, 0.5, 512, 236, kindA, station, titleA, codeA);
+  const g = group(x, 0, z, 0);
+  mesh(sideGeo('pod-body', podShape, 1.24, 0.03), MAT_PED, 0, 0.07, 0, g);
+  [-1, 1].forEach((sd) => mesh(sideGeo('pod-cheek', podShape, 0.05, 0.015), MAT_TRIM, sd * 0.64, 0.07, 0, g));
+  mesh(RBOX(1.18, 0.08, 0.36, 0.02), MAT.gunDark, 0, 0.04, 0.12, g);
+  mesh(BOX(1.1, 0.018, 0.018), STRIP, 0, 0.05, -0.08, g);
+  [-1, 1].forEach((sd) => mesh(BOX(0.018, 0.018, 0.3), STRIP, sd * 0.56, 0.05, 0.12, g));
+  // sloped glass top: main display, key strip, a row of lit buttons
+  const top = group(0, 0.07 + 0.86, 0.02, 0, g); top.rotation.x = 0.235;
+  mesh(RBOX(1.3, 0.04, 0.84, 0.02), MAT_TRIM, 0, -0.01, 0, top);
+  mesh(RBOX(1.2, 0.012, 0.76, 0.01), MAT.glassTop, 0, 0.012, 0, top);
+  const sg = group(0, 0.02, -0.08, 0, top); sg.rotation.x = -Math.PI / 2; addScreen(sg, 1.12, 0.5, 600, 268, kindA, station, titleA, codeA);
+  const kg = group(0, 0.02, 0.26, 0, top); kg.rotation.x = -Math.PI / 2; addScreen(kg, 1.12, 0.13, 560, 64, 'keys', station, '', '');
+  buttons(top, 7, -0.5, 0.5, 0.03, 0.37, codeA.length * 13 + x * 10);
+  // front face toward the viewscreen: a second screen, the grille and the station plate
+  const f = group(0, 0.07, -0.455, Math.PI, g); f.rotation.x = 0.11;
+  const fs = group(0, 0.7, 0.012, 0, f); display(fs, 0.66, 0.24, 420, 152, kindA, station, titleA, codeA);
+  grille(f, 0, 0.36, 0.02, 0.66, 0.2);
+  idPlate(f, codeA, 0, 0.2, 0.022, 0.26);
   addHit(BOX(1.6, 1.5, 1.0), { station }, g, 0, 0.75, 0);
   const ch = makeChair(scene, 'station'); ch.position.set(x, 0, z + 0.7);
   ao(x, z, 1.8, 1.2, 0.65); ao(x, z + 0.7, 0.9, 0.9, 0.55);
@@ -210,48 +247,65 @@ const RUNS = [
   { side: -1, posts: [{ id: 'science', kind: 'sci', title: 'Science', code: 'SCI·03', z: -1.55 }, { id: 'intel', kind: 'intel', title: 'Intelligence', code: 'INT·04', z: 0 }, { id: 'comms', kind: 'com', title: 'Communications', code: 'COM·05', z: 1.55 }] },
   { side: 1, posts: [{ id: 'engineering', kind: 'sys', title: 'Engineering', code: 'ENG·06', z: -1.55 }, { id: 'env', kind: 'env', title: 'Environment', code: 'ENV·07', z: 0 }, { id: 'damage', kind: 'dmg', title: 'Damage Control', code: 'DMG·08', z: 1.55 }] },
 ];
+// the run-wide body: plinth with underglow, tan cabinet with access panels, sloped glass desk, upright screen bank, status shelf
 function consoleBody(g, L) {
-  mesh(RBOX(L, 0.8, 0.62, 0.04), MAT.console, 0, 0.42, 0, g);
-  mesh(RBOX(L - 0.1, 0.06, 0.56, 0.02), MAT.gunDark, 0, 0.03, 0.01, g);
-  mesh(BOX(L - 0.2, 0.02, 0.02), SLOT, 0, 0.08, 0.31, g);
-  const desk = group(0, 0.85, 0.04, 0, g); desk.rotation.x = 0.12;
-  mesh(RBOX(L + 0.06, 0.06, 0.72, 0.025), MAT.cap, 0, 0, 0, desk);
-  mesh(BOX(L - 0.1, 0.014, 0.016), STRIP, 0, 0, 0.37, desk);
-  [-1, 1].forEach((sd) => mesh(RBOX(0.06, 0.92, 0.74, 0.02), MAT.steel, sd * (L / 2 + 0.03), 0.47, 0.02, g));
+  mesh(RBOX(L - 0.08, 0.09, 0.46, 0.02), MAT.gunDark, 0, 0.045, -0.04, g);
+  mesh(BOX(L - 0.16, 0.018, 0.018), STRIP, 0, 0.06, 0.2, g);
+  mesh(RBOX(L, 0.7, 0.54, 0.035), MAT_PED, 0, 0.44, -0.03, g);
+  const np = Math.max(2, Math.round(L / 0.48));
+  for (let i = 1; i < np; i++) mesh(BOX(0.012, 0.56, 0.012), MAT_TRIM, -L / 2 + i * L / np, 0.44, 0.243, g);
+  mesh(BOX(L - 0.04, 0.03, 0.02), MAT_TRIM, 0, 0.77, 0.25, g);
+  const desk = group(0, 0.86, 0.03, 0, g); desk.rotation.x = 0.2;
+  mesh(RBOX(L + 0.06, 0.05, 0.7, 0.022), MAT_TRIM, 0, 0, 0, desk);
+  mesh(RBOX(L - 0.04, 0.012, 0.6, 0.01), MAT.glassTop, 0, 0.024, -0.01, desk);
+  [-1, 1].forEach((sd) => { mesh(RBOX(0.08, 2.36, 0.74, 0.025), MAT_PED, sd * (L / 2 + 0.04), 1.18, -0.02, g); mesh(BOX(0.02, 2.2, 0.02), MAT_TRIM, sd * (L / 2 + 0.04), 1.18, 0.35, g); });
+  // the screen bank leans back a little, like a drafting board
+  const bank = group(0, 1.52, -0.25, 0, g); bank.rotation.x = -0.1;
+  mesh(RBOX(L + 0.04, 0.98, 0.1, 0.03), MAT_TRIM, 0, 0, -0.03, bank);
+  mesh(RBOX(L + 0.12, 0.26, 0.34, 0.03), MAT_TRIM, 0, 2.3 - 1.52, 0.06, bank);
+  return { desk, bank };
 }
-function post(parent, lx, p, wallW) {
-  const st = group(lx, 0, 0, 0, parent);
-  const sc = group(0, 1.06, -0.16, 0, st); sc.rotation.x = -0.6;
-  display(sc, Math.min(1.3, wallW - 0.1), 0.38, 900, 264, p.kind, p.id, p.title, p.code);
-  const kg = group(0, 0.89, 0.16, 0, st); kg.rotation.x = -Math.PI / 2 + 0.12; addScreen(kg, Math.min(1.2, wallW - 0.2), 0.16, 440, 60, 'keys', p.id, '', '');
-  const wd = group(0, 1.98, -0.29, 0, st); display(wd, wallW, wallW * 0.6, 1024, 614, p.kind, p.id, p.title, p.code);
+function post(parent, lx, p, wallW, body) {
+  const st = group(lx, 0, 0, 0, parent), seed = p.code.charCodeAt(0) * 7 + p.code.length;
+  const w = Math.min(1.26, wallW - 0.1);
+  // desk: touch panel and key strip, lit push-buttons on the lip
+  const dg = group(lx, 0.038, -0.06, 0, body.desk); dg.rotation.x = -Math.PI / 2;
+  addScreen(dg, w, 0.3, 840, 150, p.kind, p.id, p.title, p.code);
+  const kg = group(lx, 0.038, 0.2, 0, body.desk); kg.rotation.x = -Math.PI / 2; addScreen(kg, w, 0.11, 600, 52, 'keys', p.id, '', '');
+  buttons(body.desk, 6, lx - w / 2 + 0.06, lx + w / 2 - 0.06, 0.04, 0.315, seed);
+  // screen bank: the main display with a narrow auxiliary panel beside it, and a status strip above
+  const mw = w * 0.7, aw = w - mw - 0.16;
+  const mg = group(lx - (w - mw) / 2, 0.02, 0.025, 0, body.bank); display(mg, mw, 0.72, Math.round(740 * mw / 0.72), 740, p.kind, p.id, p.title, p.code);
+  const ag = group(lx + (w - aw) / 2, 0.02, 0.025, 0, body.bank); display(ag, aw, 0.72, Math.round(740 * aw / 0.72), 740, 'aux', p.id, p.title, p.code);
+  const sg = group(lx, 2.3 - 1.52, 0.24, 0, body.bank); sg.rotation.x = 0.35; addScreen(sg, w, 0.13, 760, 80, 'strip', p.id, p.title, p.code);
+  // cabinet front: grille, plate, an access panel with a handle
+  grille(st, -w * 0.25, 0.5, 0.252, w * 0.36, 0.16);
+  idPlate(st, p.code, w * 0.22, 0.6, 0.252, 0.24);
+  mesh(RBOX(0.26, 0.24, 0.012, 0.01), MAT_TRIM, w * 0.22, 0.33, 0.25, st);
+  mesh(BOX(0.12, 0.016, 0.02), MAT.steel, w * 0.22, 0.33, 0.262, st);
   addHit(BOX(Math.min(1.5, wallW + 0.1), 2.6, 1.3), { station: p.id }, st, 0, 1.3, 0.1);
   st.updateWorldMatrix(true, false);
   const cw = new THREE.Vector3(); st.localToWorld(cw.set(0, 0, 1.02));
   const ch = makeChair(scene, 'station'); ch.position.set(cw.x, 0, cw.z); ch.rotation.y = parent.rotation.y;
   ao(cw.x, cw.z, 0.9, 0.9, 0.55); extraObs.push({ x: cw.x, z: cw.z, r: 0.36 });
   const pw = new THREE.Vector3(); st.localToWorld(pw.set(0, 0, 0.55)); pool(pw.x, pw.z, 1.3, 1.6, 0xffe2c8, 0.08);
-  const spill = ({ sci: 0x34e89e, intel: 0x34e89e, ew: 0x34e89e, helm: 0x34e89e, sys: 0xffd21f, env: 0xffd21f, dmg: 0xffd21f, com: 0xffd21f, wpn: 0xff3b30, tac: 0xff3b30, ops: 0x4c8dff })[p.kind] || 0x4c8dff;
-  const sp = new THREE.Vector3(); st.localToWorld(sp.set(0, 0, 0.75)); pool(sp.x, sp.z, 1.6, 1.2, spill, 0.07);
   const dl = new THREE.Vector3(); st.localToWorld(dl.set(0, 0, 0.7)); DOWNLIGHTS.push([dl.x, dl.z]);
 }
 const DOWNLIGHTS = [[-1.4, -3.15], [1.4, -3.15], [0, 3.55]];
 RUNS.forEach((run) => {
   const rot = -run.side * Math.PI / 2;
   const g = group(run.side * SIDE_X - run.side * 0.34, 0, 0, rot);
-  consoleBody(g, 4.7);
-  mesh(RBOX(4.9, 0.36, 0.3, 0.03), MAT.gun, 0, 2.9, -0.18, g);
+  const body = consoleBody(g, 4.7);
   mesh(BOX(4.7, 0.02, 0.02), SLOT, 0, 2.71, -0.03, g);
-  run.posts.forEach((p) => post(g, run.side < 0 ? -p.z : p.z, p, 1.38));
+  run.posts.forEach((p) => post(g, run.side < 0 ? -p.z : p.z, p, 1.38, body));
   const aoc = new THREE.Vector3(); g.updateMatrixWorld(true); g.localToWorld(aoc.set(0, 0, 0)); ao(aoc.x, aoc.z, 1.3, 5.2, 0.6);
 });
 // ---------- forward-angled walls: Weapons Control and Electronic Warfare ----------
 [[1, { id: 'weapons', kind: 'wpn', title: 'Weapons Control', code: 'WPN·09' }], [7, { id: 'ew', kind: 'ew', title: 'Electronic Warfare', code: 'EW·10' }]].forEach(([ei, p]) => {
   const e = EDGES[ei];
   const g = group(e.mx + e.nx * 0.34, 0, e.mz + e.nz * 0.34, e.rot);
-  consoleBody(g, 2.1);
-  post(g, 0, p, 1.9);
-  mesh(RBOX(2.3, 0.36, 0.3, 0.03), MAT.gun, 0, 2.95, -0.18, g);
+  const body = consoleBody(g, 2.1);
+  post(g, 0, p, 1.9, body);
   g.updateMatrixWorld(true);
   const c1 = new THREE.Vector3(); [-0.7, 0, 0.7].forEach((lx) => { g.localToWorld(c1.set(lx, 0, 0)); extraObs.push({ x: c1.x, z: c1.z, r: 0.4 }); });
   const aoc = new THREE.Vector3(); g.localToWorld(aoc.set(0, 0, 0)); ao(aoc.x, aoc.z, 2.4, 1.4, 0.6);
@@ -306,15 +360,16 @@ function drawOverlay() {
   const sig = `${state.view}|${state.speed}|${state.cur}|${state.alert}`;
   if (sig !== ovSig) { ovSig = sig; ovUntil = elapsed + 5; }
   g.clearRect(0, 0, W, H);
-  g.font = `500 15px ${MONO}`; g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+  g.font = `500 20px ${DISP}`; g.textBaseline = 'alphabetic'; g.textAlign = 'left';
   const line1 = state.speed === 'warp' ? `EN ROUTE · ${sysDest().star.toUpperCase()}` : `${sysCur().star.toUpperCase()} SYSTEM · ${sysCur().planet.toUpperCase()}`;
   const line2 = `${state.view === 'target' ? 'MAGNIFIED' : 'FORWARD VIEW'} · ${SPEEDS[state.speed].screen}`;
-  const x = 58, y = H - 62, w = Math.max(g.measureText(line1).width, g.measureText(line2).width) + 28;
-  g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x - 14, y - 22, w, 52);
-  g.fillStyle = P.acc; g.fillRect(x - 14, y - 22, 3, 52);
-  g.fillStyle = '#e9e2d6'; g.fillText(line1, x, y); g.fillStyle = P.acc; g.fillText(line2, x, y + 20);
+  const x = 76, y = H - 64, w = Math.max(g.measureText(line1).width, g.measureText(line2).width) + 30;
+  g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(x - 10, y - 26, w, 58);
+  hexTab(g, x - 52, y - 26, 36, 58, true, false); g.fillStyle = P.acc; g.fill();
+  g.fillStyle = P.ice; g.fillRect(x - 10, y + 36, w * 0.6, 6); g.fillStyle = P.tan; g.fillRect(x - 10 + w * 0.6 + 4, y + 36, w * 0.4 - 4, 6);
+  g.fillStyle = '#F5E6CF'; g.fillText(line1, x, y); g.fillStyle = P.acc; g.fillText(line2, x, y + 24);
   if (state.view === 'target') {
-    g.strokeStyle = P.acc; g.lineWidth = 1.5; g.globalAlpha = 0.55;
+    g.strokeStyle = P.acc; g.lineWidth = 6; g.globalAlpha = 0.7;
     for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; g.beginPath(); g.moveTo(W / 2 + Math.cos(a) * 70, H / 2 + Math.sin(a) * 70); g.lineTo(W / 2 + Math.cos(a) * 96, H / 2 + Math.sin(a) * 96); g.stroke(); }
     g.globalAlpha = 1;
   }
@@ -373,9 +428,10 @@ buildHolo(0);
 addHit(new THREE.CylinderGeometry(1.0, 1.0, 2.2, 6), { station: 'carto' }, null, TABLE.x, 1.1, TABLE.z);
 // doors: Lift + Ready Room (aft), Head (aft-port), Conference Room (aft-starboard)
 const DOORS = [];
-function door(ei, t, label, station, auto, room) {
-  const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0);
-  const g = group(px, 0, pz, e.rot);
+function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }
+// a sliding double door at (px, pz), frame on the local +z side; parent and deck default to the bridge (Deck 1)
+function doorAt(px, pz, rot, label, station, auto, room, parent, deck) {
+  const g = group(px, 0, pz, rot, parent), tx = Math.cos(rot), tz = -Math.sin(rot);
   const back = cnv(256, 400); { const c = back.getContext('2d'); const gr = c.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, '#f4f6fa'); gr.addColorStop(1, '#c9d2e0'); c.fillStyle = gr; c.fillRect(0, 0, 256, 400); }
   if (!room) mesh(new THREE.PlaneGeometry(1.2, 2.3), new THREE.MeshBasicMaterial({ map: tex(back), toneMapped: false }), 0, 1.15, 0.012, g);
   const reveal = [];
@@ -383,15 +439,15 @@ function door(ei, t, label, station, auto, room) {
   [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
   mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
   mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
-  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = ({ lift: '#E3A23B', head: '#E3A23B', ready: '#E3A23B', conference: '#E3A23B' })[station]; c.fill(); c.fillStyle = '#EEF2F5'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); }
+  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'd2sealed' ? '#E05A50' : '#E8A06A'; c.fill(); c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); }
   mesh(new THREE.PlaneGeometry(1.0, 0.175), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.45, 0.276, g);
   const L = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, -0.3, 1.15, 0.06, g);
   const Rr = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, 0.3, 1.15, 0.06, g);
   [L, Rr].forEach((d, k) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, k ? -0.27 : 0.27, 0, 0.04, d); mesh(BOX(0.4, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
   addHit(BOX(1.6, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
-  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal };
-  if (room) dd.seg = [px - e.tx * 0.6, pz - e.tz * 0.6, px + e.tx * 0.6, pz + e.tz * 0.6, 0.2];
-  DOORS.push(dd);
+  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal, deck: deck || 1 };
+  if (room) dd.seg = [px - tx * 0.6, pz - tz * 0.6, px + tx * 0.6, pz + tz * 0.6, 0.2];
+  DOORS.push(dd); return dd;
 }
 door(4, LIFT_GAP.t, 'LIFT', 'lift', true, true);
 door(4, DOOR_GAPS[4], 'CONFERENCE', 'conference', true, true);
@@ -423,7 +479,7 @@ door(5, DOOR_GAPS[5], 'HEAD', 'head', true, true);
   mesh(RBOX(0.7, 1.86, 0.02, 0.01), MAT.panel, 0, 1.02, 0.18, g);
   mesh(BOX(0.7, 0.06, 0.01), MAT.hazard, 0, 1.9, 0.195, g);
   mesh(BOX(0.04, 0.4, 0.04), MAT.steel, 0.26, 1.1, 0.2, g);
-  const lc = cnv(256, 96); { const c = lc.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 256, 96); c.fillStyle = '#E04848'; c.font = `700 24px ${DISP}`; c.textAlign = 'center'; c.fillText('EMERGENCY', 128, 38); c.fillStyle = '#EEF2F5'; c.font = `500 16px ${MONO}`; c.fillText('FIRE · MEDICAL · EVA', 128, 70); }
+  const lc = cnv(256, 96); { const c = lc.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 256, 96); c.fillStyle = '#E04848'; c.font = `700 24px ${DISP}`; c.textAlign = 'center'; c.fillText('EMERGENCY', 128, 38); c.fillStyle = '#F5E6CF'; c.font = `500 16px ${MONO}`; c.fillText('FIRE · MEDICAL · EVA', 128, 70); }
   mesh(new THREE.PlaneGeometry(0.56, 0.21), new THREE.MeshBasicMaterial({ map: tex(lc), toneMapped: false }), 0, 1.55, 0.2, g);
   extraObs.push({ x: px, z: pz, r: 0.42 });
 }

@@ -71,8 +71,9 @@ for s in meta['spots']:
 
 # ---------- probe grid: tiny six-sided markers, invisible to light, each baked into its own pixel ----------
 b0, b1 = np.array(meta['bounds'][0]), np.array(meta['bounds'][1])
-origin = np.array([b0[0] + 0.15, 0.15, b0[2] + 0.15])
-dims = [int(np.ceil((b1[0] - origin[0]) / STEP)) + 1, int(np.ceil((meta['wallH'] - 0.15) / STEP)) + 1, int(np.ceil((b1[2] - origin[2]) / STEP)) + 1]
+# the grid runs from the lowest deck's floor to the bridge ceiling
+origin = np.array([b0[0] + 0.15, min(0.15, b0[1] + 0.15), b0[2] + 0.15])
+dims = [int(np.ceil((b1[0] - origin[0]) / STEP)) + 1, int(np.ceil((meta['wallH'] - origin[1]) / STEP)) + 1, int(np.ceil((b1[2] - origin[2]) / STEP)) + 1]
 X, Y, Z = dims; PW, PH = X, 6 * Y * Z
 print('probe grid', dims, X * Y * Z, 'probes')
 AP = np.concatenate(allP); AI = np.concatenate(allI).reshape(-1, 3)

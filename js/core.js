@@ -18,7 +18,8 @@ const SIDE_X = 6.4; // the side walls, where the console runs stand
 const ROOM_H = 3.1;
 const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const DISP = "Oxanium, 'Arial Narrow', sans-serif";
+// a tall condensed face suits block screens; falls back to narrow system faces
+const DISP = "Antonio, 'Arial Narrow', 'Roboto Condensed', Oxanium, sans-serif";
 const MONO = "'JetBrains Mono', Menlo, monospace";
 
 // ---------- renderer ----------
@@ -45,7 +46,8 @@ const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 900);
 camera.rotation.order = 'YXZ';
 
 // ---------- helpers ----------
-function hexNode(g, cx, cy, rad) { g.beginPath(); for (let i = 0; i < 6; i++) { const a = (60 * i) * D2R; const px = cx + rad * Math.cos(a), py = cy + rad * Math.sin(a); i ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); }
+// a small marker block: a rounded square (the interface has no outlines or hexagons)
+function hexNode(g, cx, cy, rad) { const s = rad * 0.86, r = rad * 0.3; g.beginPath(); g.moveTo(cx - s + r, cy - s); g.arcTo(cx + s, cy - s, cx + s, cy + s, r); g.arcTo(cx + s, cy + s, cx - s, cy + s, r); g.arcTo(cx - s, cy + s, cx - s, cy - s, r); g.arcTo(cx - s, cy - s, cx + s, cy - s, r); g.closePath(); }
 function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function tex(c, srgb) { const t = new THREE.CanvasTexture(c); if (srgb !== false) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; return t; }
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -74,6 +76,30 @@ function RBOX(w, h, d, r) {
     geo.translate(0, 0, -(d - 2 * r) / 2);
   }
   _rb.set(key, geo); return geo;
+}
+// ---------- block shapes for the interface (screens, signs, labels) ----------
+// a block with rounded (half-height) ends on the chosen sides: the basic pill of the interface
+function hexTab(g, x, y, w, h, l, r) {
+  const R = Math.min(h / 2, w / 2); g.beginPath();
+  g.moveTo(x + (l ? R : 0), y); g.lineTo(x + w - (r ? R : 0), y);
+  if (r) g.arc(x + w - R, y + h / 2, R, -Math.PI / 2, Math.PI / 2); else g.lineTo(x + w, y + h);
+  g.lineTo(x + (l ? R : 0), y + h);
+  if (l) g.arc(x + R, y + h / 2, R, Math.PI / 2, Math.PI * 1.5); else g.lineTo(x, y);
+  g.closePath();
+}
+function rrect(g, x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+// an elbow: a vertical column block that turns into a horizontal bar, with a rounded outer corner and a scooped inner one
+function elbow(g, x, y, colW, barH, len, ext, up, color) {
+  const R = Math.min(colW * 0.95, ext + barH), r = Math.min(barH * 0.9, colW * 0.5);
+  g.beginPath();
+  if (up) {
+    g.moveTo(x, y + barH + ext); g.lineTo(x, y + R); g.arcTo(x, y, x + R, y, R); g.lineTo(x + len, y); g.lineTo(x + len, y + barH);
+    g.lineTo(x + colW + r, y + barH); g.arcTo(x + colW, y + barH, x + colW, y + barH + r, r); g.lineTo(x + colW, y + barH + ext);
+  } else {
+    g.moveTo(x, y - barH - ext); g.lineTo(x, y - R); g.arcTo(x, y, x + R, y, R); g.lineTo(x + len, y); g.lineTo(x + len, y - barH);
+    g.lineTo(x + colW + r, y - barH); g.arcTo(x + colW, y - barH, x + colW, y - barH - r, r); g.lineTo(x + colW, y - barH - ext);
+  }
+  g.closePath(); g.fillStyle = color; g.fill();
 }
 function space(o) { o.layers.set(1); return o; }
 function shapeXZ(pts, flip) { const s = new THREE.Shape(); pts.forEach(([x, z], i) => { const y = flip ? -z : z; i ? s.lineTo(x, y) : s.moveTo(x, y); }); s.closePath(); return s; }
@@ -124,11 +150,12 @@ const SPEEDS = {
   impulse: { speed: 12, len: 0.6, name: 'Impulse, one quarter', screen: 'IMPULSE ¼' },
   warp: { speed: 420, len: 48, name: 'Warp 6', screen: 'WARP 6' },
 };
-// Alerts swap the one accent: amber at Condition Green, a brighter pulsing amber at Yellow, red at Red. Room strips stay cool ice at Green.
+// Alerts: at Yellow the peach frames pulse toward butterscotch; at Red they turn red, the lilac dims and the room
+// lights drop and redden. strip = deck edge strips, slot = cove lights, light = tint of the baked room light.
 const ALERTS = {
-  green: { label: 'Condition Green', short: 'GREEN', acc: '#E3A23B', rgb: '227, 162, 59', line: '#1C2229', strip: 0x8fc3e0, slot: 0xffe6cc, light: 0xffe6cc },
-  yellow: { label: 'Yellow Alert', short: 'YELLOW', acc: '#F2B650', rgb: '242, 182, 80', line: '#1C2229', strip: 0xe3a23b, slot: 0xffe08a, light: 0xffe8b8 },
-  red: { label: 'Red Alert', short: 'RED', acc: '#E04848', rgb: '224, 72, 72', line: '#1C2229', strip: 0xe04848, slot: 0xff3020, light: 0xff8a74 },
+  green: { label: 'Condition Green', short: 'GREEN', acc: '#E8A06A', rgb: '232, 160, 106', line: '#2B2229', strip: 0xffe2c4, slot: 0xfff0dc, light: 0xffe6cc },
+  yellow: { label: 'Yellow Alert', short: 'YELLOW', acc: '#F2C88F', rgb: '242, 200, 143', line: '#2B2229', strip: 0xf2c88f, slot: 0xffe08a, light: 0xffe8b8 },
+  red: { label: 'Red Alert', short: 'RED', acc: '#E0524A', rgb: '224, 82, 74', line: '#2B2229', strip: 0xe04848, slot: 0xff3020, light: 0xff6a58 },
 };
 const LIGHT_LEVELS = { dim: 0.55, standard: 1, bright: 1.35 };
 const state = {
@@ -143,13 +170,14 @@ const cur = { speed: 0, len: 0 };
 let elapsed = 0;
 const sysCur = () => SYSTEMS[state.cur];
 const sysDest = () => SYSTEMS[state.dest];
-// Display palette. One accent (amber, pulsing brighter at Yellow, red at Red), ice blue as the secondary, hero white for values.
-// green / yel / red are muted status colors and are used for status only.
-const COLORS = { bg: '#07090C', frame: '#1C2229', amber: '#E3A23B', amberDim: '#9C6B22', amberHot: '#FFCB73', ice: '#8FC3E0', iceDim: '#5D7F92', white: '#EEF2F5', dim: '#7F8994', ok: '#5FA97A', warn: '#D19A3E', bad: '#D2504B', red: '#E04848' };
+// Display palette (palette A): peach frames and bars, tan and butterscotch readouts, lilac as the second colour,
+// rose and plum as small accents, cream for values. ok / warn / bad are status colours and mean status only.
+const COLORS = { bg: '#000000', frame: '#2B2229', peach: '#E8A06A', peachHot: '#FFC48C', tan: '#D9B07E', butter: '#F2C88F', lilac: '#B693C4', lilacDim: '#6E5A78', rose: '#C67A86', plum: '#7E5C8E', cream: '#F5E6CF',
+  amber: '#E8A06A', amberDim: '#9C6A48', amberHot: '#FFC48C', ice: '#B693C4', iceDim: '#6E5A78', white: '#F5E6CF', dim: '#9A8678', ok: '#8DBF84', warn: '#F0B44C', bad: '#E05A50', red: '#E0524A' };
 function mixHex(a, b, t) { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
 const pal = () => {
-  const C = COLORS, a = state.alert;
-  const acc = a === 'red' ? C.red : a === 'yellow' ? mixHex(C.amber, C.amberHot, 0.5 + 0.5 * Math.sin(elapsed * 4)) : C.amber;
-  const ice = a === 'red' ? C.iceDim : C.ice;
-  return { acc, accDim: a === 'red' ? '#7A2A2A' : C.amberDim, ice, sand: ice, green: C.ok, yel: C.warn, red: C.bad, sec: ice, rust: C.bad, line: C.frame, bg: C.bg, dim: C.dim, txt: C.white, key: a };
+  const C = COLORS, a = state.alert, red = a === 'red';
+  const acc = red ? C.red : a === 'yellow' ? mixHex(C.peach, C.butter, 0.5 + 0.5 * Math.sin(elapsed * 4)) : C.peach;
+  const ice = red ? C.lilacDim : C.lilac, tan = red ? '#B8665C' : C.tan, butter = red ? '#E9907A' : C.butter;
+  return { acc, accDim: red ? '#7A2A2A' : C.amberDim, ice, sand: tan, tan, butter, rose: red ? '#A8443E' : C.rose, plum: red ? '#5A2C34' : C.plum, green: C.ok, yel: C.warn, red: C.bad, sec: ice, rust: C.bad, line: C.frame, bg: C.bg, dim: C.dim, txt: C.cream, key: a };
 };

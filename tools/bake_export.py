@@ -9,6 +9,8 @@ THREE_DIR = os.environ.get('THREE_DIR', '/tmp/claude-0/pw/t186/node_modules/thre
 CHROME = os.environ.get('CHROME', '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome')
 
 EXPORT_JS = r"""() => {
+  // every deck is lit in one bake, so show them all while exporting
+  if (typeof DECK2 !== 'undefined') DECK2.visible = true;
   scene.updateMatrixWorld(true);
   const recv = new Set(BAKE.receivers), skip = new Set();
   // moving parts are not baked: door leaves, window shutters, the cup

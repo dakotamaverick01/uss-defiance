@@ -1,6 +1,6 @@
-# USS Defiance: Deck 1
+# USS Defiance
 
-A walkable 3D bridge deck for an original starship, built to run in a phone or desktop browser with no install.
+A walkable 3D starship, bridge first, for an original starship, built to run in a phone or desktop browser with no install.
 
 **Live version:** https://claude.ai/artifact/SyjMcFGoRF6kLtFP77TPSr
 **Run locally:** serve the folder with any static web server (for example `python3 -m http.server`) and open it in a browser. Opening `index.html` straight from disk won't work, because browsers block loading the `js/` files that way. It loads three.js from a CDN, so it needs an internet connection.
@@ -19,7 +19,16 @@ Everything here is original: the ship, its layout, the interface language, the i
 | **Captain's ready room** | About 6 x 6.5 m. Read the captain's log at the desk, use the synthesizer, inspect the ship model, open or close the armored window shutters. |
 | **Officer conference room** | About 8 x 6.5 m, with room to walk around the table. Step through the briefing slides, read the battle honors plaque. |
 | **Head** | Yes, the ship has a restroom. |
-| **Lift 1** | A real lift car behind the aft door. Step in, choose a deck on the back-wall panel, and ride: the doors close, the car moves for a few seconds, and the doors open on the new deck. Decks 2 to 6 aren't fitted out yet, so they open onto a sealed lift lobby with a deck directory. |
+| **Lift 1** | A real lift car behind the aft door. Step in, choose a deck on the back-wall panel, and ride: the doors close, the car travels down (or up) between the decks, and the doors open on the new deck. Decks 3 to 6 aren't fitted out yet, so they open onto a sealed lift lobby with a deck directory. |
+
+## What's on Deck 2 (the officers' deck)
+
+| Area | What you can do |
+| --- | --- |
+| **Lift 1 lobby** | Deck sign, the deck directory, a bench. The captain's quarters are straight ahead; the corridor runs aft. |
+| **Captain's quarters** | A day cabin with a sofa facing the forward viewport, a dining table for four, a desk with the personal log, a galley with its own synthesizer, bookshelves, and a sleeping cabin behind a partition. |
+| **Officers' corridor** | Runs aft past the first officer's and senior officers' cabins (sealed until the next stage). |
+| **Officers' wardroom** | A table for ten, a sideboard, the ship's crest, the mess board, and a starboard viewport. |
 
 ## Controls
 
@@ -47,12 +56,15 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
+  | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, captain's quarters, wardroom |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |
   | `render.js` | Haze light shafts, dust, post-processing, hero shots, frame loop |
 
 - **Lighting (baked):** the ship is lit only by its own fixtures: downlights, ceiling discs, cove slots, deck strips and screens. That light, including light bouncing off floors and walls, is calculated ahead of time in Blender and saved in `bake/`. Floors, walls and ceilings carry a light map (one image laid out like a sewing pattern); everything else reads a grid of light probes, points every 30 cm that recorded the light arriving from six directions. Light level and alert colour still change live. There are no real-time lights apart from the viewscreen's warp glow, which keeps phones fast.
-- **Lift and other decks:** only the deck you are on is in the scene; the rest are hidden, which keeps phones fast as the ship grows. The lift car and the sealed lobbies are not part of the bake: their light is painted into small light maps in `lift.js`, and `bake.js` skips their materials. Adding the lift doorway split the aft wall into more pieces without moving any lit surface, so the existing bake still fits (the layout signature in `bake/bake.json` was updated to match; a check confirmed every surface's light-map position is unchanged).
+- **Decks and the lift:** decks sit at their real heights, 3.5 m apart, and the lift car really travels between them. Only the deck you are on is shown, which keeps phones fast as the ship grows. Deck 1 and Deck 2 are lit together in one bake (the export shows every deck while it runs). The lift car and the sealed lobbies for unbuilt decks are not part of the bake: their light is painted into small light maps in `lift.js`, and `bake.js` skips their materials.
+- **Interface:** every screen is drawn from one kit of solid blocks on black: elbow frames, pill buttons, solid bars and number columns, in one palette (peach frames, tan and butterscotch readouts, lilac as the second colour, rose and plum accents; green, amber and red only for status). Text uses Antonio, a condensed face. At Yellow alert the peach pulses toward butterscotch; at Red it turns red, the lilac dims and the room lights drop to about a third and redden.
+- **Stations:** built in layers like working consoles: tan pedestals on dark plinths with an alert-coloured underglow, sloped glass desks with a touch panel, key strip and lit push-buttons, an upright screen bank with a main display, an auxiliary panel and a status strip, and speaker grilles, ID plates and access panels.
 - **Surfaces:** every main material has colour, bump detail (a normal map, an image that fakes small bumps and grooves), roughness and contact shading. Floors use photographed sets from [ambientCG](https://ambientcg.com) (free, CC0): Carpet012 on the bridge, Carpet016 recoloured for the ready and conference rooms, Wood018 for the furniture, DiamondPlate008C for the deck edges and head, and a leather grain. Brushed steel, painted-metal detail and screen fingerprints are generated by `tools/make_textures.py`, which also shrinks everything to about 4 MB in `textures/`. Hard surfaces are textured by world position rather than their own layout, so nothing stretches. Wear follows use: polished edges on consoles and desks, scuffed walkways on the bridge floor, grime near the deck, fingerprints on screens. Screens show a fine pixel grid when you lean in.
 - **Rendering:** ACES filmic tone mapping, a faint haze, reflections taken from the baked room, bloom, and a vignette.
 - **Re-baking the light** (needed after moving any fixed geometry; the ship warns in the console and falls back to the old light if the bake no longer matches):
@@ -61,7 +73,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`. It stores the light at exposure 7.0, the brightness the ship was tuned at (set `EXPOSURE` to change it).
 - **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
 - **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
-- **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. One amber accent on near-black, ice blue as the secondary, status colors only for status (see `docs/interface-style-sheet.md`). Only screens near the player redraw, to keep phones smooth.
+- **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. Block-style screens in palette A (see Interface above; `docs/interface-style-sheet.md` describes the earlier amber scheme and is superseded). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
 - **Collision:** walls and doors are line segments, and furniture is circles. Walls also block clicks, so you can't use a panel through a wall.
 - **Sound:** generated in the browser with the Web Audio API. There are no sound files.
@@ -69,6 +81,6 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stage 2 (a working Lift 1 car and deck switching) is done; Deck 2 is next.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`). Next is Deck 2 part 2: the first officer's and senior officers' quarters and the observation lounge.
 
 Deck 1 is complete. In the build-out (gameplay paused), Stage 1 gave it more room: every bridge wall moved out 0.8 m for wider walkways (consoles moved with the walls; the dais, pods and situation table stayed put), the ready room and conference room grew to about 6 x 6.5 m and 8 x 6.5 m with 3.1 m ceilings, and the light was re-baked at 160 samples. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.

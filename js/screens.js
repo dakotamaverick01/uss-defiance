@@ -4,25 +4,19 @@
 'use strict';
 
 // ---------- screen drawing ----------
+// The interface is built from solid blocks on black: an elbow frame, pill buttons, solid bars and number columns.
+// No outlines, glows or grid backgrounds. Colours come from pal() (core.js): peach frames, tan and butterscotch
+// readouts, lilac as the second colour, rose and plum as small accents, and green/amber/red for status only.
 const bgCache = new Map();
-function chamfer(g, x, y, w, h, c) { g.beginPath(); g.moveTo(x + c, y); g.lineTo(x + w, y); g.lineTo(x + w, y + h - c); g.lineTo(x + w - c, y + h); g.lineTo(x, y + h); g.lineTo(x, y + c); g.closePath(); }
+function chamfer(g, x, y, w, h, c) { rrect(g, x, y, w, h, c); }
 function screenBg(W, H, P) {
-  const key = W + 'x' + H + P.key; if (bgCache.has(key)) return bgCache.get(key);
-  const c = cnv(W, H), g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#0B0E12'); gr.addColorStop(1, '#07090C'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  const s = Math.max(10, Math.min(W, H) / 14);
-  g.fillStyle = P.line;
-  for (let y = s / 2; y < H; y += s) for (let x = s / 2; x < W; x += s) g.fillRect(x, y, 2, 2);
-  g.strokeStyle = P.line; g.globalAlpha = 0.5; g.lineWidth = 1;
-  for (let y = s * 3; y < H; y += s * 3) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
-  g.globalAlpha = 1; bgCache.set(key, c); return c;
+  const key = W + 'x' + H; if (bgCache.has(key)) return bgCache.get(key);
+  const c = cnv(W, H), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, W, H); bgCache.set(key, c); return c;
 }
 const FUNC = { command: 'acc', ship: 'acc', viewer: 'acc', ops: 'acc', ready: 'acc', conference: 'acc', helm: 'green', carto: 'green', science: 'green', ew: 'green', intel: 'green', engineering: 'yel', damage: 'yel', env: 'yel', comms: 'yel', lift: 'yel', head: 'yel', band: 'yel', defense: 'red', weapons: 'red', desk: 'acc', brief: 'acc', honors: 'acc', synth: 'yel', shutters: 'yel' };
-// Stations are told apart by icon, label and shape, not hue: every station uses the one accent.
+// Stations are told apart by their layout and labels, not by hue: every station uses the same palette.
 const FUNC_CSS = { acc: 'var(--signal)', green: 'var(--signal)', yel: 'var(--signal)', red: 'var(--signal)' };
 function fnColor(P) { return P.acc; }
-function hexTab(g, x, y, w, h, l, r) { const c = Math.min(h * 0.32, w / 3); g.beginPath(); g.moveTo(x + (l ? c : 0), y); g.lineTo(x + w - (r ? c : 0), y); if (r) g.lineTo(x + w, y + h / 2); g.lineTo(x + w - (r ? c : 0), y + h); g.lineTo(x + (l ? c : 0), y + h); if (l) g.lineTo(x, y + h / 2); g.closePath(); }
-function rrect(g, x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function fitFont(g, text, weight, size, family, maxW) { let s = size; g.font = `${weight} ${s | 0}px ${family}`; while (s > 8 && g.measureText(text).width > maxW) { s -= 1; g.font = `${weight} ${s | 0}px ${family}`; } }
 function throttle() { return cur.speed <= 12 ? cur.speed / 12 * 0.25 : 0.25 + (cur.speed - 12) / 408 * 0.75; }
 // ---------- dense instrument widgets ----------
@@ -32,103 +26,115 @@ function split(r, fr, vertical, gap) {
   fr.forEach((f) => { const sz = L * f / tot; out.push(vertical ? { x: r.x, y: r.y + o, w: r.w, h: sz } : { x: r.x + o, y: r.y, w: sz, h: r.h }); o += sz + gap; });
   return out;
 }
+const PAIR = (P, c) => (c === P.ice || c === P.green ? [P.ice, P.plum] : c === P.red ? [P.red, P.rose] : c === P.yel ? [P.butter, P.tan] : [P.acc, P.tan]);
+// section header: a pill holding the label, then a solid bar running out to the edge
 function sub(g, r, title, color, P) {
-  const th = clamp(r.h * 0.13, 10, 24);
-  g.font = `700 ${th * 0.72 | 0}px ${DISP}`; const tw = Math.min(r.w * 0.78, g.measureText(title).width + th * 1.3);
-  hexTab(g, r.x, r.y, tw, th, false, true); g.fillStyle = P.acc; g.fill();
-  g.fillStyle = '#000'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(title, r.x + th * 0.3, r.y + th / 2 + 1);
-  g.fillStyle = P.line; g.fillRect(r.x + tw + 4, r.y + th / 2 - 1, Math.max(0, r.w - tw - 4), 2);
-  return { x: r.x, y: r.y + th * 1.35, w: r.w, h: r.h - th * 1.35 };
+  const th = clamp(r.h * 0.14, 11, 26), [c1, c2] = PAIR(P, color);
+  g.font = `600 ${th * 0.74 | 0}px ${DISP}`; const tw = Math.min(r.w * 0.7, g.measureText(title).width + th * 1.2);
+  hexTab(g, r.x, r.y, tw, th, true, false); g.fillStyle = c1; g.fill();
+  g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(title, r.x + tw - th * 0.3, r.y + th / 2 + 1);
+  const bx = r.x + tw + th * 0.25, bw = Math.max(0, r.w - tw - th * 0.25);
+  if (bw > th) { g.fillStyle = c2; g.fillRect(bx, r.y + th * 0.3, bw - th * 0.55, th * 0.4); hexTab(g, r.x + r.w - th * 0.45, r.y, th * 0.45, th, false, true); g.fillStyle = c1; g.fill(); }
+  return { x: r.x, y: r.y + th * 1.4, w: r.w, h: r.h - th * 1.4 };
 }
+// readout rows: a coloured key block, a tan label and a cream value
 function table(g, r, rows, P) {
-  const n = rows.length, rh = r.h / n, fs = clamp(rh * 0.58, 8, 26);
+  const n = rows.length, rh = r.h / n, fs = clamp(rh * 0.6, 8, 26), kw = clamp(rh * 0.42, 5, 14), keys = [P.tan, P.ice, P.butter, P.plum];
   rows.forEach(([k, v, c], i) => {
-    const y = r.y + i * rh + rh / 2; g.textBaseline = 'middle';
-    g.textAlign = 'left'; g.fillStyle = P.dim; fitFont(g, k, 500, fs * 0.82, MONO, r.w * 0.46); g.fillText(k, r.x, y);
-    g.textAlign = 'right'; g.fillStyle = c || P.txt; fitFont(g, v, 600, fs, DISP, r.w * 0.52); g.fillText(v, r.x + r.w, y);
-    if (i < n - 1) { g.fillStyle = P.line; g.fillRect(r.x, r.y + (i + 1) * rh - 0.5, r.w, 1); }
+    const y = r.y + i * rh, cy = y + rh / 2; g.textBaseline = 'middle';
+    g.fillStyle = c && c !== P.txt ? c : keys[i % keys.length]; rrect(g, r.x, y + rh * 0.16, kw, rh * 0.68, kw * 0.25); g.fill();
+    g.textAlign = 'left'; g.fillStyle = P.tan; fitFont(g, k, 500, fs * 0.8, DISP, r.w * 0.44 - kw); g.fillText(k, r.x + kw + 6, cy + 1);
+    g.textAlign = 'right'; g.fillStyle = c || P.txt; fitFont(g, v, 600, fs, DISP, r.w * 0.54); g.fillText(v, r.x + r.w, cy + 1);
   });
 }
+// level bars: solid blocks on a dark plum track, with the number in its own block
 function bars(g, r, rows, P) {
-  const n = rows.length, rh = r.h / n, fs = clamp(rh * 0.44, 8, 20), lw = r.w * 0.36, nw = r.w * 0.15;
+  const n = rows.length, rh = r.h / n, fs = clamp(rh * 0.48, 8, 20), lw = r.w * 0.34, nw = r.w * 0.15;
   rows.forEach(([k, v, c], i) => {
-    const y = r.y + i * rh; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillStyle = P.dim; fitFont(g, k, 500, fs, MONO, lw - 6); g.fillText(k, r.x, y + rh / 2);
-    const bx = r.x + lw, bw = r.w - lw - nw;
-    hexTab(g, bx, y + rh * 0.22, bw, rh * 0.56, true, true); g.fillStyle = P.line; g.fill();
-    hexTab(g, bx, y + rh * 0.22, Math.max(rh * 0.5, bw * clamp(v, 0, 1)), rh * 0.56, true, true); g.fillStyle = c || P.acc; g.fill();
-    g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${MONO}`; g.fillText(Math.round(clamp(v, 0, 1) * 100) + '%', r.x + r.w, y + rh / 2);
+    const y = r.y + i * rh, bh = rh * 0.62, by = y + (rh - bh) / 2; g.textBaseline = 'middle';
+    g.textAlign = 'left'; g.fillStyle = P.tan; fitFont(g, k, 500, fs, DISP, lw - 8); g.fillText(k, r.x, y + rh / 2 + 1);
+    const bx = r.x + lw, bw = r.w - lw - nw - 6, f = clamp(v, 0, 1);
+    g.fillStyle = P.line; g.fillRect(bx, by, bw, bh);
+    hexTab(g, bx, by, Math.max(bh * 0.6, bw * f), bh, false, true); g.fillStyle = c || P.acc; g.fill();
+    g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${DISP}`; g.fillText(Math.round(f * 100) + '%', r.x + r.w, y + rh / 2 + 1);
   });
 }
+// status: a pill per system, filled with its state, label inside
 function lights(g, r, rows, P, cols) {
-  cols = cols || 1; const per = Math.ceil(rows.length / cols), cw = r.w / cols, rh = r.h / per, fs = clamp(rh * 0.52, 8, 18);
-  const C = { ok: P.green, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: Math.sin(elapsed * 6) > 0 ? P.yel : P.line };
+  cols = cols || 1; const per = Math.ceil(rows.length / cols), cw = r.w / cols, rh = r.h / per, fs = clamp(rh * 0.5, 8, 18);
+  const C = { ok: P.tan, warn: P.yel, off: P.line, act: P.acc, alert: P.red, blink: Math.sin(elapsed * 6) > 0 ? P.yel : P.line };
   rows.forEach(([k, st, v], i) => {
-    const cx = r.x + Math.floor(i / per) * cw, cy = r.y + (i % per) * rh + rh / 2;
-    hexNode(g, cx + fs * 0.5, cy, fs * 0.42); g.fillStyle = C[st] || P.dim; g.fill();
-    g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = st === 'off' ? P.dim : P.txt; fitFont(g, k, 500, fs, MONO, cw * (v ? 0.62 : 0.9) - fs * 1.4); g.fillText(k, cx + fs * 1.2, cy);
-    if (v) { g.textAlign = 'right'; g.fillStyle = P.dim; g.font = `500 ${fs * 0.9 | 0}px ${MONO}`; g.fillText(v, cx + cw - 6, cy); }
+    const cx = r.x + Math.floor(i / per) * cw, cy = r.y + (i % per) * rh, ph = rh * 0.74, pw = cw - 8 - (v ? cw * 0.28 : 0);
+    hexTab(g, cx, cy + (rh - ph) / 2, pw, ph, true, true); g.fillStyle = C[st] || P.dim; g.fill();
+    g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = st === 'off' ? P.dim : '#000'; fitFont(g, k, 600, fs, DISP, pw - ph); g.fillText(k, cx + ph * 0.55, cy + rh / 2 + 1);
+    if (v) { g.textAlign = 'right'; g.fillStyle = P.txt; g.font = `600 ${fs | 0}px ${DISP}`; g.fillText(v, cx + cw - 8, cy + rh / 2 + 1); }
   });
 }
+// a trace drawn as a row of block columns
 function spark(g, r, color, seed, speed, P, amp) {
-  g.fillStyle = P.line; for (let i = 0; i <= 4; i++) g.fillRect(r.x, r.y + r.h * i / 4, r.w, 1);
-  g.beginPath();
-  for (let i = 0; i <= 80; i++) { const u = i / 80, v = Math.sin(u * 9 + elapsed * speed + seed) * 0.28 + Math.sin(u * 23 - elapsed * speed * 1.7 + seed * 2) * 0.12 + Math.sin(u * 51 + elapsed * 3) * 0.05; const xx = r.x + u * r.w, yy = r.y + r.h * (0.5 - v * (amp || 1)); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
-  g.strokeStyle = color; g.lineWidth = 2; g.stroke();
-  g.lineTo(r.x + r.w, r.y + r.h); g.lineTo(r.x, r.y + r.h); g.closePath(); g.globalAlpha = 0.14; g.fillStyle = color; g.fill(); g.globalAlpha = 1;
+  const n = Math.max(12, Math.round(r.w / 9)), bw = r.w / n;
+  g.fillStyle = P.line; g.fillRect(r.x, r.y + r.h - 3, r.w, 3);
+  for (let i = 0; i < n; i++) {
+    const u = i / n, v = Math.sin(u * 9 + elapsed * speed + seed) * 0.28 + Math.sin(u * 23 - elapsed * speed * 1.7 + seed * 2) * 0.12 + Math.sin(u * 51 + elapsed * 3) * 0.05;
+    const hh = clamp((0.5 + v * (amp || 1)) * r.h, 3, r.h);
+    g.fillStyle = i % 7 === 3 ? P.butter : color; g.fillRect(r.x + i * bw + 1, r.y + r.h - hh, bw - 2, hh - 4);
+  }
 }
 function big(g, r, value, unit, color, P) {
-  fitFont(g, value, 700, r.h * 0.72, DISP, r.w * (unit ? 0.72 : 0.98)); g.fillStyle = color; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(value, r.x, r.y + r.h / 2);
-  if (unit) { const vw = g.measureText(value).width; g.font = `500 ${clamp(r.h * 0.22, 8, 20) | 0}px ${MONO}`; g.fillStyle = P.dim; g.fillText(unit, r.x + vw + 8, r.y + r.h * 0.6); }
+  fitFont(g, value, 600, r.h * 0.82, DISP, r.w * (unit ? 0.7 : 0.98)); g.fillStyle = color === P.acc ? P.butter : color; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(value, r.x, r.y + r.h / 2 + 2);
+  if (unit) { const vw = g.measureText(value).width; g.font = `500 ${clamp(r.h * 0.26, 8, 22) | 0}px ${DISP}`; g.fillStyle = P.tan; g.fillText(unit, r.x + vw + 8, r.y + r.h * 0.62); }
 }
+// a scrolling column of readings, number-column style
 function logw(g, r, lines, P, speed) {
-  const fs = clamp(r.h / 6.5, 8, 16), lh = fs * 1.4, n = lines.length, off = (elapsed * (speed || 0.5)) % n, vis = Math.ceil(r.h / lh) + 1;
+  const fs = clamp(r.h / 6.2, 8, 17), lh = fs * 1.38, n = lines.length, off = (elapsed * (speed || 0.5)) % n, vis = Math.ceil(r.h / lh) + 1;
   g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
-  g.font = `500 ${fs | 0}px ${MONO}`; g.textAlign = 'left'; g.textBaseline = 'top';
-  for (let i = 0; i < vis; i++) { const idx = (Math.floor(off) + i) % n, yy = r.y + (i - (off % 1)) * lh; g.globalAlpha = clamp(0.35 + i / vis, 0.35, 1); g.fillStyle = i === vis - 2 ? P.acc : P.txt; g.fillText(lines[idx], r.x, yy); }
-  g.restore(); g.globalAlpha = 1;
+  g.font = `500 ${fs | 0}px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top';
+  for (let i = 0; i < vis; i++) {
+    const idx = (Math.floor(off) + i) % n, yy = r.y + (i - (off % 1)) * lh, hot = i === vis - 2;
+    g.fillStyle = hot ? P.acc : [P.tan, P.ice, P.butter][idx % 3]; g.fillRect(r.x, yy + lh * 0.12, fs * 0.5, lh * 0.66);
+    g.fillStyle = hot ? P.butter : P.txt; g.fillText(lines[idx], r.x + fs * 0.9, yy + 1);
+  }
+  g.restore();
 }
-function throttleW(g, r, P) { const n = 16, sw = r.w / n, th = throttle(); for (let i = 0; i < n; i++) { hexTab(g, r.x + i * sw, r.y, sw - 3, r.h, true, true); g.fillStyle = (i + 0.5) / n < th ? (i > 11 ? P.ice : P.acc) : P.line; g.fill(); } }
+function throttleW(g, r, P) { const n = 14, sw = r.w / n, th = throttle(); for (let i = 0; i < n; i++) { g.fillStyle = (i + 0.5) / n < th ? (i > 10 ? P.ice : i > 6 ? P.butter : P.acc) : P.line; rrect(g, r.x + i * sw, r.y, sw - 4, r.h, 3); g.fill(); } }
+// heading dial: a thick ring of blocks, the heading as a solid wedge
 function dialW(g, r, deg, P) {
-  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.92;
-  g.fillStyle = P.line; g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.fill();
-  g.strokeStyle = P.ice; g.lineWidth = 2;
-  for (let i = 0; i < 36; i++) { const a = i * 10 * D2R, l = i % 9 === 0 ? 0.24 : 0.1; g.beginPath(); g.moveTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); g.lineTo(cx + Math.cos(a) * rad * (1 - l), cy + Math.sin(a) * rad * (1 - l)); g.stroke(); }
-  const hd = deg * D2R - Math.PI / 2 + Math.sin(elapsed * 0.8) * 0.03;
-  g.strokeStyle = P.acc; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(hd) * rad * 0.8, cy + Math.sin(hd) * rad * 0.8); g.stroke();
-  hexNode(g, cx, cy, rad * 0.12); g.fillStyle = P.acc; g.fill();
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.95, hd = deg * D2R - Math.PI / 2 + Math.sin(elapsed * 0.8) * 0.03;
+  for (let i = 0; i < 24; i++) { const a0 = i / 24 * Math.PI * 2 - Math.PI / 2 + 0.03, a1 = a0 + Math.PI / 12 - 0.06; g.strokeStyle = i % 6 === 0 ? P.tan : P.plum; g.lineWidth = rad * 0.2; g.beginPath(); g.arc(cx, cy, rad * 0.88, a0, a1); g.stroke(); }
+  g.fillStyle = P.line; g.beginPath(); g.arc(cx, cy, rad * 0.7, 0, 7); g.fill();
+  g.fillStyle = P.acc; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, rad * 0.68, hd - 0.16, hd + 0.16); g.closePath(); g.fill();
+  g.fillStyle = P.butter; g.beginPath(); g.arc(cx, cy, rad * 0.2, 0, 7); g.fill();
 }
 function courseW(g, r, P) {
   const rr = mulberry(7 + state.cur);
-  for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(234,242,255,${0.2 + rr() * 0.5})`; g.fillRect(r.x + rr() * r.w, r.y + rr() * r.h, 2, 2); }
-  g.strokeStyle = P.line; g.lineWidth = 1; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(r.x + r.w * i / 4, r.y); g.lineTo(r.x + r.w * i / 4, r.y + r.h); g.moveTo(r.x, r.y + r.h * i / 4); g.lineTo(r.x + r.w, r.y + r.h * i / 4); g.stroke(); }
+  for (let i = 0; i < 50; i++) { g.fillStyle = `rgba(245,230,207,${0.25 + rr() * 0.5})`; g.fillRect(r.x + rr() * r.w, r.y + rr() * r.h, 2, 2); }
   const ax = r.x + r.w * 0.12, ay = r.y + r.h * 0.8, bx = r.x + r.w * 0.84, by = r.y + r.h * 0.22;
-  g.setLineDash([8, 6]); g.strokeStyle = P.ice; g.lineWidth = 2; g.beginPath(); g.moveTo(ax, ay); g.quadraticCurveTo(r.x + r.w * 0.3, r.y + r.h * 0.2, bx, by); g.stroke(); g.setLineDash([]);
-  hexNode(g, bx, by, 10 * (1 + Math.sin(elapsed * 3) * 0.15)); g.strokeStyle = P.ice; g.lineWidth = 2; g.stroke();
-  const prog = state.speed === 'warp' ? (elapsed * 0.08) % 1 : 0, t = prog, px = (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * (r.x + r.w * 0.3) + t * t * bx, py = (1 - t) * (1 - t) * ay + 2 * (1 - t) * t * (r.y + r.h * 0.2) + t * t * by;
-  hexNode(g, px, py, 6); g.fillStyle = P.acc; g.fill();
-  const fs = clamp(r.h * 0.09, 8, 18); g.font = `600 ${fs | 0}px ${DISP}`; g.textBaseline = 'middle';
+  for (let i = 0; i <= 18; i++) { const t = i / 18, px = (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * (r.x + r.w * 0.3) + t * t * bx, py = (1 - t) * (1 - t) * ay + 2 * (1 - t) * t * (r.y + r.h * 0.2) + t * t * by; g.fillStyle = P.ice; rrect(g, px - 3, py - 3, 6, 6, 1.5); g.fill(); }
+  g.fillStyle = P.butter; rrect(g, bx - 9, by - 9, 18, 18, 4); g.fill();
+  const t = state.speed === 'warp' ? (elapsed * 0.08) % 1 : 0, px = (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * (r.x + r.w * 0.3) + t * t * bx, py = (1 - t) * (1 - t) * ay + 2 * (1 - t) * t * (r.y + r.h * 0.2) + t * t * by;
+  g.fillStyle = P.acc; rrect(g, px - 7, py - 7, 14, 14, 3); g.fill();
+  const fs = clamp(r.h * 0.1, 8, 20); g.font = `600 ${fs | 0}px ${DISP}`; g.textBaseline = 'middle';
   g.textAlign = 'right'; g.fillStyle = P.txt; g.fillText(sysDest().star.toUpperCase(), bx - 16, by);
-  g.textAlign = 'left'; g.fillStyle = P.dim; g.fillText(sysCur().star.toUpperCase(), ax + 10, ay);
+  g.textAlign = 'left'; g.fillStyle = P.tan; g.fillText(sysCur().star.toUpperCase(), ax + 10, ay);
 }
+// target globe: a solid disc banded in blocks, with a scan bar sweeping it
 function globeW(g, r, P) {
   const rad = Math.min(r.w, r.h) / 2 * 0.92, cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-  g.strokeStyle = P.ice; g.lineWidth = 1.5; g.globalAlpha = 0.8;
-  g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.stroke();
-  const rot = (elapsed * 0.3) % 1;
-  for (let i = 0; i < 4; i++) { const k = Math.cos(((i / 4) + rot / 4) * Math.PI); g.beginPath(); g.ellipse(cx, cy, Math.abs(k) * rad, rad, 0, 0, 7); g.stroke(); }
-  for (let i = -2; i <= 2; i++) { const yy = cy + i * rad / 3, hw = Math.sqrt(Math.max(0, rad * rad - (yy - cy) * (yy - cy))); g.beginPath(); g.moveTo(cx - hw, yy); g.lineTo(cx + hw, yy); g.stroke(); }
-  g.globalAlpha = 1;
-  const sy = cy + Math.sin(elapsed * (state.scanning ? 4 : 0.8)) * rad * 0.95, shw = Math.sqrt(Math.max(0, rad * rad - (sy - cy) * (sy - cy)));
-  g.strokeStyle = state.scanning ? P.acc : P.acc; g.lineWidth = state.scanning ? 3 : 2; g.beginPath(); g.moveTo(cx - shw, sy); g.lineTo(cx + shw, sy); g.stroke();
+  g.save(); g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.clip();
+  g.fillStyle = P.plum; g.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+  for (let i = -3; i <= 3; i++) { g.fillStyle = i % 2 ? P.ice : P.line; g.fillRect(cx - rad, cy + i * rad / 3.5 - rad * 0.06, rad * 2, rad * 0.12); }
+  const off = (elapsed * 0.25) % 1; for (let i = 0; i < 4; i++) { const xx = cx - rad + ((i / 4 + off) % 1) * rad * 2; g.fillStyle = P.line; g.fillRect(xx, cy - rad, rad * 0.08, rad * 2); }
+  const sy = cy + Math.sin(elapsed * (state.scanning ? 4 : 0.8)) * rad * 0.9; g.fillStyle = P.acc; g.fillRect(cx - rad, sy - rad * 0.05, rad * 2, rad * 0.1);
+  g.restore();
 }
 function ringW(g, r, P, value, label) {
-  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.9;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.92;
   for (let i = 0; i < 12; i++) {
     const a0 = i / 12 * Math.PI * 2 - Math.PI / 2 + 0.05, a1 = a0 + Math.PI * 2 / 12 - 0.1, on = Math.sin(elapsed * 0.7 + i * 1.3) > -0.6;
-    g.strokeStyle = on ? (i % 4 === 0 ? P.ice : P.acc) : P.line; g.lineWidth = rad * 0.2; g.beginPath(); g.arc(cx, cy, rad * 0.86, a0, a1); g.stroke();
+    g.strokeStyle = on ? [P.acc, P.tan, P.ice, P.butter][i % 4] : P.line; g.lineWidth = rad * 0.24; g.beginPath(); g.arc(cx, cy, rad * 0.84, a0, a1); g.stroke();
   }
-  g.fillStyle = P.txt; g.textAlign = 'center'; g.textBaseline = 'middle'; fitFont(g, value, 700, rad * 0.5, DISP, rad * 1.2); g.fillText(value, cx, cy - rad * 0.06);
-  g.fillStyle = P.dim; g.font = `500 ${clamp(rad * 0.16, 8, 16) | 0}px ${MONO}`; g.fillText(label, cx, cy + rad * 0.32);
+  g.fillStyle = P.txt; g.textAlign = 'center'; g.textBaseline = 'middle'; fitFont(g, value, 600, rad * 0.56, DISP, rad * 1.15); g.fillText(value, cx, cy - rad * 0.04);
+  g.fillStyle = P.tan; g.font = `500 ${clamp(rad * 0.17, 8, 16) | 0}px ${DISP}`; g.fillText(label, cx, cy + rad * 0.34);
 }
 // ---------- live ship widgets (Stage 1) ----------
 function shipClock(at) { const s = Math.floor(at); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -316,14 +322,14 @@ const DRAW = {
     g.moveTo(X(0.03), Y(0.47)); g.lineTo(X(0.1), Y(0.37)); g.lineTo(X(0.3), Y(0.31)); g.lineTo(X(0.33), Y(0.23)); g.lineTo(X(0.4), Y(0.23)); g.lineTo(X(0.42), Y(0.31));
     g.lineTo(X(0.52), Y(0.31)); g.lineTo(X(0.54), Y(0.26)); g.lineTo(X(0.63), Y(0.26)); g.lineTo(X(0.65), Y(0.32)); g.lineTo(X(0.75), Y(0.35)); g.lineTo(X(0.79), Y(0.45));
     g.lineTo(X(0.77), Y(0.57)); g.lineTo(X(0.63), Y(0.61)); g.lineTo(X(0.3), Y(0.59)); g.lineTo(X(0.12), Y(0.55)); g.closePath();
-    g.fillStyle = 'rgba(227,162,59,0.06)'; g.fill(); g.strokeStyle = P.ice; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = P.plum; g.fill(); g.strokeStyle = P.ice; g.lineWidth = 6; g.stroke();
     g.save(); g.clip();
-    g.strokeStyle = P.line; g.lineWidth = 1.5;
+    g.strokeStyle = '#000'; g.lineWidth = 3;
     for (let v = 0.33; v < 0.6; v += 0.045) { g.beginPath(); g.moveTo(X(0), Y(v)); g.lineTo(X(1), Y(v)); g.stroke(); }
     for (let u = 0.12; u < 0.8; u += 0.06) { g.beginPath(); g.moveTo(X(u), Y(0.2)); g.lineTo(X(u), Y(0.62)); g.stroke(); }
-    const sx = X(0.03 + ((elapsed * 0.08) % 1) * 0.78); g.fillStyle = P.ice; g.globalAlpha = 0.22; g.fillRect(sx - 10, Y(0.2), 20, h * 0.45); g.globalAlpha = 1;
+    const sx = X(0.03 + ((elapsed * 0.08) % 1) * 0.78); g.fillStyle = P.butter; g.fillRect(sx - 6, Y(0.2), 12, h * 0.45);
     g.restore();
-    g.strokeStyle = P.ice; g.lineWidth = 2;
+    g.strokeStyle = P.ice; g.lineWidth = 6;
     [[0.6, 0.6, 0.64, 0.71], [0.7, 0.58, 0.74, 0.71]].forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(X(a), Y(b)); g.lineTo(X(c), Y(d)); g.stroke(); });
     const nx0 = X(0.5), nx1 = X(0.97), ny = Y(0.71), nh = h * 0.08;
     hexTab(g, nx0, ny, nx1 - nx0, nh, true, true); g.fillStyle = `rgba(143,195,224,${0.15 + warp * 0.65})`; g.fill(); g.stroke();
@@ -331,7 +337,7 @@ const DRAW = {
     const core = 0.5 + 0.5 * Math.sin(elapsed * (2 + warp * 6)); g.fillStyle = P.acc; g.globalAlpha = 0.5 + core * 0.5; g.fillRect(X(0.565), Y(0.36), w * 0.012, h * 0.2); g.globalAlpha = 1;
     g.fillStyle = P.acc; g.fillRect(X(0.35), Y(0.245), w * 0.03, h * 0.035);
     [[0.585, 0.26], [0.45, 0.6]].forEach(([u, v]) => { g.fillStyle = state.alert === 'red' ? P.acc : P.dim; g.fillRect(X(u) - 6, Y(v) - 3, 12, 6); });
-    const lab = (px, py, lx, ly, t, c) => { g.strokeStyle = P.dim; g.lineWidth = 1; g.beginPath(); g.moveTo(X(px), Y(py)); g.lineTo(X(lx), Y(ly)); g.stroke(); g.fillStyle = c || P.txt; g.font = `500 ${h * 0.055 | 0}px ${MONO}`; g.textAlign = lx < px ? 'right' : 'left'; g.textBaseline = 'middle'; g.fillText(t, X(lx) + (lx < px ? -6 : 6), Y(ly)); };
+    const lab = (px, py, lx, ly, t, c) => { g.strokeStyle = P.tan; g.lineWidth = 3; g.beginPath(); g.moveTo(X(px), Y(py)); g.lineTo(X(lx), Y(ly)); g.stroke(); g.fillStyle = c || P.txt; g.font = `500 ${h * 0.055 | 0}px ${MONO}`; g.textAlign = lx < px ? 'right' : 'left'; g.textBaseline = 'middle'; g.fillText(t, X(lx) + (lx < px ? -6 : 6), Y(ly)); };
     lab(0.365, 0.24, 0.3, 0.06, 'BRIDGE', P.acc);
     lab(0.585, 0.26, 0.66, 0.06, 'DORSAL TURRET', zoneStatus('dorsal') === 'ok' ? P.txt : zcol(P, 'dorsal'));
     lab(0.45, 0.6, 0.34, 0.9, 'VENTRAL ARRAY', zoneStatus('ventral') === 'ok' ? P.txt : zcol(P, 'ventral'));
@@ -344,39 +350,18 @@ const DRAW = {
     if (s.code === 'SYS·00') {
       const [a, b, c] = split(R, [0.9, 1.5, 0.7], true, h * 0.03), breach = sim.breach !== null;
       const ca = sub(g, a, 'HULL', P.acc, P); const sz = Math.min(ca.w * 0.3, ca.h * 0.45), cx = ca.x + ca.w / 2, cy = ca.y + ca.h / 2;
-      g.strokeStyle = P.ice; g.lineWidth = 2; hullTop(g, cx, cy, sz); g.stroke(); g.globalAlpha = 0.12; g.fillStyle = P.acc; g.fill(); g.globalAlpha = 1;
+      hullTop(g, cx, cy, sz); g.fillStyle = P.plum; g.fill(); g.strokeStyle = P.ice; g.lineWidth = 4; g.stroke();
       [[0, -0.6, 'prow'], [0, 0, 'dorsal'], [0.45, 0.7, 'stbdNac'], [-0.45, 0.7, 'portNac'], [0, 0.5, 'engines']].forEach(([dx, dy, id], i) => { hexNode(g, cx + dx * sz, cy + dy * sz, 5); g.fillStyle = zcol(P, id); g.globalAlpha = 0.6 + 0.4 * Math.sin(elapsed * 2 + i * 1.4); g.fill(); g.globalAlpha = 1; });
       lights(g, sub(g, b, 'SYSTEMS', P.acc, P), [['WARP DRIVE', simCanWarp() ? (state.speed === 'warp' ? 'act' : 'ok') : 'alert'], ['IMPULSE', zoneStatus('engines')], ['DEFLECTOR', state.alert === 'green' ? 'ok' : 'act'], ['DORSAL TURRET', zoneStatus('dorsal')], ['VENTRAL ARRAY', zoneStatus('ventral')], ['TORPEDOES', zoneStatus('prow')], ['PORT EMITTERS', zoneStatus('port')], ['STBD EMITTERS', zoneStatus('stbd')], ['LIFE SUPPORT', 'ok'], ['CONTAINMENT', breach ? 'blink' : 'ok']], P);
       table(g, sub(g, c, 'SHIP', P.acc, P), [['SPEED', SPEEDS[state.speed].screen], ['HULL', Math.round(hullIntegrity()) + '%', zcol(P, worstZone() ? worstZone().id : 'prow')]], P);
     } else {
       const [a, b] = split(R, [1.2, 1], true, h * 0.03);
-      const ca = sub(g, a, 'SECTOR PLOT', P.ice, P), cx = ca.x + ca.w / 2, cy = ca.y + ca.h / 2, rad = Math.min(ca.w, ca.h) / 2 * 0.92;
-      g.strokeStyle = P.line; g.lineWidth = 1.5; for (let i = 1; i <= 4; i++) { g.beginPath(); g.arc(cx, cy, rad * i / 4, 0, 7); g.stroke(); }
-      const sw = elapsed * 0.9; g.strokeStyle = P.ice; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(sw) * rad, cy + Math.sin(sw) * rad); g.stroke();
-      const rr = mulberry(51 + state.cur);
-      for (let i = 0; i < 7; i++) { const an = rr() * 7, d = 0.3 + rr() * 0.6; hexNode(g, cx + Math.cos(an) * d * rad, cy + Math.sin(an) * d * rad, 5); g.fillStyle = i < 3 ? P.ice : i === 3 && state.alert !== 'green' ? P.acc : P.ice; g.fill(); }
-      hexNode(g, cx, cy, 7); g.fillStyle = P.acc; g.fill();
+      plotW(g, sub(g, a, 'SECTOR PLOT', P.ice, P), P);
       table(g, sub(g, b, 'CONTACTS', P.ice, P), [['AMITY ROSE', 'FRIENDLY', P.ice], ['KESTREL MAIDEN', 'FRIENDLY', P.ice], ['IRON PATIENCE', 'FRIENDLY', P.ice], ['TRACK 0417', state.alert !== 'green' ? 'UNKNOWN' : 'BEACON', state.alert !== 'green' ? P.acc : P.ice], ['DESTINATION', sysDest().star.toUpperCase()]], P);
     }
   },
 };
 DRAW.nav = DRAW.helm;
-function reticleW(g, r, P) {
-  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.9, red = state.alert === 'red';
-  g.strokeStyle = P.line; g.lineWidth = 2; [1, 0.66, 0.33].forEach((k) => { g.beginPath(); g.arc(cx, cy, rad * k, 0, 7); g.stroke(); });
-  g.beginPath(); g.moveTo(cx - rad, cy); g.lineTo(cx + rad, cy); g.moveTo(cx, cy - rad); g.lineTo(cx, cy + rad); g.stroke();
-  const a = elapsed * 0.6; g.strokeStyle = red ? P.red : P.ice; g.lineWidth = 3;
-  for (let i = 0; i < 4; i++) { const b = a + i * Math.PI / 2; g.beginPath(); g.arc(cx, cy, rad * 0.82, b, b + 0.5); g.stroke(); }
-  if (red) { const tx = cx + Math.cos(elapsed * 0.4) * rad * 0.35, ty = cy + Math.sin(elapsed * 0.55) * rad * 0.25, s = rad * 0.16 * (1 + 0.1 * Math.sin(elapsed * 8)); g.strokeStyle = P.red; g.lineWidth = 2; g.strokeRect(tx - s, ty - s, s * 2, s * 2); }
-}
-function plotW(g, r, P) {
-  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.92;
-  g.strokeStyle = P.line; g.lineWidth = 1.5; for (let i = 1; i <= 4; i++) { g.beginPath(); g.arc(cx, cy, rad * i / 4, 0, 7); g.stroke(); }
-  const sw = elapsed * 0.9; g.strokeStyle = P.ice; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(sw) * rad, cy + Math.sin(sw) * rad); g.stroke();
-  const rr = mulberry(51 + state.cur);
-  for (let i = 0; i < 7; i++) { const an = rr() * 7, d = 0.3 + rr() * 0.6; hexNode(g, cx + Math.cos(an) * d * rad, cy + Math.sin(an) * d * rad, 5); g.fillStyle = i < 3 ? P.ice : i === 3 && state.alert !== 'green' ? P.acc : P.ice; g.fill(); }
-  hexNode(g, cx, cy, 7); g.fillStyle = P.acc; g.fill();
-}
 LOGS.intel = ['TRACK 0412 CLASSIFIED FREIGHTER', 'TRACK 0413 CLASSIFIED FREIGHTER', 'TRACK 0414 BEACON · NAV HAZARD', 'TRACK 0415 COMET · INERT', 'TRACK 0416 SURVEY PROBE · OURS', 'TRACK 0417 UNRESOLVED · WATCHING', 'PATROL ROUTE 7 · NO ACTIVITY', 'COMINT · NO NEW INTERCEPTS'];
 DRAW.wpn = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, red = state.alert === 'red', rows = weaponRows(P);
@@ -474,83 +459,136 @@ DRAW.brief = function (g, x, y, w, h, P) {
     lights(g, sub(g, b, 'OPEN ITEMS', P.yel, P), [['COIL BANK B RECAL', 'warn'], ['SIF GEN 2 SERVICE', 'warn'], ['TORPEDO RESUPPLY', 'ok'], ['SHUTTLE 2 INSPECTION', 'ok'], ['SHORE LEAVE ROTA', 'off'], ['CREW EVALUATIONS', 'act']], P);
   }
 };
+function plotW(g, r, P) {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.92;
+  g.fillStyle = P.line; g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.fill();
+  g.fillStyle = '#000'; [0.72, 0.46].forEach((k) => { g.beginPath(); g.arc(cx, cy, rad * k, 0, 7); g.fill(); g.fillStyle = k > 0.5 ? P.line : '#000'; g.beginPath(); g.arc(cx, cy, rad * k - rad * 0.06, 0, 7); g.fill(); g.fillStyle = '#000'; });
+  const sw = elapsed * 0.9; g.fillStyle = P.ice; g.globalAlpha = 0.85; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, rad, sw - 0.22, sw); g.closePath(); g.fill(); g.globalAlpha = 1;
+  const rr = mulberry(51 + state.cur);
+  for (let i = 0; i < 7; i++) { const an = rr() * 7, d = 0.3 + rr() * 0.6, s = rad * 0.07; g.fillStyle = i === 3 && state.alert !== 'green' ? P.acc : i < 3 ? P.butter : P.ice; rrect(g, cx + Math.cos(an) * d * rad - s, cy + Math.sin(an) * d * rad - s, s * 2, s * 2, s * 0.4); g.fill(); }
+  g.fillStyle = P.acc; rrect(g, cx - rad * 0.09, cy - rad * 0.09, rad * 0.18, rad * 0.18, rad * 0.04); g.fill();
+}
+function reticleW(g, r, P) {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rad = Math.min(r.w, r.h) / 2 * 0.9, red = state.alert === 'red';
+  for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 + 0.12; g.strokeStyle = q % 2 ? P.plum : P.tan; g.lineWidth = rad * 0.16; g.beginPath(); g.arc(cx, cy, rad * 0.88, a, a + Math.PI / 2 - 0.24); g.stroke(); }
+  g.fillStyle = P.line; g.fillRect(cx - rad * 0.62, cy - rad * 0.03, rad * 1.24, rad * 0.06); g.fillRect(cx - rad * 0.03, cy - rad * 0.62, rad * 0.06, rad * 1.24);
+  const a = elapsed * 0.6; g.strokeStyle = red ? P.red : P.ice; g.lineWidth = rad * 0.08;
+  for (let i = 0; i < 4; i++) { const b = a + i * Math.PI / 2; g.beginPath(); g.arc(cx, cy, rad * 0.62, b, b + 0.5); g.stroke(); }
+  if (red) { const tx = cx + Math.cos(elapsed * 0.4) * rad * 0.35, ty = cy + Math.sin(elapsed * 0.55) * rad * 0.25, s = rad * 0.13 * (1 + 0.1 * Math.sin(elapsed * 8)); g.fillStyle = P.red; rrect(g, tx - s, ty - s, s * 2, s * 2, s * 0.3); g.fill(); }
+}
 function drawKeys(s) {
   const g = s.g, W = s.w, H = s.h, P = pal();
-  g.fillStyle = P.bg; g.fillRect(0, 0, W, H);
-  const cols = Math.max(3, Math.round(W / 34)), rows = Math.max(1, Math.round(H / 34));
-  const cw = W / cols, ch = H / rows, colors = [P.acc, P.accDim, P.ice, P.acc];
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const cols = Math.max(3, Math.round(W / 40)), rows = Math.max(1, Math.round(H / 32));
+  const cw = W / cols, ch = H / rows, colors = [P.acc, P.tan, P.ice, P.butter, P.tan, P.rose];
   const r = mulberry(s.seed);
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-    const base = r(), rate = 0.3 + r() * 1.6, col = colors[(r() * 4) | 0];
-    const on = Math.sin(elapsed * rate + base * 20) > (base < 0.35 ? -0.9 : 0.2);
-    const pw = cw * (base > 0.8 ? 0.88 : 0.76), ph = ch * 0.66, kx = i * cw + (cw - pw) / 2, ky = j * ch + (ch - ph) / 2;
-    hexTab(g, kx, ky, pw, ph, true, true); g.fillStyle = on ? col : P.line; g.globalAlpha = on ? 0.95 : 1; g.fill();
-    if (on && ph > 18 && base > 0.55) { g.globalAlpha = 1; g.fillStyle = '#000'; g.font = `700 ${ph * 0.36 | 0}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String((base * 90 | 0) + 10), kx + pw / 2, ky + ph / 2 + 1); }
+    const base = r(), rate = 0.3 + r() * 1.6, col = colors[(r() * colors.length) | 0], wide = base > 0.78 && i < cols - 1;
+    if (r() < 0.12) continue; // a gap now and then, so the pad reads as laid out rather than tiled
+    const on = Math.sin(elapsed * rate + base * 20) > (base < 0.3 ? -0.92 : -0.4);
+    const pw = cw * (wide ? 1.7 : 0.84), ph = ch * 0.7, kx = i * cw + cw * 0.08, ky = j * ch + (ch - ph) / 2;
+    hexTab(g, kx, ky, pw, ph, (i + j) % 3 === 0, (i + j) % 3 === 1); g.fillStyle = on ? col : P.line; g.fill();
+    if (ph > 14) { g.fillStyle = on ? '#000' : P.dim; g.font = `600 ${ph * 0.42 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(String((base * 89 | 0) + 10), kx + pw - ph * 0.3, ky + ph / 2 + 1); }
+    if (wide) i++;
   }
-  g.globalAlpha = 1;
 }
 function drawBand(s) {
-  const g = s.g, W = s.w, H = s.h, P = pal();
-  g.fillStyle = P.bg; g.fillRect(0, 0, W, H);
-  hexNode(g, H * 0.32, H * 0.42, H * 0.26); g.fillStyle = state.alert === 'green' ? P.sand : P.acc; g.fill(); hexNode(g, H * 0.32, H * 0.42, H * 0.11); g.fillStyle = '#000'; g.fill();
-  g.save(); g.translate(H * 0.42, 0); g.textBaseline = 'middle'; g.textAlign = 'left';
-  fitFont(g, s.title, 700, H * 0.26, DISP, W * 0.5); g.fillStyle = state.alert === 'green' ? P.txt : P.acc; g.fillText(state.alert === 'green' ? 'STANDING DOWN' : s.title, 24, H * 0.3);
-  g.font = `500 ${H * 0.13 | 0}px ${MONO}`; g.fillStyle = P.dim; g.fillText(s.code, 24, H * 0.62);
+  const g = s.g, W = s.w, H = s.h, P = pal(), green = state.alert === 'green', pad = H * 0.08, colW = H * 0.34, barH = H * 0.12;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  elbow(g, pad, pad, colW, barH, W * 0.3, H * 0.12, true, green ? P.tan : P.acc);
+  elbow(g, pad, H - pad, colW, barH, W * 0.22, H * 0.12, false, green ? P.ice : P.acc);
+  g.textBaseline = 'middle'; g.textAlign = 'left';
+  fitFont(g, green ? 'STANDING DOWN' : s.title, 600, H * 0.3, DISP, W * 0.44); g.fillStyle = green ? P.txt : P.acc; g.fillText(green ? 'STANDING DOWN' : s.title, pad + colW + H * 0.12, H * 0.46);
   const n = 10, sx = W * 0.56, sw = (W * 0.96 - sx) / n;
-  for (let i = 0; i < n; i++) { const on = state.alert === 'green' ? i < 2 : i < 10; hexTab(g, sx + i * sw - H * 0.42, H * 0.22, sw - 3, H * 0.5, true, true); g.fillStyle = on ? (state.alert === 'green' ? P.sec : P.acc) : P.line; g.fill(); }
-  g.fillStyle = P.dim; g.font = `500 ${H * 0.11 | 0}px ${MONO}`; g.textAlign = 'right'; g.fillText(state.alert === 'green' ? 'WATCH ROTATION 2 OF 3' : 'ALL STATIONS MANNED', W * 0.96 - H * 0.42, H * 0.86); g.restore();
+  for (let i = 0; i < n; i++) { const on = green ? i < 2 : true; hexTab(g, sx + i * sw, H * 0.3, sw - 4, H * 0.32, i === 0, i === n - 1); g.fillStyle = on ? (green ? P.tan : i % 3 === 2 ? P.butter : P.acc) : P.line; g.fill(); }
+  g.fillStyle = P.tan; g.font = `500 ${H * 0.13 | 0}px ${DISP}`; g.textAlign = 'right'; g.fillText(green ? 'WATCH ROTATION 2 OF 3' : 'ALL STATIONS MANNED', W * 0.96, H * 0.8);
 }
 function drawCmd(s) {
-  const g = s.g, W = s.w, H = s.h, P = pal();
-  g.drawImage(screenBg(W, H, P), 0, 0);
-  g.strokeStyle = P.acc; g.lineWidth = 2; chamfer(g, 4, 4, W - 8, H - 8, 12); g.stroke();
-  drawCrest(g, W / 2, 44, 24, P.acc, 2);
-  g.textAlign = 'center'; g.textBaseline = 'top';
-  g.fillStyle = P.dim; g.font = `500 14px ${MONO}`; g.fillText('COND', W / 2, 86);
-  fitFont(g, ALERTS[state.alert].short, 700, 26, DISP, W - 16); g.fillStyle = P.acc; g.fillText(ALERTS[state.alert].short, W / 2, 104);
-  g.fillStyle = P.dim; g.font = `500 14px ${MONO}`; g.fillText('SPEED', W / 2, 146);
-  const sp = SPEEDS[state.speed].screen.split(' ')[0]; fitFont(g, sp, 600, 22, DISP, W - 16); g.fillStyle = P.txt; g.fillText(sp, W / 2, 164);
+  const g = s.g, W = s.w, H = s.h, P = pal(), p = 6, bw = W - p * 2;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  hexTab(g, p, p, bw, 22, true, true); g.fillStyle = P.acc; g.fill();
+  g.fillStyle = '#000'; g.font = `600 15px ${DISP}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('COMMAND', W / 2, p + 12);
+  const blk = (y, h, label, value, c) => { g.fillStyle = c; g.fillRect(p, y, 10, h); g.fillStyle = P.tan; g.font = `500 13px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(label, p + 16, y); fitFont(g, value, 600, 24, DISP, bw - 18); g.fillStyle = c === P.acc ? P.butter : P.txt; g.fillText(value, p + 16, y + 16); };
+  blk(40, 44, 'CONDITION', ALERTS[state.alert].short, P.acc);
+  blk(94, 44, 'SPEED', SPEEDS[state.speed].screen.split(' ')[0], P.ice);
   const rows = [['SHIELDS', ARCS.reduce((a, k) => a + shieldNow(k), 0) / 400], ['HULL', hullIntegrity() / 100], ['POWER', reactorOut() / SIM.reactor], ['BEAMS', (sim.beams.dorsal + sim.beams.ventral) / 2], ['TORPS', torpsLeft() / (SIM.torp.perBay * 2)]];
-  rows.forEach(([k, v], i) => { const y0 = 204 + i * 28; g.fillStyle = P.dim; g.font = `500 11px ${MONO}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(k, 20, y0); g.fillStyle = P.line; g.fillRect(20, y0 + 13, W - 40, 8); g.fillStyle = k === 'HULL' && v < 0.5 ? P.red : i % 2 ? P.ice : P.acc; g.fillRect(20, y0 + 13, (W - 40) * clamp(v, 0, 1), 8); });
+  rows.forEach(([k, v], i) => { const y0 = 152 + i * 34; g.fillStyle = P.tan; g.font = `500 12px ${DISP}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(k, p, y0); g.fillStyle = P.line; g.fillRect(p, y0 + 15, bw, 12); hexTab(g, p, y0 + 15, Math.max(12, bw * clamp(v, 0, 1)), 12, false, true); g.fillStyle = k === 'HULL' && v < 0.5 ? P.red : [P.acc, P.ice, P.butter, P.tan, P.rose][i]; g.fill(); });
+  hexTab(g, p, H - p - 14, bw, 14, true, true); g.fillStyle = P.plum; g.fill();
 }
+// the status strip on the shelf above a wall station: code cap, title, then a run of blocks
+function drawStrip(s) {
+  const g = s.g, W = s.w, H = s.h, P = pal(), p = Math.round(H * 0.14), bh = H - p * 2, cap = bh * 2.2;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  hexTab(g, p, p, cap, bh, true, false); g.fillStyle = P.acc; g.fill();
+  g.fillStyle = '#000'; g.font = `600 ${bh * 0.6 | 0}px ${DISP}`; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText((s.code.split('·')[1] || ''), p + cap - bh * 0.25, H / 2 + 1);
+  const t = s.title.toUpperCase(); fitFont(g, t, 600, bh * 0.92, DISP, W * 0.32); g.fillStyle = P.acc; g.textAlign = 'left'; g.fillText(t, p + cap + bh * 0.3, H / 2 + 2);
+  let x = p + cap + bh * 0.6 + g.measureText(t).width; const r = mulberry(s.seed + 5), cols = [P.tan, P.ice, P.butter, P.plum, P.tan, P.rose];
+  while (x < W - p - bh * 0.8) { const w = bh * (0.8 + r() * 3.2), c = cols[(r() * cols.length) | 0], on = Math.sin(elapsed * (0.3 + r()) + r() * 9) > -0.7; g.fillStyle = on ? c : P.line; g.fillRect(x, p, Math.min(w, W - p - bh * 0.8 - x), bh); x += w + bh * 0.25; }
+  hexTab(g, W - p - bh * 0.6, p, bh * 0.6, bh, false, true); g.fillStyle = P.acc; g.fill();
+}
+// Deck 2: the lobby directory and the wardroom mess board
+DRAW.deck2 = function (g, x, y, w, h, P) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.4, 1], false, w * 0.04);
+  table(g, sub(g, a, 'OFFICERS’ DECK', P.acc, P), [['CAPTAIN’S QUARTERS', 'FORWARD'], ['LIFT 1 LOBBY', 'YOU ARE HERE', P.acc], ['OFFICERS’ CORRIDOR', 'AFT'], ['FIRST OFFICER', 'SEALED', P.dim], ['SENIOR OFFICERS', 'SEALED', P.dim], ['OFFICERS’ WARDROOM', 'AFT END'], ['OBSERVATION LOUNGE', 'SEALED', P.dim]], P);
+  lights(g, sub(g, b, 'DECK', P.ice, P), [['ATMOSPHERE', 'ok'], ['GRAVITY', 'ok'], ['LIGHTING', state.alert === 'red' ? 'alert' : 'ok'], ['FITTING-OUT', 'warn'], ['LIFT 1', typeof LIFT === 'undefined' || LIFT.phase === 'idle' ? 'ok' : 'act']], P);
+};
+DRAW.mess = function (g, x, y, w, h, P) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
+  table(g, sub(g, a, 'MESS · TODAY', P.acc, P), [['0630', 'BREAKFAST · ALPHA WATCH'], ['1200', 'MIDDAY · ALL WATCHES'], ['1830', 'OFFICERS’ DINNER'], ['2200', 'NIGHT GALLEY'], ['HOST', 'FIRST OFFICER']], P);
+  lights(g, sub(g, b1, 'TABLE', P.ice, P), [['SEATS 10', 'ok'], ['GUESTS 2', 'act']], P);
+  spark(g, sub(g, b2, 'GALLEY', P.acc, P), P.tan, 4, 0.5, P, 0.4);
+};
+// the narrow panel beside each wall station's main display
+DRAW.aux = function (g, x, y, w, h, P, s) {
+  const R = { x, y, w, h }, [a, b, c] = split(R, [1, 1.1, 0.9], true, h * 0.04), up = state.alert !== 'green';
+  ringW(g, sub(g, a, 'LOAD', P.acc, P), P, Math.round(jit(58 + (s.seed % 30), 2, 0.4, s.seed)) + '%', 'DUTY');
+  lights(g, sub(g, b, 'BUS', P.ice, P), [['PRIMARY', 'ok'], ['BACKUP', 'ok'], ['LINK ' + (s.seed % 9 + 1), up ? 'act' : 'ok'], ['ISOLATE', 'off'], ['RELAY', up ? 'warn' : 'ok']], P);
+  spark(g, sub(g, c, 'TRACE', P.acc, P), P.ice, s.seed, 1.2, P);
+};
 function drawScreen(s) {
-  if (s.kind === 'cmd') drawCmd(s);
+  if (s.kind === 'strip') drawStrip(s);
+  else if (s.kind === 'cmd') drawCmd(s);
   else if (s.kind === 'keys') drawKeys(s);
   else if (s.kind === 'band') drawBand(s);
   else {
-    const g = s.g, W = s.w, H = s.h, P = pal();
-    g.fillStyle = P.bg; g.fillRect(0, 0, W, H);
-    const pad = Math.max(5, Math.round(Math.min(W, H) * 0.045));
-    const tall = H > W * 1.2;
-    const colW = tall ? 0 : Math.round(clamp(W * 0.11, 34, 110));
-    // numbered touch-key column
-    const FC = fnColor(P, s.station), fs = Math.round(clamp(Math.min(H, W * 0.5) * (H < 200 ? 0.15 : 0.09), 11, 40));
-    const nodeR = colW ? Math.min(colW * 0.42, fs * 0.95) : fs * 0.55;
-    const ncx = colW ? pad + colW / 2 : pad + nodeR, ncy = pad + Math.max(nodeR, fs * 0.6);
-    hexNode(g, ncx, ncy, nodeR); g.fillStyle = FC; g.fill();
-    hexNode(g, ncx, ncy, nodeR * 0.45); g.fillStyle = '#000'; g.fill();
-    if (colW) {
-      const top = ncy + nodeR + pad * 0.8;
-      const n = clamp(Math.round((H - top - pad) / Math.max(28, H * 0.16)), 1, 6), gap = pad * 0.6, kh = (H - top - pad - (n - 1) * gap) / n;
-      const r = mulberry(s.seed), cols = [FC, P.sand, FC, P.line];
+    const g = s.g, W = s.w, H = s.h, P = pal(), small = H < 200;
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    const pad = Math.max(4, Math.round(Math.min(W, H) * 0.035)), gap = Math.max(3, Math.round(pad * 0.7));
+    const colW = Math.round(clamp(W * 0.085, 22, 92)), barH = Math.round(clamp(H * (small ? 0.075 : 0.042), 6, 22));
+    const fs = Math.round(clamp(H * (small ? 0.13 : 0.068), 11, 46)), ext = Math.round(clamp(H * 0.1, 8, 64));
+    const title = s.title.toUpperCase(); fitFont(g, title, 600, fs, DISP, W * 0.5); const tw = g.measureText(title).width;
+    const tx = W - pad - fs * 0.55 - gap, barEnd = tx - tw - gap * 2;
+    // top elbow and bar: peach, a tan block, a lilac block, then the title on black and a peach end cap
+    const seg1 = Math.max(colW + barH * 2, (barEnd - pad) * 0.48);
+    elbow(g, pad, pad, colW, barH, seg1, ext, true, P.acc);
+    const s2 = pad + seg1 + gap, s2w = (barEnd - s2) * 0.32;
+    if (s2w > 4) { g.fillStyle = P.tan; g.fillRect(s2, pad, s2w, barH); g.fillStyle = P.ice; g.fillRect(s2 + s2w + gap, pad, Math.max(0, barEnd - s2 - s2w - gap), barH); }
+    g.fillStyle = P.acc; g.textAlign = 'right'; g.textBaseline = 'top'; g.fillText(title, tx, pad - fs * 0.08);
+    hexTab(g, W - pad - fs * 0.55, pad, fs * 0.55, barH, false, true); g.fillStyle = P.acc; g.fill();
+    // bottom elbow and bar, with the station code in its own block
+    g.font = `600 ${Math.round(barH * 1.05)}px ${DISP}`; const code = s.code || '', cw2 = g.measureText(code).width + barH * 2;
+    const bseg = Math.max(colW + barH * 2, (W - pad * 2 - cw2) * 0.38);
+    elbow(g, pad, H - pad, colW, barH, bseg, ext, false, P.tan);
+    const b2 = pad + bseg + gap, b2w = W - pad - cw2 - gap - b2;
+    if (b2w > 4) { g.fillStyle = P.plum; g.fillRect(b2, H - pad - barH, b2w * 0.55, barH); g.fillStyle = P.acc; g.fillRect(b2 + b2w * 0.55 + gap, H - pad - barH, b2w * 0.45 - gap, barH); }
+    hexTab(g, W - pad - cw2, H - pad - barH, cw2, barH, false, true); g.fillStyle = P.butter; g.fill();
+    g.fillStyle = '#000'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(code, W - pad - cw2 + barH * 0.5, H - pad - barH / 2 + 1);
+    // the column between the elbows: numbered blocks
+    const cy0 = pad + barH + ext + gap, cy1 = H - pad - barH - ext - gap, avail = cy1 - cy0;
+    if (avail > 14) {
+      const n = clamp(Math.round(avail / Math.max(24, H * 0.12)), 1, 6), kh = (avail - (n - 1) * gap) / n, r = mulberry(s.seed), cols = [P.ice, P.tan, P.butter, P.rose, P.tan, P.plum];
       for (let i = 0; i < n; i++) {
-        const c = i === 0 ? FC : cols[(r() * 4) | 0], ph = r() * 9, sp = 0.4 + r() * 0.8, num = String(1000 + ((s.seed * 37 + i * 113) % 8999));
-        const blink = Math.sin(elapsed * sp + ph) > 0.93;
-        hexTab(g, pad, top + i * (kh + gap), colW, kh, true, true); g.fillStyle = blink ? '#ffffff' : c; g.fill();
-        g.fillStyle = c === P.line ? P.dim : '#000'; g.textAlign = 'right'; g.textBaseline = 'middle'; fitFont(g, num, 700, Math.min(kh * 0.4, colW * 0.28), MONO, colW * 0.6); g.fillText(num, pad + colW - Math.min(kh * 0.32, colW / 3) - 2, top + i * (kh + gap) + kh / 2 + 1);
+        const c = cols[(r() * cols.length) | 0], blink = Math.sin(elapsed * (0.4 + r() * 0.8) + r() * 9) > 0.95, num = String(10 + ((s.seed * 37 + i * 113) % 89)) + '-' + String(1000 + ((s.seed * 53 + i * 71) % 8999));
+        g.fillStyle = blink ? P.txt : c; g.fillRect(pad, cy0 + i * (kh + gap), colW, kh);
+        if (kh > 12) { g.fillStyle = '#000'; g.textAlign = 'right'; g.textBaseline = 'bottom'; fitFont(g, num, 600, Math.min(kh * 0.36, colW * 0.24), DISP, colW - 6); g.fillText(num, pad + colW - 4, cy0 + i * (kh + gap) + kh - 2); }
       }
     }
-    const x0 = colW ? pad * 2 + colW : pad * 2 + nodeR * 2;
-    g.textBaseline = 'top'; g.textAlign = 'left'; g.fillStyle = P.txt; fitFont(g, s.title.toUpperCase(), 700, fs, DISP, (W - x0 - pad) * 0.7); g.fillText(s.title.toUpperCase(), x0, pad);
-    g.textAlign = 'right'; g.fillStyle = P.dim; g.font = `500 ${fs * 0.6 | 0}px ${MONO}`; g.fillText(s.code, W - pad, pad + fs * 0.25);
-    const ly = pad + fs * 1.22, bh = Math.max(5, fs * 0.36), rw = W - x0 - pad;
-    hexTab(g, x0, ly, rw * 0.42, bh, false, true); g.fillStyle = FC; g.fill();
-    hexTab(g, x0 + rw * 0.44, ly, rw * 0.16, bh, true, true); g.fillStyle = P.sand; g.fill();
-    hexTab(g, x0 + rw * 0.62, ly, rw * 0.38, bh, true, false); g.fillStyle = P.line; g.fill();
-    DRAW[s.kind](g, x0, ly + bh + pad * 0.8, W - x0 - pad, H - ly - bh - pad * 1.8, P, s);
+    const x0 = pad + colW + gap * 2.5, y0 = pad + Math.max(fs * 1.02, barH + ext * 0.4) + gap, y1 = H - pad - barH - gap * 1.6;
+    DRAW[s.kind](g, x0, y0, W - x0 - pad, y1 - y0, P, s);
   }
   s.tex.needsUpdate = true;
 }
+
 function redrawAll() { screens.forEach(drawScreen); drawOverlay(); }
 redrawAll();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { redrawAll(); });

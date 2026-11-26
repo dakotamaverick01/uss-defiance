@@ -27,14 +27,14 @@ function wallCanvases() {
   const W = 192, H = 528, Y = (m) => H - m * 160;
   const c = cnv(W, H), g = c.getContext('2d'), e = cnv(W, H), ge = e.getContext('2d');
   // upper service band
-  g.fillStyle = '#3e3934'; g.fillRect(0, 0, W, Y(2.72));
+  g.fillStyle = '#5a544d'; g.fillRect(0, 0, W, Y(2.72));
   for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(24, 18 + i * 11, W - 48, 4); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(24, 22 + i * 11, W - 48, 1); }
   // main panel
-  const gr = g.createLinearGradient(0, Y(2.72), 0, Y(1.02)); gr.addColorStop(0, '#a59c90'); gr.addColorStop(1, '#8c8478');
+  const gr = g.createLinearGradient(0, Y(2.72), 0, Y(1.02)); gr.addColorStop(0, '#d8d0c3'); gr.addColorStop(1, '#c9c0b2');
   g.fillStyle = gr; g.fillRect(0, Y(2.72), W, Y(1.02) - Y(2.72));
   [[2.62, 1.92], [1.86, 1.1]].forEach(([top, bot]) => {
     const x0 = 14, x1 = W - 14, y0 = Y(top), y1 = Y(bot);
-    g.fillStyle = 'rgba(60,45,30,0.08)'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle = 'rgba(176,140,92,0.28)'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
     g.fillStyle = 'rgba(255,250,240,0.5)'; g.fillRect(x0, y1 - 2, x1 - x0, 2); g.fillRect(x1 - 2, y0, 2, y1 - y0);
     g.fillStyle = 'rgba(40,28,18,0.4)'; g.fillRect(x0, y0, x1 - x0, 2); g.fillRect(x0, y0, 2, y1 - y0);
     [[x0 + 8, y0 + 8], [x1 - 8, y0 + 8], [x0 + 8, y1 - 8], [x1 - 8, y1 - 8]].forEach(([fx, fy]) => fastener(g, fx, fy, 2.2));
@@ -43,7 +43,7 @@ function wallCanvases() {
   g.fillStyle = '#7d7871'; g.fillRect(0, Y(1.02), W, Y(0.95) - Y(1.02));
   g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(0, Y(1.02), W, 2);
   // armored dado
-  g.fillStyle = '#3a3633'; g.fillRect(0, Y(0.95), W, Y(0.12) - Y(0.95));
+  g.fillStyle = '#4e4843'; g.fillRect(0, Y(0.95), W, Y(0.12) - Y(0.95));
   g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 2; g.strokeRect(10, Y(0.9), W - 20, Y(0.17) - Y(0.9));
   g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 1; g.strokeRect(12, Y(0.88), W - 24, Y(0.19) - Y(0.88));
   [[20, Y(0.84)], [W - 20, Y(0.84)], [20, Y(0.24)], [W - 20, Y(0.24)], [W / 2, Y(0.84)], [W / 2, Y(0.24)]].forEach(([x, y]) => fastener(g, x, y, 2.6));
@@ -96,7 +96,7 @@ function plateTile() {
 }
 function ceilingTile() {
   const S = 256, c = cnv(S, S), g = c.getContext('2d');
-  g.fillStyle = '#5e5851'; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#b9b2a7'; g.fillRect(0, 0, S, S);
   noise(g, S, S, 1600, 0.04, 44);
   g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 3; g.strokeRect(1, 1, S - 2, S - 2);
   g.strokeStyle = 'rgba(255,255,255,0.06)'; g.lineWidth = 1; g.strokeRect(5, 5, S - 10, S - 10);
@@ -196,6 +196,8 @@ triSurface(MAT.steel, { set: 'steel', metres: 0.45, ns: 0.6, rv: 0.8, low: 0.5 }
 triSurface(MAT.leather, { set: 'leather', metres: 0.25, ns: 2.2, rv: 1.0, low: 0 });
 triSurface(MAT.leatherDark, { set: 'leather', metres: 0.25, ns: 2.2, rv: 1.0, low: 0 });
 // crushed carpet pile and polished tread plate along the walkways
+// bright workhorse: lift the photographed carpets to a mid blue-grey (colour above 1 brightens the texture)
+MAT.floorCarpet.color.setRGB(1.75, 1.85, 2.05); MAT.roomCarpet.color.setRGB(1.35, 1.35, 1.4);
 walkWear(MAT.floorCarpet, { amt: 0.8, rough: 1.0, flat: 0.6, tint: [1.3, 1.27, 1.22] });
 walkWear(MAT.floorPlate, { amt: 0.85, rough: 0.5, flat: 0.25, tint: [1.25, 1.25, 1.25] });
 // painted-metal roughness variation on the bridge walls (wall UVs: one unit per 1.2 m bay across, wall height up)

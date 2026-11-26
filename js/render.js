@@ -204,7 +204,7 @@ function frame() {
   }
 
   DOORS.forEach((d) => {
-    const near = d.auto && !state.sitting && Math.hypot(camera.position.x - d.wx, camera.position.z - d.wz) < (d.room ? 1.7 : 1.5);
+    const near = d.auto && d.deck === LIFT.deck && !state.sitting && Math.hypot(camera.position.x - d.wx, camera.position.z - d.wz) < (d.room ? 1.7 : 1.5);
     if (d.station === 'lift') d.open = LIFT.door; // lift.js runs the lift doors
     else d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
     d.L.position.x = -0.3 - d.open * 0.56; d.Rr.position.x = 0.3 + d.open * 0.56;
@@ -236,13 +236,13 @@ function frame() {
     stripMats.forEach((m) => m.color.setHex(ALERTS.red.strip).multiplyScalar(1.9 * k));
     slotMats.forEach((m) => m.color.setHex(ALERTS.red.slot).multiplyScalar(1.35 * (0.35 + 0.65 * k)));
     MAT.wall.emissiveIntensity = 0.3 + 0.7 * k;
-    bakeLevels(LIGHT_LEVELS[state.light] * 0.8, 'red', ALERTS.red.strip, k);
+    bakeLevels(LIGHT_LEVELS[state.light] * 0.28, 'red', ALERTS.red.strip, k);
   } else MAT.wall.emissiveIntensity = 0.7;
 
   if (AC && soundOn && elapsed > nextChirp) { nextChirp = elapsed + 3 + Math.random() * 6; const b = 1200 + Math.random() * 1200; beep(Math.random() < 0.5 ? [b, b * 1.25] : [b], 0.045, 0.012); }
 
   rrTimer += dt;
-  if (rrTimer > 0.04 && LIFT.deck === 1) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72) { drawScreen(sc); break; } } }
+  if (rrTimer > 0.04) { rrTimer = 0; for (let k = 0; k < screens.length; k++) { const sc = screens[rr++ % screens.length]; if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); } if (sc.wp.distanceToSquared(camera.position) < 72 && shown(sc.mesh)) { drawScreen(sc); break; } } }
   if (state.open && byStation[state.open]) { panelTimer += dt; if (panelTimer > 0.15) { panelTimer = 0; byStation[state.open].forEach((s) => { if (s.kind !== 'keys') drawScreen(s); }); } }
   ovTimer += dt; if (ovTimer > 1) { ovTimer = 0; drawOverlay(); }
 
