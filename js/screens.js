@@ -578,8 +578,8 @@ function drawStrip(s) {
 // Deck 2: the lobby directory and the wardroom mess board
 DRAW.deck2 = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.4, 1], false, w * 0.04);
-  table(g, sub(g, a, 'OFFICERS’ DECK', P.acc, P), [['CAPTAIN’S QUARTERS', 'FORWARD'], ['LIFT 1 LOBBY', 'YOU ARE HERE', P.acc], ['OFFICERS’ CORRIDOR', 'AFT'], ['FIRST OFFICER', 'SEALED', P.dim], ['SENIOR OFFICERS', 'SEALED', P.dim], ['OFFICERS’ WARDROOM', 'AFT END'], ['OBSERVATION LOUNGE', 'SEALED', P.dim]], P);
-  lights(g, sub(g, b, 'DECK', P.ice, P), [['ATMOSPHERE', 'ok'], ['GRAVITY', 'ok'], ['LIGHTING', state.alert === 'red' ? 'alert' : 'ok'], ['FITTING-OUT', 'warn'], ['LIFT 1', typeof LIFT === 'undefined' || LIFT.phase === 'idle' ? 'ok' : 'act']], P);
+  table(g, sub(g, a, 'OFFICERS’ DECK', P.acc, P), [['CAPTAIN’S QUARTERS', 'FORWARD'], ['LIFT 1 LOBBY', 'YOU ARE HERE', P.acc], ['FIRST OFFICER', 'PORT'], ['SENIOR OFFICERS', 'STARBOARD'], ['OFFICERS’ WARDROOM', 'AFT'], ['OBSERVATION LOUNGE', 'AFT']], P);
+  lights(g, sub(g, b, 'DECK', P.ice, P), [['ATMOSPHERE', 'ok'], ['GRAVITY', 'ok'], ['LIGHTING', state.alert === 'red' ? 'alert' : 'ok'], ['SHUTTERS', state.alert === 'red' ? 'alert' : 'ok'], ['LIFT 1', typeof LIFT === 'undefined' || LIFT.phase === 'idle' ? 'ok' : 'act']], P);
 };
 // the first officer's desk: the duty roster and the departments' standing
 DRAW.xo = function (g, x, y, w, h, P) {

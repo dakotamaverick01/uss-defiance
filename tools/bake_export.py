@@ -17,6 +17,8 @@ EXPORT_JS = r"""() => {
   DOORS.forEach((d) => [d.L, d.Rr].forEach((o) => o.traverse((c) => skip.add(c))));
   SHUTTERS.forEach((s) => s.slats.forEach((o) => skip.add(o)));
   if (typeof cupGroup !== 'undefined' && cupGroup) cupGroup.traverse((c) => skip.add(c));
+  // the exterior set piece outside Deck 2's windows is not part of the bake
+  if (typeof EXTSET !== 'undefined') EXTSET.traverse((c) => skip.add(c));
   // the Lift 1 car and the sealed lobbies are lit by their own painted light maps (lift.js), not the bake
   if (typeof LIFT !== 'undefined') [LIFT.root, LIFT.stub].forEach((g) => g.traverse((c) => skip.add(c)));
   const live = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };

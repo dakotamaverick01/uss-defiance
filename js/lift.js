@@ -13,7 +13,7 @@
 // Decks Lift 1 serves (from docs/master-systems-display.html)
 const LIFT_DECKS = [
   { n: 1, name: 'Main Bridge', short: 'BRIDGE', built: true },
-  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'Officers’ wardroom'], sealed: ['First officer’s quarters', 'Senior officers’ quarters', 'Observation lounge'] },
+  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'First officer’s quarters', 'Senior officers’ cabins', 'Officers’ wardroom', 'Officers’ passage', 'Observation lounge'], sealed: [] },
   { n: 3, name: 'Medical and officers', short: 'MEDICAL', rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
   { n: 4, name: 'Crew deck', short: 'CREW', rooms: ['Mess hall and galley', 'Crew lounge and gym', 'Crew quarters', 'Auxiliary control'] },
   { n: 5, name: 'Weapons and transport', short: 'WEAPONS', rooms: ['Torpedo bays 1 and 2', 'Armory and security', 'Transporter rooms', 'Science labs'] },
@@ -341,12 +341,12 @@ Object.assign(STATIONS, {
   liftcar: { title: 'Lift 1', role: 'Choose a deck', panel: () => {
     const d = liftDeck(LIFT.deck);
     return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Decks 1 and 2']],
-      note: LIFT.inside ? 'Deck 2 has the captain’s quarters and the wardroom. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
+      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
       acts: LIFT_DECKS.map((x) => ({ label: `${x.n} · ${x.short.charAt(0) + x.short.slice(1).toLowerCase()}`, on: x.n === LIFT.deck, disabled: x.n === LIFT.deck || LIFT.phase !== 'idle', fn: () => liftGo(x.n) })) };
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {
     const d = liftDeck(LIFT.deck); STATIONS.deckdir.role = `Deck ${d.n} · ${d.name}`;
-    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')], ['Still sealed', d.sealed.join(', ')]], note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft to the wardroom.', acts: [] };
+    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')]].concat(d.sealed.length ? [['Still sealed', d.sealed.join(', ')]] : []), note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft past the officers’ cabins to the wardroom; the passage to port at its end leads to the observation lounge.', acts: [] };
     return { read: [['On this deck', (d.rooms || []).join(', ') || 'Main bridge, ready room, conference room'], ['Status', d.built ? 'Open' : 'Sealed for fitting-out']],
       note: 'Not built yet. Take the lift back up, or look around another deck.', acts: [] };
   } },

@@ -235,7 +235,7 @@ function frame() {
     });
     const ll = liftLocation(here && here.label); if (ll !== lastLoc) { lastLoc = ll; locNode.nodeValue = ll; } }
   { const closed = state.shutters === 'closed' || (state.shutters === 'auto' && state.alert === 'red');
-    SHUTTERS.forEach((sh) => { sh.cur += ((closed ? 1 : 0) - sh.cur) * Math.min(1, dt * 2.2); const a = sh.cur * (Math.PI / 2 - 0.05); sh.slats.forEach((sl) => { sl.rotation.x = a; }); }); }
+    SHUTTERS.forEach((sh) => { sh.cur += ((closed ? 1 : 0) - sh.cur) * Math.min(1, dt * 2.2); const a = sh.cur * (Math.PI / 2 - 0.05); sh.slats.forEach((sl) => { sl.rotation.x = a; if (sh.hideOpen) sl.visible = sh.cur > 0.02; }); }); }
   if (cur.speed > 0.3) {
     extStreaks.visible = true; extMat.opacity = Math.min(1, cur.speed / 10) * 0.85; const L2 = 0.3 + cur.len * 0.45;
     for (let i = 0; i < EXT_N; i++) {
