@@ -160,9 +160,9 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
     elbow(x, 14, 14, 70, 18, 300, 30, true, '#E8A06A'); elbow(x, 14, 242, 70, 14, 200, 24, false, '#D9B07E');
     x.fillStyle = '#F2C88F'; x.font = `700 150px ${DISP}`; x.textBaseline = 'middle'; x.fillText('2', 110, 132);
     x.fillStyle = '#E8A06A'; x.font = `600 44px ${DISP}`; x.fillText('DECK 2', 220, 92); x.fillStyle = '#B693C4'; x.font = `500 32px ${DISP}`; x.fillText("OFFICERS' DECK", 222, 142); x.fillStyle = '#D9B07E'; x.font = `500 24px ${DISP}`; x.fillText('LIFT 1 · DECKS 1 TO 6', 222, 186);
-    const m = mesh(new THREE.PlaneGeometry(1.1, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), D2_LX + 1.75, 1.6, z1 - 0.022, DECK2); m.rotation.y = Math.PI;
-    mesh(RBOX(1.22, 0.62, 0.02, 0.008), MAT.gunDark, D2_LX + 1.75, 1.6, z1 - 0.006, DECK2); }
-  const dg = group(x0 + 0.04, 1.45, (z0 + z1) / 2, Math.PI / 2, DECK2); display(dg, 1.3, 0.8, 640, 394, 'deck2', 'deckdir', 'Deck 2 directory', 'D2·00');
+    const m = mesh(new THREE.PlaneGeometry(1.1, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), D2_LX + 1.75, 1.6, z1 - 0.082, DECK2); m.rotation.y = Math.PI;
+    mesh(RBOX(1.22, 0.62, 0.02, 0.008), MAT.gunDark, D2_LX + 1.75, 1.6, z1 - 0.07, DECK2); }
+  const dg = group(x0 + 0.1, 1.45, (z0 + z1) / 2, Math.PI / 2, DECK2); display(dg, 1.3, 0.8, 640, 394, 'deck2', 'deckdir', 'Deck 2 directory', 'D2·00');
   { const b = group(x0 + 0.3, 0, (z0 + z1) / 2, Math.PI / 2, DECK2); mesh(RBOX(1.6, 0.1, 0.42, 0.03), MAT.leather, 0, 0.45, 0, b); mesh(RBOX(1.6, 0.36, 0.36, 0.02), MAT_PED, 0, 0.2, 0.02, b); }
   d2obs(x0 + 0.3, (z0 + z1) / 2 - 0.5, 0.3); d2obs(x0 + 0.3, (z0 + z1) / 2 + 0.5, 0.3);
   plantAt(DECK2, x1 - 0.45, z1 - 0.45, 0.9); d2obs(x1 - 0.45, z1 - 0.45, 0.3);
@@ -190,8 +190,8 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
   doorAt(x1, 7.2, -Math.PI / 2, 'SENIOR OFFICER', 'so1q', true, true, DECK2, 2);
   doorAt(x1, 12.0, -Math.PI / 2, 'SENIOR OFFICER', 'so2q', true, true, DECK2, 2);
   doorAt(D2_WARD.door, z1, Math.PI, 'WARDROOM', 'wardoor', true, true, DECK2, 2);
-  d2label('AFT · WARDROOM', x1 - 0.02, 2.0, 4.6, -Math.PI / 2, 0.9);
-  d2label('PORT · OBSERVATION LOUNGE', x1 - 0.02, 2.0, 15.9, -Math.PI / 2, 1.2);
+  d2label('AFT · WARDROOM', x1 - 0.08, 2.0, 4.6, -Math.PI / 2, 0.9);
+  d2label('PORT · OBSERVATION LOUNGE', x1 - 0.08, 2.0, 15.9, -Math.PI / 2, 1.2);
   // lined reveal for the open way through to the officers' passage
   [15.2, 16.6].forEach((z) => mesh(BOX(0.16, 2.35, 0.04), MAT.gun, x0, 1.175, z, DECK2)); mesh(BOX(0.16, 0.04, 1.44), MAT.gun, x0, 2.35, 15.9, DECK2);
 }
@@ -258,7 +258,7 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
   { // desk on the starboard wall, with the captain's personal screen
     const dx = Q.x1 - 0.45, dz = 0.0, g = group(dx, 0, dz, -Math.PI / 2, DECK2);
     d2desk(g, 1.6, 0.75, 'qdesk', 'log', 'Personal log', 'CO·01');
-    const sg = group(0, 1.5, -0.42, 0, g); display(sg, 1.1, 0.62, 640, 360, 'log', 'qdesk', 'Personal log', 'CO·01');
+    const sg = group(0, 1.5, -0.34, 0, g); display(sg, 1.1, 0.62, 640, 360, 'log', 'qdesk', 'Personal log', 'CO·01');
     d2chair(dx - 0.85, dz, -Math.PI / 2, MAT.leatherDark, 'station');
     d2obs(dx, dz - 0.5, 0.42); d2obs(dx, dz + 0.5, 0.42);
     d2down(dx - 0.4, dz, H);
@@ -392,9 +392,9 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
   { const c = cnv(512, 512), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#8a6a44'); gr.addColorStop(1, '#5e462c'); x.fillStyle = gr; x.fillRect(0, 0, 512, 512);
     x.strokeStyle = 'rgba(255,230,190,0.6)'; x.lineWidth = 6; x.strokeRect(18, 18, 476, 476); drawCrest(x, 256, 210, 130, '#f3dcb4', 8);
     x.fillStyle = '#f7e6c8'; x.textAlign = 'center'; x.font = `600 40px ${DISP}`; x.fillText('U.S.S. DEFIANCE', 256, 400); x.font = `500 26px ${DISP}`; x.fillText('STEADY UNDER FIRE', 256, 446);
-    const m = mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), cx, 1.8, W2.z1 - 0.02, DECK2); m.rotation.y = Math.PI; }
+    const m = mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), cx, 1.8, W2.z1 - 0.08, DECK2); m.rotation.y = Math.PI; }
   // wall screen on the port side: the mess board
-  const sg = group(W2.x0 + 0.04, 1.5, cz, Math.PI / 2, DECK2); display(sg, 1.5, 0.84, 720, 404, 'mess', 'wardroom', 'Wardroom', 'WRD·01');
+  const sg = group(W2.x0 + 0.1, 1.5, cz, Math.PI / 2, DECK2); display(sg, 1.5, 0.84, 720, 404, 'mess', 'wardroom', 'Wardroom', 'WRD·01');
   plantAt(DECK2, W2.x0 + 0.5, W2.z1 - 0.5, 1.1); plantAt(DECK2, W2.x1 - 0.5, W2.z1 - 0.5, 1.1); d2obs(W2.x0 + 0.5, W2.z1 - 0.5, 0.3); d2obs(W2.x1 - 0.5, W2.z1 - 0.5, 0.3);
 }
 
@@ -420,7 +420,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   d2panel((P.ax1 + 0.2) / 2, (P.z0 + P.z1) / 2, H, 0.9, 0.36);
   d2frames(P.ax0, P.ax1, P.z1, P.az1, H);
   { const r = mesh(CYL(0.022, 0.022, P.az1 - P.z1 - 0.6, 10), MAT.steel, P.ax1 - 0.06, 0.95, (P.z1 + P.az1) / 2, DECK2); r.rotation.x = Math.PI / 2; }
-  d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.02, 2.0, 16.0, Math.PI / 2, 1.2);
+  d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.08, 2.0, 16.0, Math.PI / 2, 1.2);
   doorAt(P.ax0, P.cap, Math.PI / 2, 'TURRET CAPACITORS', 'capbank', false, true, DECK2, 2);
   doorAt(D2_LNG.door, P.az1, Math.PI, 'OBSERVATION LOUNGE', 'lngdoor', true, true, DECK2, 2);
 }
@@ -456,7 +456,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
     [bz - 0.6, bz + 0.6].forEach((z) => { d2chair(bx - 0.85, z, -Math.PI / 2, MAT.leatherDark, 'station'); d2obs(bx - 0.85, z, 0.26); });
     d2down(bx - 0.4, bz, H); }
   // the wall screen on the forward wall, and the view it describes
-  { const g = group(1.6, 1.55, L.z0 + 0.04, 0, DECK2); display(g, 1.7, 0.95, 720, 402, 'lounge', 'lounge', 'Observation lounge', 'OBS·01'); }
+  { const g = group(1.6, 1.55, L.z0 + 0.1, 0, DECK2); display(g, 1.7, 0.95, 720, 402, 'lounge', 'lounge', 'Observation lounge', 'OBS·01'); }
   plantAt(DECK2, L.x0 + 0.45, L.z1 - 1.2, 1.1); d2obs(L.x0 + 0.45, L.z1 - 1.2, 0.3);
   plantAt(DECK2, L.x0 + 0.45, L.z0 + 1.6, 1.0); d2obs(L.x0 + 0.45, L.z0 + 1.6, 0.3);
   plantAt(DECK2, -0.6, L.z0 + 0.45, 1.0); d2obs(-0.6, L.z0 + 0.45, 0.3);

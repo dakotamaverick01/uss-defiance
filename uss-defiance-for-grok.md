@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `43d968b`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `89b0fb3`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -36,9 +36,13 @@ Everything here is original: the ship, its layout, the interface language, the i
 | Area | What you can do |
 | --- | --- |
 | **Lift 1 lobby** | Deck sign, the deck directory, a bench. The captain's quarters are straight ahead; the corridor runs aft. |
-| **Captain's quarters** | A day cabin with a sofa facing the forward viewport, a dining table for four, a desk with the personal log, a galley with its own synthesizer, bookshelves, and a sleeping cabin behind a partition. |
-| **Officers' corridor** | Runs aft past the first officer's and senior officers' cabins (sealed until the next stage). |
+| **Captain's quarters** | A day cabin with a sofa facing the forward viewport, a dining table for four, a desk whose top is a touch display (the personal log), a galley with its own synthesizer, bookshelves, and a sleeping cabin behind a partition. |
+| **Officers' corridor** | Runs aft past the first officer's quarters (port) and the two senior officers' cabins (starboard) to the wardroom. |
+| **First officer's quarters** | The captain's quarters, smaller: a sofa facing the port viewport, a touch-display desk with the duty roster, a galley niche, and a sleeping cabin behind a partition. |
+| **Senior officers' cabins** | Two mirror-image cabins for department heads: bed, starboard viewport, desk, armchair, galley niche. |
 | **Officers' wardroom** | A table for ten, a sideboard, the ship's crest, the mess board, and a starboard viewport. |
+| **Officers' passage** | From the corridor's end, to port and aft along the wardroom, past the sealed turret capacitor bank. |
+| **Observation lounge** | Across the stern of the spine: a wide window looking aft over the dorsal turret's arch and both nacelles, a window ledge with swivel chairs, small tables, and a bar. The view outside is a simple stand-in for the exterior model. |
 
 ## Controls
 
@@ -66,7 +70,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
-  | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, captain's quarters, wardroom |
+  | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, all the officers' quarters, wardroom, passage, observation lounge, and the exterior set piece seen through its windows |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |
   | `render.js` | Haze light shafts, post-processing, screen redraw scheduler, hero shots, frame loop |
@@ -85,7 +89,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   1. `python3 tools/bake_export.py . <work>`: opens the ship headlessly and writes its geometry and fixtures.
   2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 12 minutes on two cores at 160 samples.
   3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`. It stores the light at exposure 7.0, the brightness the ship was tuned at (set `EXPOSURE` to change it).
-- **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
+- **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors; `tools/check_deck2.py` rides to Deck 2 and checks its rooms, stations, doors, walkways and the exterior set piece.
 - **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. Block-style screens in palette A (see Interface above; `docs/interface-style-sheet.md` describes the earlier amber scheme and is superseded). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
@@ -95,7 +99,7 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`), then two detail passes: denser screens and a new master systems display, followed by new chairs, the situation table, an orbital view and continuously animated displays. Next is Deck 2 part 2: the first officer's and senior officers' quarters and the observation lounge.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`), then two detail passes: denser screens and a new master systems display, followed by new chairs, the situation table, an orbital view and continuously animated displays. Deck 2 part 2 is done too: the first officer's and senior officers' quarters, a passage and the observation lounge (design: `docs/superpowers/specs/2026-11-26-deck2-part2-design.md`).
 
 Deck 1 is complete. In the build-out (gameplay paused), Stage 1 gave it more room: every bridge wall moved out 0.8 m for wider walkways (consoles moved with the walls; the dais, pods and situation table stayed put), the ready room and conference room grew to about 6 x 6.5 m and 8 x 6.5 m with 3.1 m ceilings, and the light was re-baked at 160 samples. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.
 
@@ -2089,7 +2093,7 @@ function doorAt(px, pz, rot, label, station, auto, room, parent, deck) {
   [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
   mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
   mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
-  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'd2sealed' ? '#E05A50' : '#E8A06A'; c.fill(); if (!THREE.TroikaText) { c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); } }
+  const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'capbank' ? '#E05A50' : '#E8A06A'; c.fill(); if (!THREE.TroikaText) { c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); } }
   const lpm = mesh(new THREE.PlaneGeometry(1.0, 0.175), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.45, 0.276, g);
   text3d(lpm, label, 0.085, 0xF5E6CF, -0.325, 0.004, 0.002);
   const L = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, -0.3, 1.15, 0.06, g);
@@ -2916,8 +2920,23 @@ function d2panel(x, z, H, w, d) {
   mesh(new THREE.PlaneGeometry(w, d), downlightMat, x, H - 0.045, z, DECK2).rotation.x = Math.PI / 2;
 }
 // simple furniture pieces
-function d2chair(x, z, rot, mat) {
-  const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
+function d2chair(x, z, rot, mat, kind) {
+  const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, kind || 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
+}
+// a quarters desk: walnut top, side panels and a drawer pedestal, with a bridge-style console pad on top whose
+// whole face is a display (deskSurface), tilted a little toward the sitter at local +z
+function d2desk(parent, w, d, station, sub, title, code) {
+  const g = group(0, 0, 0, 0, parent);
+  mesh(RBOX(w, 0.05, d, 0.02), WOOD, 0, 0.75, 0, g);
+  [-1, 1].forEach((sd) => mesh(RBOX(0.08, 0.72, d - 0.07, 0.02), WOOD, sd * (w / 2 - 0.1), 0.36, 0, g));
+  mesh(RBOX(0.42, 0.5, d - 0.15, 0.02), WOOD, w / 2 - 0.36, 0.47, 0, g);
+  mesh(RBOX(w - 0.3, 0.4, 0.03, 0.01), MAT.gunDark, 0, 0.52, -d / 2 + 0.07, g);
+  const pw = w - 0.2, pd = d - 0.2, top = group(0, 0.805, -0.02, 0, g); top.rotation.x = 0.1;
+  mesh(RBOX(pw, 0.03, pd, 0.012), MAT_BEZEL, 0, 0.015, 0, top);
+  mesh(pillow(pw, 0.045, 0.06, 0.02, 0.005, 'y', 0), MAT_PAD, 0, 0.012, pd / 2 + 0.02, top);
+  deskSurface(top, pw, pd - 0.08, 0.031, -0.01, { id: station, title, code }, sub);
+  addHit(BOX(w, 1.0, d), { station }, g, 0, 0.6, 0);
+  return g;
 }
 function d2label(text, x, y, z, rot, w) {
   const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
@@ -2926,11 +2945,58 @@ function d2label(text, x, y, z, rot, w) {
   const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; return m;
 }
 
+// a bed with its headboard to local -x: frame, mattress, cover, pillows, headboard; bedside tables at local z +-(wid/2 + 0.32)
+function d2bed(parent, x, z, rot, wid, sides) {
+  const g = group(x, 0, z, rot, parent), hw = wid / 2;
+  mesh(RBOX(2.1, 0.32, wid + 0.1, 0.04), WOOD, 0, 0.18, 0, g);
+  mesh(RBOX(2.0, 0.2, wid, 0.06), CERAMIC, 0, 0.42, 0, g);
+  mesh(RBOX(1.3, 0.06, wid + 0.04, 0.03), FABRIC, 0.32, 0.54, 0, g);
+  (wid > 1.2 ? [-hw / 2, hw / 2] : [0]).forEach((q) => mesh(RBOX(0.38, 0.12, Math.min(0.58, wid - 0.2), 0.05), CERAMIC, -0.78, 0.56, q, g));
+  mesh(RBOX(0.1, 1.1, wid + 0.3, 0.03), MAT.leatherDark, -1.08, 0.75, 0, g);
+  (sides || []).forEach((sd) => { const q = sd * (hw + 0.32); mesh(RBOX(0.45, 0.5, 0.42, 0.03), WOOD, -0.82, 0.25, q, g); mesh(lathe([[0, 0], [0.09, 0], [0.06, 0.22], [0.11, 0.3], [0, 0.3]], 20), BRASS, -0.82, 0.5, q, g); });
+  return g;
+}
+// a partition across a room along x at z, double-faced (12 cm), from xa to xb with an opening from oa to ob
+function d2partX(z, xa, xb, oa, ob, H) {
+  [[xa, oa], [ob, xb]].forEach(([a, b]) => {
+    wallPiece(d2RoomWall, [a, z + 0.06], [1, 0], [0, 1], 0, b - a, 0, H, H, 1.2, DECK2);
+    wallPiece(d2RoomWall, [a, z - 0.06], [1, 0], [0, -1], 0, b - a, 0, H, H, 1.2, DECK2);
+    d2seg(a, z, b, z, 0.2);
+  });
+  [oa, ob].forEach((x) => mesh(RBOX(0.14, H, 0.16, 0.02), MAT.gunDark, x, H / 2, z, DECK2));
+}
+// a wall shelf unit (books and keepsakes) facing local +z
+function d2shelf(parent, x, z, rot, seed) {
+  const sg = group(x, 0, z, rot, parent);
+  mesh(RBOX(1.2, 1.9, 0.34, 0.02), WOOD, 0, 0.95, -0.02, sg);
+  const rr = mulberry(seed); [0.45, 0.95, 1.45].forEach((y) => { mesh(BOX(1.1, 0.025, 0.3), MAT.gunDark, 0, y, 0.0, sg); let q = -0.5; while (q < 0.42) { const w = 0.03 + rr() * 0.05, h = 0.18 + rr() * 0.12; if (rr() < 0.1) { mesh(lathe([[0, 0], [0.05, 0], [0.04, 0.14], [0.02, 0.2], [0, 0.2]], 14), [BRASS, CERAMIC, GLASS][(rr() * 3) | 0], q + 0.06, y + 0.013, 0.0, sg); q += 0.16; continue; } mesh(BOX(w, h, 0.2), [MAT.leather, MAT.leatherDark, FABRIC, POT][(rr() * 4) | 0], q + w / 2, y + 0.013 + h / 2, 0.0, sg); q += w + 0.008; if (rr() < 0.12) q += 0.14; } });
+  return sg;
+}
+// a rug: a dark field with a two-line border in the given colour
+function d2rug(x, z, w, d, field, line, seed) {
+  const c = cnv(512, Math.round(512 * d / w)), g = c.getContext('2d'), H = c.height; g.fillStyle = field; g.fillRect(0, 0, 512, H); noise(g, 512, H, 9000, 0.05, seed);
+  g.strokeStyle = line; g.lineWidth = 7; g.strokeRect(18, 18, 476, H - 36); g.lineWidth = 2; g.strokeRect(36, 36, 440, H - 72);
+  const m = mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.97, polygonOffset: true, polygonOffsetFactor: -1 }), x, 0.005, z, DECK2); m.rotation.x = -Math.PI / 2; return m;
+}
+// a synthesizer niche on a wall, facing local +z: recess, glowing back and a small screen beside it
+function d2synth(parent, x, y, z, rot, station, title, code) {
+  const n = group(x, y, z, rot, parent);
+  mesh(RBOX(0.62, 0.72, 0.14, 0.03), MAT.gunDark, 0, 0, -0.04, n);
+  mesh(new THREE.PlaneGeometry(0.5, 0.56), new THREE.MeshBasicMaterial({ color: 0x4a3c5a, toneMapped: false }), 0, 0, 0.035, n);
+  display(group(0.55, 0, 0.02, 0, n), 0.36, 0.5, 220, 300, 'aux', station, title, code);
+  addHit(BOX(1.4, 1.0, 0.6), { station }, n, 0.2, 0, 0.2);
+  return n;
+}
+
 // ---------- plan ----------
 const D2_LOBBY = { x0: -5.4, x1: 0.2, z0: 2.8, z1: 6.2 };
 const D2_QTR = { x0: -7.2, x1: 1.6, z0: -5.2, z1: 2.8, door: -2.6 };
 const D2_COR = { x0: 0.2, x1: 2.4, z0: 2.8, z1: 17.0 };
 const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
+const D2_SO = { x0: 2.4, x1: 6.2 };
+const D2_PAS = { z0: 15.0, z1: 17.0, ax0: -5.4, ax1: -3.2, az1: 24.5, cap: 20.5 };
+const D2_LNG = { x0: -5.4, x1: 5.8, z0: 24.5, z1: 31.0, door: -4.3 };
+const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
 
 // ---------- lift lobby ----------
 {
@@ -2957,9 +3023,9 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
     elbow(x, 14, 14, 70, 18, 300, 30, true, '#E8A06A'); elbow(x, 14, 242, 70, 14, 200, 24, false, '#D9B07E');
     x.fillStyle = '#F2C88F'; x.font = `700 150px ${DISP}`; x.textBaseline = 'middle'; x.fillText('2', 110, 132);
     x.fillStyle = '#E8A06A'; x.font = `600 44px ${DISP}`; x.fillText('DECK 2', 220, 92); x.fillStyle = '#B693C4'; x.font = `500 32px ${DISP}`; x.fillText("OFFICERS' DECK", 222, 142); x.fillStyle = '#D9B07E'; x.font = `500 24px ${DISP}`; x.fillText('LIFT 1 · DECKS 1 TO 6', 222, 186);
-    const m = mesh(new THREE.PlaneGeometry(1.1, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), D2_LX + 1.75, 1.6, z1 - 0.022, DECK2); m.rotation.y = Math.PI;
-    mesh(RBOX(1.22, 0.62, 0.02, 0.008), MAT.gunDark, D2_LX + 1.75, 1.6, z1 - 0.006, DECK2); }
-  const dg = group(x0 + 0.04, 1.45, (z0 + z1) / 2, Math.PI / 2, DECK2); display(dg, 1.3, 0.8, 640, 394, 'deck2', 'deckdir', 'Deck 2 directory', 'D2·00');
+    const m = mesh(new THREE.PlaneGeometry(1.1, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), D2_LX + 1.75, 1.6, z1 - 0.082, DECK2); m.rotation.y = Math.PI;
+    mesh(RBOX(1.22, 0.62, 0.02, 0.008), MAT.gunDark, D2_LX + 1.75, 1.6, z1 - 0.07, DECK2); }
+  const dg = group(x0 + 0.1, 1.45, (z0 + z1) / 2, Math.PI / 2, DECK2); display(dg, 1.3, 0.8, 640, 394, 'deck2', 'deckdir', 'Deck 2 directory', 'D2·00');
   { const b = group(x0 + 0.3, 0, (z0 + z1) / 2, Math.PI / 2, DECK2); mesh(RBOX(1.6, 0.1, 0.42, 0.03), MAT.leather, 0, 0.45, 0, b); mesh(RBOX(1.6, 0.36, 0.36, 0.02), MAT_PED, 0, 0.2, 0.02, b); }
   d2obs(x0 + 0.3, (z0 + z1) / 2 - 0.5, 0.3); d2obs(x0 + 0.3, (z0 + z1) / 2 + 0.5, 0.3);
   plantAt(DECK2, x1 - 0.45, z1 - 0.45, 0.9); d2obs(x1 - 0.45, z1 - 0.45, 0.3);
@@ -2970,7 +3036,7 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
 {
   const { x0, x1, z0, z1 } = D2_COR, H = D2C, cx = (x0 + x1) / 2;
   d2room('Officers’ corridor', x0, x1, z0, z1, H, d2CorrWall, MAT.floorCarpet, {
-    w: [{ a: 0.8, b: 2.2, y0: 0, y1: 2.35 }, { a: 6.2, b: 7.4, y0: 0, y1: 2.3 }],
+    w: [{ a: 0.8, b: 2.2, y0: 0, y1: 2.35 }, { a: 6.2, b: 7.4, y0: 0, y1: 2.3 }, { a: 12.4, b: 13.8, y0: 0, y1: 2.35 }],
     e: [{ a: 3.8, b: 5.0, y0: 0, y1: 2.3 }, { a: 8.6, b: 9.8, y0: 0, y1: 2.3 }],
     s: [{ a: D2_WARD.door - 0.6 - x0, b: D2_WARD.door + 0.6 - x0, y0: 0, y1: 2.3 }],
   });
@@ -2983,11 +3049,14 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
   }
   [x0 + 0.06, x1 - 0.06].forEach((x) => { const r = mesh(CYL(0.022, 0.022, z1 - z0 - 0.6, 10), MAT.steel, x, 0.95, (z0 + z1) / 2, DECK2); r.rotation.x = Math.PI / 2; });
   // doors along the corridor: first officer (port), two senior officers' cabins (starboard), the wardroom aft
-  doorAt(x0, 9.6, Math.PI / 2, 'FIRST OFFICER', 'd2sealed', false, true, DECK2, 2);
-  doorAt(x1, 7.2, -Math.PI / 2, 'SENIOR OFFICERS', 'd2sealed', false, true, DECK2, 2);
-  doorAt(x1, 12.0, -Math.PI / 2, 'SENIOR OFFICERS', 'd2sealed', false, true, DECK2, 2);
+  doorAt(x0, D2_XO.door, Math.PI / 2, 'FIRST OFFICER', 'xoq', true, true, DECK2, 2);
+  doorAt(x1, 7.2, -Math.PI / 2, 'SENIOR OFFICER', 'so1q', true, true, DECK2, 2);
+  doorAt(x1, 12.0, -Math.PI / 2, 'SENIOR OFFICER', 'so2q', true, true, DECK2, 2);
   doorAt(D2_WARD.door, z1, Math.PI, 'WARDROOM', 'wardoor', true, true, DECK2, 2);
-  d2label('AFT · WARDROOM', x1 - 0.02, 2.0, 4.6, -Math.PI / 2, 0.9);
+  d2label('AFT · WARDROOM', x1 - 0.08, 2.0, 4.6, -Math.PI / 2, 0.9);
+  d2label('PORT · OBSERVATION LOUNGE', x1 - 0.08, 2.0, 15.9, -Math.PI / 2, 1.2);
+  // lined reveal for the open way through to the officers' passage
+  [15.2, 16.6].forEach((z) => mesh(BOX(0.16, 2.35, 0.04), MAT.gun, x0, 1.175, z, DECK2)); mesh(BOX(0.16, 0.04, 1.44), MAT.gun, x0, 2.35, 15.9, DECK2);
 }
 
 // ---------- captain's quarters ----------
@@ -3051,11 +3120,9 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
   }
   { // desk on the starboard wall, with the captain's personal screen
     const dx = Q.x1 - 0.45, dz = 0.0, g = group(dx, 0, dz, -Math.PI / 2, DECK2);
-    mesh(RBOX(1.6, 0.05, 0.75, 0.02), WOOD, 0, 0.75, 0, g);
-    [-0.7, 0.7].forEach((x) => mesh(RBOX(0.08, 0.72, 0.68, 0.02), WOOD, x, 0.36, 0, g));
-    mesh(RBOX(0.5, 0.5, 0.6, 0.02), WOOD, 0.45, 0.47, 0, g);
-    const sg = group(0, 1.5, -0.42, 0, g); display(sg, 1.1, 0.62, 640, 360, 'log', 'qdesk', 'Personal log', 'CO·01');
-    d2chair(dx - 0.85, dz, -Math.PI / 2, MAT.leatherDark);
+    d2desk(g, 1.6, 0.75, 'qdesk', 'log', 'Personal log', 'CO·01');
+    const sg = group(0, 1.5, -0.34, 0, g); display(sg, 1.1, 0.62, 640, 360, 'log', 'qdesk', 'Personal log', 'CO·01');
+    d2chair(dx - 0.85, dz, -Math.PI / 2, MAT.leatherDark, 'station');
     d2obs(dx, dz - 0.5, 0.42); d2obs(dx, dz + 0.5, 0.42);
     d2down(dx - 0.4, dz, H);
   }
@@ -3070,6 +3137,94 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
     d2seg(gx - 0.9, gz - 0.3, gx + 0.9, gz - 0.3, 0.3);
     plantAt(DECK2, Q.x1 - 0.45, -3.8, 1.0); d2obs(Q.x1 - 0.45, -3.8, 0.3);
     d2down(gx, gz - 0.8, H); d2down(-2.6, 1.9, H);
+  }
+}
+
+// ---------- senior officers' cabins ----------
+// One layout built twice: cabin 2 is cabin 1 mirrored about z 9.6. u runs from the cabin's far end toward its near end.
+function d2cabin(n, z0, z1, doorZ, mirror, seed) {
+  const { x0, x1 } = D2_SO, H = D2H, Z = (u) => mirror ? z1 - u : z0 + u, f = mirror ? -1 : 1, id = 'so' + n;
+  d2room('Senior officers’ cabin ' + n, x0, x1, z0, z1, H, d2RoomWall, MAT.roomCarpet, {
+    w: [{ a: doorZ - 0.6 - z0, b: doorZ + 0.6 - z0, y0: 0, y1: 2.3 }],
+    e: [{ a: Math.min(Z(2.5), Z(4.7)) - z0, b: Math.max(Z(2.5), Z(4.7)) - z0, y0: 0.9, y1: 2.2 }],
+  });
+  const vp = group(x1 - 0.06, 0, Z(3.6), Math.PI / 2, DECK2); viewport(vp, -1.1, 1.1, 0.9, 2.2, 0);
+  const rr = mulberry(seed), pick = (a) => a[(rr() * a.length) | 0];
+  // bed along the starboard side, headboard to the far wall, one bedside table inboard
+  d2bed(DECK2, 5.2, Z(1.15), -f * Math.PI / 2, 1.3, [f]);
+  d2obs(5.2, Z(0.7), 0.62); d2obs(5.2, Z(1.6), 0.62); d2obs(4.23, Z(0.33), 0.28);
+  // wardrobe in the far inboard corner
+  mesh(RBOX(0.6, 2.1, 1.2, 0.03), WOOD, x0 + 0.38, 1.05, Z(0.72), DECK2); mesh(BOX(0.012, 1.8, 0.012), MAT.steel, x0 + 0.685, 1.05, Z(0.72), DECK2); d2obs(x0 + 0.38, Z(0.72), 0.55);
+  // desk on the inboard wall, the officer facing it
+  { const g = group(x0 + 0.46, 0, Z(2.6), Math.PI / 2, DECK2); d2desk(g, 1.3, 0.7, id + 'desk', 'cabin', 'Senior officer', 'SO·0' + n);
+    d2chair(x0 + 1.2, Z(2.6), Math.PI / 2, MAT.leatherDark, 'station'); d2obs(x0 + 0.46, Z(2.25), 0.38); d2obs(x0 + 0.46, Z(2.95), 0.38); }
+  // armchair by the viewport with a side table
+  { d2chair(5.35, Z(3.7), -Math.PI / 2 + f * 0.5, pick([MAT.leather, FABRIC])); d2obs(5.35, Z(3.7), 0.3);
+    const t = Z(4.45); mesh(CYL(0.24, 0.24, 0.04, 28), WOOD, 5.6, 0.55, t, DECK2); mesh(CYL(0.04, 0.06, 0.53, 12), MAT.steel, 5.6, 0.27, t, DECK2); d2obs(5.6, t, 0.26);
+    mesh(lathe(pick([[[0, 0], [0.05, 0], [0.04, 0.16], [0.07, 0.24], [0, 0.26]], [[0, 0], [0.06, 0], [0.065, 0.09], [0, 0.09]]]), 18), pick([GLASS, CERAMIC, BRASS]), 5.6, 0.57, t, DECK2); }
+  // galley counter and synthesizer on the near wall
+  { const zn = Z(6.8) - f * 0.06; mesh(RBOX(1.4, 0.9, 0.52, 0.02), MAT_PED, 4.7, 0.45, zn - f * 0.28, DECK2); mesh(RBOX(1.46, 0.04, 0.56, 0.01), CERAMIC, 4.7, 0.92, zn - f * 0.28, DECK2);
+    d2synth(DECK2, 4.45, 1.42, zn - f * 0.04, mirror ? 0 : Math.PI, id + 'galley', 'Galley', 'GAL·0' + (2 + n)); d2seg(4.0, zn - f * 0.56, 5.4, zn - f * 0.56, 0.3); }
+  d2shelf(DECK2, x1 - 0.22, Z(5.9), -Math.PI / 2, seed + 5); d2obs(x1 - 0.22, Z(5.9), 0.4);
+  d2rug(4.5, Z(3.7), 2.0, 2.4, pick(['#2c3340', '#3a2f2a', '#2a3329']), pick(['rgba(201,182,140,0.7)', 'rgba(182,147,196,0.55)', 'rgba(217,176,126,0.6)']), seed);
+  plantAt(DECK2, x0 + 0.45, Z(6.3), 0.85); d2obs(x0 + 0.45, Z(6.3), 0.3);
+  d2down(4.6, Z(1.1), H); d2down(4.3, Z(3.6), H); d2down(4.3, Z(5.8), H);
+}
+d2cabin(1, 2.8, 9.6, 7.2, false, 211);
+d2cabin(2, 9.6, 16.4, 12.0, true, 457);
+
+// ---------- first officer's quarters ----------
+// The captain's quarters, smaller. It starts aft of the Lift 1 shaft (x -3.42..-1.82, z 6.2..8.47 on every deck):
+// day cabin forward with the port viewport, sleeping cabin aft behind a partition.
+{
+  const Q = D2_XO, H = D2H, PZ = 12.6;
+  d2room('First officer’s quarters', Q.x0, Q.x1, Q.z0, Q.z1, H, d2RoomWall, MAT.roomCarpet, {
+    e: [{ a: Q.door - 0.6 - Q.z0, b: Q.door + 0.6 - Q.z0, y0: 0, y1: 2.3 }],
+    w: [{ a: 0.8, b: 3.2, y0: 0.9, y1: 2.2 }],
+  });
+  const vp = group(Q.x0 + 0.06, 0, Q.z0 + 2.0, -Math.PI / 2, DECK2); viewport(vp, -1.2, 1.2, 0.9, 2.2, 0);
+  d2partX(PZ, Q.x0 + 0.06, Q.x1 - 0.06, -2.7, -1.7, H);
+  { // sitting area facing the viewport: sofa, low table, rug
+    const sx = -3.2, sz = Q.z0 + 2.0, g = group(sx, 0, sz, Math.PI / 2, DECK2);
+    mesh(RBOX(2.0, 0.4, 0.86, 0.05), FABRIC, 0, 0.22, 0, g);
+    mesh(RBOX(2.0, 0.5, 0.22, 0.06), FABRIC, 0, 0.62, 0.34, g);
+    [-0.98, 0.98].forEach((x) => mesh(RBOX(0.2, 0.6, 0.86, 0.05), FABRIC, x, 0.32, 0, g));
+    [-0.45, 0.45].forEach((x) => mesh(RBOX(0.88, 0.12, 0.66, 0.05), FABRIC, x, 0.46, -0.06, g));
+    mesh(RBOX(2.0, 0.06, 0.86, 0.02), MAT.gunDark, 0, 0.03, 0, g);
+    [-0.6, 0.6].forEach((z) => d2obs(sx, sz + z, 0.48));
+    const t = group(sx - 1.05, 0, sz, Math.PI / 2, DECK2); mesh(RBOX(1.1, 0.05, 0.52, 0.02), WOOD, 0, 0.42, 0, t); [-0.45, 0.45].forEach((x) => mesh(RBOX(0.06, 0.4, 0.42, 0.01), MAT.steel, x, 0.2, 0, t));
+    mesh(lathe([[0, 0], [0.05, 0], [0.04, 0.16], [0.07, 0.24], [0, 0.26]], 18), GLASS, -0.25, 0.445, 0.05, t);
+    d2obs(sx - 1.05, sz - 0.35, 0.33); d2obs(sx - 1.05, sz + 0.35, 0.33);
+    d2rug(sx - 0.75, sz, 2.4, 2.8, '#2c3340', 'rgba(201,182,140,0.7)', 91);
+    d2down(sx - 0.75, sz - 0.9, H); d2down(sx - 0.75, sz + 0.9, H);
+    plantAt(DECK2, Q.x0 + 0.42, PZ - 0.35, 0.9); d2obs(Q.x0 + 0.42, PZ - 0.35, 0.3);
+    // a framed print of a ringed planet on the forward wall, above the sofa's end
+    const c = cnv(384, 256), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#101826'); gr.addColorStop(1, '#2a2233'); x.fillStyle = gr; x.fillRect(0, 0, 384, 256);
+    x.fillStyle = '#c9a477'; x.beginPath(); x.arc(200, 130, 62, 0, Math.PI * 2); x.fill(); x.strokeStyle = 'rgba(230,205,160,0.8)'; x.lineWidth = 5; x.beginPath(); x.ellipse(200, 132, 120, 22, -0.25, 0, Math.PI * 2); x.stroke();
+    const rs = mulberry(77); for (let i = 0; i < 60; i++) { x.fillStyle = 'rgba(255,255,255,' + (0.3 + rs() * 0.6) + ')'; x.fillRect(rs() * 384, rs() * 256, 1.5, 1.5); }
+    mesh(RBOX(0.86, 0.6, 0.03, 0.01), WOOD, -3.3, 1.6, Q.z0 + 0.075, DECK2);
+    mesh(new THREE.PlaneGeometry(0.76, 0.5), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.5 }), -3.3, 1.6, Q.z0 + 0.092, DECK2);
+  }
+  { // desk on the starboard wall aft of the door, the officer facing the wall
+    const dx = Q.x1 - 0.46, dz = 11.35, g = group(dx, 0, dz, -Math.PI / 2, DECK2);
+    d2desk(g, 1.5, 0.72, 'xodesk', 'xo', 'First officer', 'XO·01');
+    d2chair(dx - 0.8, dz, -Math.PI / 2, MAT.leatherDark, 'station'); d2obs(dx - 0.8, dz, 0.26);
+    d2obs(dx, dz - 0.45, 0.4); d2obs(dx, dz + 0.45, 0.4);
+    d2down(dx - 0.5, dz, H);
+  }
+  { // galley counter on the forward wall, beside the door
+    const gx = -1.05, gz = Q.z0 + 0.34;
+    mesh(RBOX(1.3, 0.9, 0.56, 0.02), MAT_PED, gx, 0.45, gz, DECK2); mesh(RBOX(1.36, 0.04, 0.62, 0.01), CERAMIC, gx, 0.92, gz, DECK2);
+    d2synth(DECK2, gx - 0.2, 1.42, Q.z0 + 0.1, 0, 'xogalley', 'Galley', 'GAL·02');
+    d2seg(gx - 0.65, gz + 0.3, gx + 0.65, gz + 0.3, 0.3);
+    d2down(gx, gz + 0.9, H);
+  }
+  { // sleeping cabin: bed to the port wall, one bedside table, wardrobe aft, shelves on the partition
+    d2bed(DECK2, Q.x0 + 1.15, 13.8, 0, 1.2, [1]);
+    d2obs(Q.x0 + 0.8, 13.8, 0.6); d2obs(Q.x0 + 1.6, 13.8, 0.6); d2obs(Q.x0 + 0.33, 14.72, 0.28);
+    mesh(RBOX(1.2, 2.1, 0.6, 0.03), WOOD, -0.75, 1.05, Q.z1 - 0.36, DECK2); mesh(BOX(0.012, 1.8, 0.012), MAT.steel, -0.75, 1.05, Q.z1 - 0.055, DECK2); d2obs(-0.75, Q.z1 - 0.36, 0.5);
+    d2shelf(DECK2, -0.85, PZ + 0.25, 0, 533); d2obs(-0.85, PZ + 0.25, 0.4);
+    d2down(Q.x0 + 1.4, 13.8, H); d2down(-1.4, 13.8, H);
   }
 }
 
@@ -3100,10 +3255,141 @@ const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
   { const c = cnv(512, 512), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#8a6a44'); gr.addColorStop(1, '#5e462c'); x.fillStyle = gr; x.fillRect(0, 0, 512, 512);
     x.strokeStyle = 'rgba(255,230,190,0.6)'; x.lineWidth = 6; x.strokeRect(18, 18, 476, 476); drawCrest(x, 256, 210, 130, '#f3dcb4', 8);
     x.fillStyle = '#f7e6c8'; x.textAlign = 'center'; x.font = `600 40px ${DISP}`; x.fillText('U.S.S. DEFIANCE', 256, 400); x.font = `500 26px ${DISP}`; x.fillText('STEADY UNDER FIRE', 256, 446);
-    const m = mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), cx, 1.8, W2.z1 - 0.02, DECK2); m.rotation.y = Math.PI; }
+    const m = mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), cx, 1.8, W2.z1 - 0.08, DECK2); m.rotation.y = Math.PI; }
   // wall screen on the port side: the mess board
-  const sg = group(W2.x0 + 0.04, 1.5, cz, Math.PI / 2, DECK2); display(sg, 1.5, 0.84, 720, 404, 'mess', 'wardroom', 'Wardroom', 'WRD·01');
+  const sg = group(W2.x0 + 0.1, 1.5, cz, Math.PI / 2, DECK2); display(sg, 1.5, 0.84, 720, 404, 'mess', 'wardroom', 'Wardroom', 'WRD·01');
   plantAt(DECK2, W2.x0 + 0.5, W2.z1 - 0.5, 1.1); plantAt(DECK2, W2.x1 - 0.5, W2.z1 - 0.5, 1.1); d2obs(W2.x0 + 0.5, W2.z1 - 0.5, 0.3); d2obs(W2.x1 - 0.5, W2.z1 - 0.5, 0.3);
+}
+
+// ---------- officers' passage and observation lounge ----------
+// From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
+// sealed turret capacitor bank, to the observation lounge across the stern of the spine.
+function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
+  const cx = (x0 + x1) / 2;
+  for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
+    [x0 + 0.05, x1 - 0.05].forEach((x) => mesh(RBOX(0.1, H - 0.05, 0.16, 0.02), MAT.gunDark, x, (H - 0.05) / 2, z, DECK2));
+    mesh(RBOX(x1 - x0, 0.12, 0.16, 0.02), MAT.gunDark, cx, H - 0.06, z, DECK2);
+    if (z + 1.2 < z1 - 0.5) d2panel(cx, z + 1.2, H, 0.9, 0.36);
+  }
+}
+{
+  const P = D2_PAS, H = D2C, op = [{ a: 0.12, b: 1.88, y0: 0, y1: 2.35 }];
+  d2room('Officers’ passage', P.ax1, 0.2, P.z0, P.z1, H, d2CorrWall, MAT.floorCarpet, { e: [{ a: 0.2, b: 1.6, y0: 0, y1: 2.35 }], w: op });
+  d2room('Officers’ passage', P.ax0, P.ax1, P.z0, P.az1, H, d2CorrWall, MAT.floorCarpet, {
+    e: op, w: [{ a: P.cap - 0.6 - P.z0, b: P.cap + 0.6 - P.z0, y0: 0, y1: 2.3 }],
+    s: [{ a: D2_LNG.door - 0.6 - P.ax0, b: D2_LNG.door + 0.6 - P.ax0, y0: 0, y1: 2.3 }],
+  });
+  [P.z0 + 0.12, P.z1 - 0.12].forEach((z) => mesh(BOX(0.16, 2.35, 0.04), MAT.gun, P.ax1, 1.175, z, DECK2)); mesh(BOX(0.16, 0.04, 1.8), MAT.gun, P.ax1, 2.35, (P.z0 + P.z1) / 2, DECK2);
+  d2panel((P.ax1 + 0.2) / 2, (P.z0 + P.z1) / 2, H, 0.9, 0.36);
+  d2frames(P.ax0, P.ax1, P.z1, P.az1, H);
+  { const r = mesh(CYL(0.022, 0.022, P.az1 - P.z1 - 0.6, 10), MAT.steel, P.ax1 - 0.06, 0.95, (P.z1 + P.az1) / 2, DECK2); r.rotation.x = Math.PI / 2; }
+  d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.08, 2.0, 16.0, Math.PI / 2, 1.2);
+  doorAt(P.ax0, P.cap, Math.PI / 2, 'TURRET CAPACITORS', 'capbank', false, true, DECK2, 2);
+  doorAt(D2_LNG.door, P.az1, Math.PI, 'OBSERVATION LOUNGE', 'lngdoor', true, true, DECK2, 2);
+}
+{
+  const L = D2_LNG, H = D2H, cx = (L.x0 + L.x1) / 2, WY0 = 0.75, WY1 = 2.35;
+  d2room('Observation lounge', L.x0, L.x1, L.z0, L.z1, H, d2RoomWall, MAT.roomCarpet, {
+    n: [{ a: L.door - 0.6 - L.x0, b: L.door + 0.6 - L.x0, y0: 0, y1: 2.3 }],
+    s: [{ a: 0.6, b: 10.6, y0: WY0, y1: WY1 }],
+  });
+  const vp = group(cx, 0, L.z1 - 0.06, 0, DECK2); viewport(vp, -5.0, 5.0, WY0, WY1, 0);
+  SHUTTERS[SHUTTERS.length - 1].hideOpen = true; // the lounge's shutters fold away completely when open, so nothing crosses the view
+  // the sill ledge under the window, with swivel chairs facing out
+  mesh(RBOX(9.8, 0.05, 0.42, 0.015), WOOD, cx, WY0 + 0.02, L.z1 - 0.32, DECK2);
+  mesh(RBOX(9.8, WY0 - 0.05, 0.3, 0.02), MAT_PED, cx, (WY0 - 0.05) / 2, L.z1 - 0.22, DECK2);
+  mesh(BOX(9.6, 0.016, 0.016), STRIP, cx, 0.06, L.z1 - 0.38, DECK2);
+  d2seg(L.x0 + 0.4, L.z1 - 0.53, L.x1 - 0.4, L.z1 - 0.53, 0.3);
+  [-4.0, -2.4, -0.8, 1.2, 2.8, 4.4].forEach((x) => { d2chair(x, L.z1 - 1.0, Math.PI, MAT.leather, 'station'); d2obs(x, L.z1 - 1.0, 0.26); });
+  // small round tables, three chairs each
+  [[-2.5, 27.5, 0.3], [1.1, 26.9, 1.1], [3.9, 27.6, 0.7]].forEach(([tx, tz, a0], i) => {
+    mesh(CYL(0.42, 0.42, 0.045, 32), WOOD, tx, 0.72, tz, DECK2); mesh(CYL(0.05, 0.09, 0.68, 14), MAT.steel, tx, 0.35, tz, DECK2); mesh(CYL(0.26, 0.3, 0.03, 24), MAT.steel, tx, 0.015, tz, DECK2);
+    d2obs(tx, tz, 0.46);
+    [0, 1, 2].forEach((k) => { const a = a0 + k * Math.PI * 2 / 3, x = tx + Math.sin(a) * 0.78, z = tz + Math.cos(a) * 0.78; d2chair(x, z, a, [MAT.leather, FABRIC, MAT.leatherDark][i]); d2obs(x, z, 0.26); });
+    mesh(lathe([[0, 0], [0.035, 0], [0.03, 0.1], [0.05, 0.17], [0, 0.19]], 16), i === 1 ? GLASS : CERAMIC, tx + 0.1, 0.745, tz - 0.05, DECK2);
+    d2down(tx, tz, H);
+  });
+  // the bar on the starboard wall: counter, synthesizer, bottles, two swivel stools
+  { const bx = L.x1 - 0.38, bz = 26.6;
+    mesh(RBOX(0.6, 1.0, 2.6, 0.02), WOOD, bx, 0.5, bz, DECK2); mesh(RBOX(0.68, 0.05, 2.7, 0.015), MAT.gunDark, bx, 1.02, bz, DECK2);
+    mesh(BOX(0.012, 0.012, 2.4), STRIP, bx - 0.31, 0.08, bz, DECK2);
+    d2synth(DECK2, L.x1 - 0.1, 1.55, bz + 0.5, -Math.PI / 2, 'lgalley', 'Lounge bar', 'GAL·05');
+    const rr = mulberry(808); for (let k = 0; k < 6; k++) mesh(lathe([[0, 0], [0.035, 0], [0.035, 0.18], [0.012, 0.24], [0.012, 0.3], [0, 0.3]], 14), k % 2 ? GLASS : BRASS, bx + (rr() - 0.5) * 0.2, 1.045, bz - 1.1 + k * 0.12, DECK2);
+    d2seg(bx - 0.32, bz - 1.3, bx - 0.32, bz + 1.3, 0.3);
+    [bz - 0.6, bz + 0.6].forEach((z) => { d2chair(bx - 0.85, z, -Math.PI / 2, MAT.leatherDark, 'station'); d2obs(bx - 0.85, z, 0.26); });
+    d2down(bx - 0.4, bz, H); }
+  // the wall screen on the forward wall, and the view it describes
+  { const g = group(1.6, 1.55, L.z0 + 0.1, 0, DECK2); display(g, 1.7, 0.95, 720, 402, 'lounge', 'lounge', 'Observation lounge', 'OBS·01'); }
+  plantAt(DECK2, L.x0 + 0.45, L.z1 - 1.2, 1.1); d2obs(L.x0 + 0.45, L.z1 - 1.2, 0.3);
+  plantAt(DECK2, L.x0 + 0.45, L.z0 + 1.6, 1.0); d2obs(L.x0 + 0.45, L.z0 + 1.6, 0.3);
+  plantAt(DECK2, -0.6, L.z0 + 0.45, 1.0); d2obs(-0.6, L.z0 + 0.45, 0.3);
+  [-3.6, -1.0, 1.6, 4.2].forEach((x) => d2down(x, L.z1 - 1.0, H)); d2down(-3.9, 25.4, H); d2down(1.6, 25.3, H);
+}
+
+// ---------- outside: the set piece seen through Deck 2's windows ----------
+// A simple, original stand-in for the exterior until the real model is built, following the bridge's systems display:
+// a long swept hull back under the officers' spine (its top just below every window sill), the raised arch aft of the
+// lounge with the dorsal turret on its crown, and slim nacelles on swept spars, low and aft. Matcap materials
+// (a painted ball of light, no scene lights) and additive glows: the light bake ignores all of it (bake_export skips EXTSET).
+const EXTSET = group(0, 0, 0, 0, DECK2); EXTSET.name = 'Exterior set piece';
+{
+  const mc = cnv(256, 256), m = mc.getContext('2d');
+  { const g = m.createRadialGradient(92, 84, 8, 128, 128, 128); g.addColorStop(0, '#f2efe8'); g.addColorStop(0.45, '#b8bbbf'); g.addColorStop(0.8, '#6b717a'); g.addColorStop(1, '#3a4049'); m.fillStyle = g; m.fillRect(0, 0, 256, 256);
+    const r = m.createRadialGradient(190, 200, 10, 190, 200, 90); r.addColorStop(0, 'rgba(232,160,106,0.28)'); r.addColorStop(1, 'rgba(232,160,106,0)'); m.fillStyle = r; m.fillRect(0, 0, 256, 256); }
+  const plate = cnv(512, 512), q = plate.getContext('2d'), rr = mulberry(1701);
+  q.fillStyle = '#d9d9d6'; q.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 40; i++) { const v = 200 + ((rr() * 30) | 0); q.fillStyle = `rgb(${v},${v},${v - 4})`; q.fillRect((rr() * 8 | 0) * 64, (rr() * 8 | 0) * 64, 64 * (1 + (rr() * 3 | 0)), 64 * (1 + (rr() * 2 | 0))); }
+  q.strokeStyle = 'rgba(40,44,52,0.18)'; q.lineWidth = 2; for (let k = 0; k <= 512; k += 64) { q.beginPath(); q.moveTo(k, 0); q.lineTo(k, 512); q.stroke(); }
+  for (let k = 0; k <= 512; k += 128) { q.beginPath(); q.moveTo(0, k + ((k / 128) % 2) * 32); q.lineTo(512, k + ((k / 128) % 2) * 32); q.stroke(); }
+  const pt = tex(plate); pt.wrapS = pt.wrapT = THREE.RepeatWrapping; pt.colorSpace = THREE.SRGBColorSpace;
+  const HULL = new THREE.MeshMatcapMaterial({ matcap: tex(mc), map: pt, fog: false });
+  const DARK = new THREE.MeshMatcapMaterial({ matcap: tex(mc), color: 0x6a7078, fog: false });
+  const glow = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false });
+  const GRILLE = glow(0x6fb6e6, 0.85), CAP = glow(0xe0704a, 0.9), IMP = glow(0xd2503c, 0.8);
+  const lerpT = (T, z) => { for (let i = 1; i < T.length; i++) if (z <= T[i][0]) { const [z0, a] = T[i - 1], [z1, b] = T[i], t = (z - z0) / (z1 - z0); return a + (b - a) * t * t * (3 - 2 * t); } return T[T.length - 1][1]; };
+  const W = [[-64, 0.5], [-58, 24], [-30, 40], [14, 46], [48, 40], [76, 20], [132, 14], [136, 9]]; // half-beam
+  const Y = [[-64, -14], [-34, -3.5], [-4, -0.6], [86, -0.7], [118, -4], [136, -9.5]];              // top of the hull back
+  // the hull back: a grid across the beam, falling away at the edges into a skirt
+  { const NZ = 90, NX = 30, pos = [], uv = [], idx = [];
+    for (let i = 0; i <= NZ; i++) { const z = -64 + 200 * i / NZ, w = lerpT(W, z), y0 = lerpT(Y, z);
+      for (let j = 0; j <= NX; j++) { const v = j / NX * 2 - 1, a = Math.abs(v), x = v * w * (a > 0.85 ? 1 - (a - 0.85) * 0.5 : 1), y = y0 - 5 * Math.pow(Math.min(a, 0.85) / 0.85, 2.6) - (a > 0.85 ? (a - 0.85) / 0.15 * 9 : 0);
+        pos.push(x, y, z); uv.push(x / 34, z / 34); } }
+    for (let i = 0; i < NZ; i++) for (let j = 0; j < NX; j++) { const a = i * (NX + 1) + j, b = a + NX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const hm = new THREE.Mesh(g, HULL); hm.material.side = THREE.DoubleSide; EXTSET.add(hm); }
+  // sweep a rounded box section along a path: P = [[x, y, z]...], sec(t) = [half width, half thickness], side = lateral axis
+  function sweep(P, sec, side, n) {
+    const curve = new THREE.CatmullRomCurve3(P.map((p) => new THREE.Vector3(...p))), N = n || 40, R = 12, pos = [], idx = [], S = new THREE.Vector3(...side).normalize();
+    for (let i = 0; i <= N; i++) { const t = i / N, c = curve.getPointAt(t), T = curve.getTangentAt(t), U = new THREE.Vector3().crossVectors(T, S).normalize(), L = new THREE.Vector3().crossVectors(U, T).normalize(), [hw, ht] = sec(t);
+      for (let k = 0; k < R; k++) { const a = k / R * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a), ex = Math.sign(cx) * Math.pow(Math.abs(cx), 0.45) * hw, ey = Math.sign(cy) * Math.pow(Math.abs(cy), 0.45) * ht;
+        pos.push(c.x + L.x * ex + U.x * ey, c.y + L.y * ex + U.y * ey, c.z + L.z * ex + U.z * ey); } }
+    for (let i = 0; i < N; i++) for (let k = 0; k < R; k++) { const a = i * R + k, b = i * R + (k + 1) % R; idx.push(a, a + R, b, b, a + R, b + R); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+  }
+  // the arch over the back: two rails rising from the hull either side of the centreline, joined at the crown by the
+  // turret deck, so from the lounge it frames the view aft like a gate; in side view it is the MSD's arch
+  [-1, 1].forEach((sd) => EXTSET.add(new THREE.Mesh(sweep([[sd * 7.5, -1.5, 47], [sd * 6.5, 6.5, 54], [sd * 5.2, 11, 65], [sd * 5.2, 11, 73], [sd * 6.5, 6.5, 84], [sd * 7.5, -1.5, 91]], (t) => { const e = Math.abs(t - 0.5) * 2; return [0.9 + Math.pow(e, 3) * 1.6, 0.6 + Math.pow(e, 3) * 0.9]; }, [1, 0, 0], 40), DARK)));
+  mesh(RBOX(11.4, 0.9, 9.0, 0.3), DARK, 0, 11.1, 69, EXTSET);
+  mesh(BOX(11.0, 0.12, 0.3), GRILLE, 0, 10.6, 64.4, EXTSET);
+  { const tg = group(0, 11.55, 69, 0, EXTSET);
+    mesh(lathe([[0, 0], [3.0, 0], [3.1, 0.5], [2.7, 1.5], [1.6, 2.2], [0, 2.4]], 36), DARK, 0, 0, 0, tg);
+    mesh(new THREE.TorusGeometry(2.95, 0.12, 6, 40), GRILLE, 0, 0.55, 0, tg).rotation.x = Math.PI / 2;
+    [-0.7, 0.7].forEach((x) => { const b = mesh(CYL(0.28, 0.36, 6.5, 12), DARK, x, 1.3, -3.6, tg); b.rotation.x = Math.PI / 2; mesh(CYL(0.2, 0.2, 0.1, 10), GRILLE, x, 1.3, -6.85, tg).rotation.x = Math.PI / 2; }); }
+  // a low dorsal strake running aft down the centreline, and dark sensor strips along the shoulders
+  mesh(RBOX(2.2, 0.6, 80, 0.25), DARK, 0, -0.55, 70, EXTSET);
+  [-1, 1].forEach((sd) => { const st = mesh(BOX(0.6, 0.1, 50), DARK, sd * 18, -3.0, 70, EXTSET); st.rotation.z = sd * 0.35; });
+  // spars and nacelles, low and aft
+  [-1, 1].forEach((sd) => {
+    EXTSET.add(new THREE.Mesh(sweep([[sd * 14, -3.5, 72], [sd * 26, -4.6, 84], [sd * 38, -5.8, 96], [sd * 46, -6.2, 104]], (t) => [3.2 - t * 1.4, 0.5], [0, 1, 0], 20), DARK));
+    const ng = group(sd * 48, -6.3, 70, 0, EXTSET);
+    const prof = [[0, 0], [1.3, 0.25], [2.1, 1.0], [2.5, 2.4], [2.6, 5], [2.6, 50], [2.3, 58], [1.4, 64], [0, 65]];
+    const nm = mesh(lathe(prof, 32), HULL, 0, 0, 0, ng); nm.rotation.x = Math.PI / 2;
+    const cap = mesh(lathe([[0, 0], [1.35, 0.28], [2.05, 1.0], [2.4, 2.2], [0, 2.4]], 28), CAP, 0, 0, 0, ng); cap.rotation.x = Math.PI / 2; cap.scale.setScalar(1.02);
+    [-1, 1].forEach((up) => { const gr = mesh(BOX(0.18, 0.5, 40), GRILLE, -sd * 2.55, up * 0.8, 28, ng); gr.rotation.z = -sd * up * 0.3; });
+    mesh(new THREE.SphereGeometry(0.35, 10, 8), glow(sd < 0 ? 0xff4a3a : 0x5aff7a, 1), sd * 2.7, 0, 60, ng);
+  });
+  mesh(BOX(14, 1.4, 0.4), IMP, 0, -6.5, 135.8, EXTSET);
+  EXTSET.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.userData.noPick = true; } });
 }
 DECK2.updateMatrixWorld(true);
 
@@ -3312,7 +3598,8 @@ BAKE.ready = (async () => {
   mats.forEach((e, m) => { if (e.o) bakePatch(m, 'pr'); else bakePatch(m, 'lm'); });
   BAKE.receivers.forEach((o) => {
     if (o.material.userData.bk === 'lm') return;
-    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
+    // the copy keeps the material's own patches but not its probe patch (two bake patches would redefine the uniforms)
+    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c._patches = c._patches.filter((q) => !q.key.startsWith('bk-')); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
     o.material = c;
   });
   DECALS.forEach((m) => { m.visible = false; });
@@ -3948,8 +4235,26 @@ function drawStrip(s) {
 // Deck 2: the lobby directory and the wardroom mess board
 DRAW.deck2 = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.4, 1], false, w * 0.04);
-  table(g, sub(g, a, 'OFFICERS’ DECK', P.acc, P), [['CAPTAIN’S QUARTERS', 'FORWARD'], ['LIFT 1 LOBBY', 'YOU ARE HERE', P.acc], ['OFFICERS’ CORRIDOR', 'AFT'], ['FIRST OFFICER', 'SEALED', P.dim], ['SENIOR OFFICERS', 'SEALED', P.dim], ['OFFICERS’ WARDROOM', 'AFT END'], ['OBSERVATION LOUNGE', 'SEALED', P.dim]], P);
-  lights(g, sub(g, b, 'DECK', P.ice, P), [['ATMOSPHERE', 'ok'], ['GRAVITY', 'ok'], ['LIGHTING', state.alert === 'red' ? 'alert' : 'ok'], ['FITTING-OUT', 'warn'], ['LIFT 1', typeof LIFT === 'undefined' || LIFT.phase === 'idle' ? 'ok' : 'act']], P);
+  table(g, sub(g, a, 'OFFICERS’ DECK', P.acc, P), [['CAPTAIN’S QUARTERS', 'FORWARD'], ['LIFT 1 LOBBY', 'YOU ARE HERE', P.acc], ['FIRST OFFICER', 'PORT'], ['SENIOR OFFICERS', 'STARBOARD'], ['OFFICERS’ WARDROOM', 'AFT'], ['OBSERVATION LOUNGE', 'AFT']], P);
+  lights(g, sub(g, b, 'DECK', P.ice, P), [['ATMOSPHERE', 'ok'], ['GRAVITY', 'ok'], ['LIGHTING', state.alert === 'red' ? 'alert' : 'ok'], ['SHUTTERS', state.alert === 'red' ? 'alert' : 'ok'], ['LIFT 1', typeof LIFT === 'undefined' || LIFT.phase === 'idle' ? 'ok' : 'act']], P);
+};
+// the first officer's desk: the duty roster and the departments' standing
+DRAW.xo = function (g, x, y, w, h, P) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), red = state.alert === 'red';
+  table(g, sub(g, a, 'DUTY ROSTER', P.acc, P), [['ALPHA WATCH', '0800–1600'], ['BETA WATCH', '1600–0000'], ['GAMMA WATCH', '0000–0800'], ['NEXT DRILL', red ? 'NOW' : 'DAY 3', red ? P.red : P.txt]], P);
+  lights(g, sub(g, b, 'DEPARTMENTS', P.ice, P), [['ENGINEERING', 'ok'], ['TACTICAL', red ? 'alert' : 'ok'], ['SCIENCE', 'ok'], ['MEDICAL', 'ok'], ['OPERATIONS', 'act']], P);
+};
+// a senior officer's desk: messages waiting and the officer's watches
+DRAW.cabin = function (g, x, y, w, h, P, s) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), n = s && s.station === 'so2desk' ? 1 : 0;
+  table(g, sub(g, a, 'MESSAGES', P.acc, P), [['FROM HOME', n ? '1 NEW' : '2 NEW'], ['DEPT REPORT', 'DUE 1700'], ['WARDROOM', 'DINNER 1830'], ['TRAINING', n ? 'SIM BAY 4' : 'DAMAGE DRILL']], P);
+  lights(g, sub(g, b, 'MY WATCHES', P.ice, P), [['ALPHA', n ? 'off' : 'act'], ['BETA', n ? 'act' : 'off'], ['GAMMA', 'off'], ['ON CALL', state.alert === 'green' ? 'ok' : 'alert']], P);
+};
+// the observation lounge board: what you are looking at out of the aft window
+DRAW.lounge = function (g, x, y, w, h, P) {
+  const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), red = state.alert === 'red', warp = state.speed === 'warp';
+  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['DORSAL TURRET', red ? 'MANNED' : 'STOWED', red ? P.red : P.txt], ['PORT NACELLE', warp ? 'WARP FIELD' : 'IDLE'], ['STBD NACELLE', warp ? 'WARP FIELD' : 'IDLE'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
+  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ARCH FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
 };
 DRAW.mess = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
@@ -4790,7 +5095,7 @@ function drainSimEvents(dt) {
 // Decks Lift 1 serves (from docs/master-systems-display.html)
 const LIFT_DECKS = [
   { n: 1, name: 'Main Bridge', short: 'BRIDGE', built: true },
-  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'Officers’ wardroom'], sealed: ['First officer’s quarters', 'Senior officers’ quarters', 'Observation lounge'] },
+  { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'First officer’s quarters', 'Senior officers’ cabins', 'Officers’ wardroom', 'Officers’ passage', 'Observation lounge'], sealed: [] },
   { n: 3, name: 'Medical and officers', short: 'MEDICAL', rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
   { n: 4, name: 'Crew deck', short: 'CREW', rooms: ['Mess hall and galley', 'Crew lounge and gym', 'Crew quarters', 'Auxiliary control'] },
   { n: 5, name: 'Weapons and transport', short: 'WEAPONS', rooms: ['Torpedo bays 1 and 2', 'Armory and security', 'Transporter rooms', 'Science labs'] },
@@ -5118,12 +5423,12 @@ Object.assign(STATIONS, {
   liftcar: { title: 'Lift 1', role: 'Choose a deck', panel: () => {
     const d = liftDeck(LIFT.deck);
     return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Decks 1 and 2']],
-      note: LIFT.inside ? 'Deck 2 has the captain’s quarters and the wardroom. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
+      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
       acts: LIFT_DECKS.map((x) => ({ label: `${x.n} · ${x.short.charAt(0) + x.short.slice(1).toLowerCase()}`, on: x.n === LIFT.deck, disabled: x.n === LIFT.deck || LIFT.phase !== 'idle', fn: () => liftGo(x.n) })) };
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {
     const d = liftDeck(LIFT.deck); STATIONS.deckdir.role = `Deck ${d.n} · ${d.name}`;
-    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')], ['Still sealed', d.sealed.join(', ')]], note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft to the wardroom.', acts: [] };
+    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')]].concat(d.sealed.length ? [['Still sealed', d.sealed.join(', ')]] : []), note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft past the officers’ cabins to the wardroom; the passage to port at its end leads to the observation lounge.', acts: [] };
     return { read: [['On this deck', (d.rooms || []).join(', ') || 'Main bridge, ready room, conference room'], ['Status', d.built ? 'Open' : 'Sealed for fitting-out']],
       note: 'Not built yet. Take the lift back up, or look around another deck.', acts: [] };
   } },
@@ -5132,14 +5437,30 @@ Object.assign(STATIONS, {
     return { read: [['Beyond', 'The rest of the deck'], ['Access', 'Closed to the crew']], note: 'Construction crews are still fitting out this deck. Ride back up to the bridge in Lift 1.', acts: [] };
   } },
 });
+// a synthesizer niche: pick an order, it is ready in the niche
+function galleyStation(key, role, note, menu) {
+  return { title: 'Galley', role, panel: () => ({ read: [['Synthesizer', 'Ready'], ['Last order', state[key] || 'None']], note,
+    acts: menu.map((n) => ({ label: n, on: state[key] === n, fn: () => { state[key] = n; beep([660, 990], 0.08, 0.04); toast(`${n}. Ready in the niche.`, 'Galley'); renderPanel(); } })) }) };
+}
 Object.assign(STATIONS, {
   capq: { title: 'Captain’s quarters', role: 'Deck 2 · forward', panel: () => ({ read: [['Inside', 'Day cabin, dining table, desk, galley, sleeping cabin'], ['Viewport', 'Forward, armored, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
   wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, sideboard, the ship’s crest'], ['Viewport', 'Starboard']], note: 'Walk up to the door to go in.', acts: [] }) },
-  d2sealed: { title: 'Sealed cabin', role: 'Deck 2 · fitting-out', panel: () => ({ read: [['Status', 'Sealed'], ['Next', 'First officer’s and senior officers’ quarters, then the observation lounge']], note: 'These cabins open in the next stage of the build.', acts: [] }) },
+  capbank: { title: 'Turret capacitor bank', role: 'Deck 2 · restricted', panel: () => ({ read: [['Access', 'Engineering only'], ['Charge', state.alert === 'red' ? 'Full, feeding the turret' : 'Held at 40%']], note: 'Power banks that feed the dorsal beam turret above. Sealed to everyone but engineering.', acts: [] }) },
+  lngdoor: { title: 'Observation lounge', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Window over the stern, tables, the bar'], ['View', 'The dorsal turret and both nacelles']], note: 'Walk up to the door to go in.', acts: [] }) },
+  lounge: { title: 'Observation lounge', role: 'View aft', panel: () => ({ read: [['Dorsal turret', state.alert === 'red' ? 'Manned' : 'Stowed'], ['Nacelles', state.speed === 'warp' ? 'Warp field up' : 'Idle'], ['Shutters', state.alert === 'red' ? 'Closed for Red Alert' : 'Open']], note: 'The crew’s favourite window: the turret on its arch and both nacelles, aft.', acts: [] }) },
+  lgalley: galleyStation('lcup', 'Observation lounge', 'The lounge bar’s synthesizer.', ['Coffee', 'Iced tea', 'Ginger ale', 'Hot toddy (synthehol)']),
   qdesk: { title: 'Captain’s desk', role: 'Personal log', panel: () => ({ read: [['Entry', LOG[state.logIdx].d], ['Reports', state.reports ? state.reports + ' to sign' : 'All signed']], note: LOG[state.logIdx].t,
     acts: [{ label: 'Next entry', fn: () => { state.logIdx = (state.logIdx + 1) % LOG.length; redrawStation('qdesk'); redrawStation('desk'); renderPanel(); } }, { label: 'Sign a report', disabled: !state.reports, fn: () => { state.reports = Math.max(0, state.reports - 1); toast('Report signed.', 'Yeoman'); renderPanel(); } }] }) },
-  qgalley: { title: 'Galley', role: 'Captain’s quarters', panel: () => ({ read: [['Synthesizer', 'Ready'], ['Last order', state.qcup || 'None']], note: 'A small galley for the captain’s own table.',
-    acts: [['Coffee, black'], ['Mint tea'], ['Hot chocolate'], ['Soup of the day']].map(([n]) => ({ label: n, on: state.qcup === n, fn: () => { state.qcup = n; beep([660, 990], 0.08, 0.04); toast(`${n}. Ready in the niche.`, 'Galley'); renderPanel(); } })) }) },
+  qgalley: galleyStation('qcup', 'Captain’s quarters', 'A small galley for the captain’s own table.', ['Coffee, black', 'Mint tea', 'Hot chocolate', 'Soup of the day']),
+  xoq: { title: 'First officer’s quarters', role: 'Deck 2 · port', panel: () => ({ read: [['Inside', 'Day cabin, desk, table for two, galley, sleeping cabin'], ['Viewport', 'Port, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
+  xodesk: { title: 'First officer’s desk', role: 'Duty roster', panel: () => ({ read: [['On watch', 'Alpha'], ['Next drill', state.alert === 'red' ? 'Now' : 'Day 3'], ['Department reports', 'Five, all filed']], note: 'The first officer keeps the duty roster and the department reports here, and briefs the captain from them each morning.', acts: [] }) },
+  so1q: { title: 'Senior officer’s cabin', role: 'Deck 2 · starboard', panel: () => ({ read: [['Inside', 'Bed, desk, armchair, galley niche'], ['Viewport', 'Starboard, shuttered at Red Alert']], note: 'A department head’s cabin. Walk up to the door to go in.', acts: [] }) },
+  so1desk: { title: 'Senior officer’s desk', role: 'Cabin 1', panel: () => ({ read: [['Messages', '2 new from home'], ['Watch', 'Alpha']], note: 'A department head’s own desk: letters, reports and the watch bill.', acts: [] }) },
+  so1galley: galleyStation('so1cup', 'Senior officer’s cabin 1', 'A galley niche on the cabin’s inner wall.', ['Coffee, black', 'Black tea', 'Lemon water']),
+  so2q: { title: 'Senior officer’s cabin', role: 'Deck 2 · starboard', panel: () => ({ read: [['Inside', 'Bed, desk, armchair, galley niche'], ['Viewport', 'Starboard, shuttered at Red Alert']], note: 'A department head’s cabin. Walk up to the door to go in.', acts: [] }) },
+  so2desk: { title: 'Senior officer’s desk', role: 'Cabin 2', panel: () => ({ read: [['Messages', '1 new from home'], ['Watch', 'Beta']], note: 'A department head’s own desk: letters, reports and the watch bill.', acts: [] }) },
+  so2galley: galleyStation('so2cup', 'Senior officer’s cabin 2', 'A galley niche on the cabin’s inner wall.', ['Espresso', 'Herbal tea', 'Tomato soup']),
+  xogalley: galleyStation('xocup', 'First officer’s quarters', 'A galley niche beside the door.', ['Coffee, white', 'Green tea', 'Spiced cider', 'Vegetable broth']),
   wardroom: { title: 'Wardroom', role: 'Mess board', panel: () => ({ read: [['Next meal', 'Officers’ dinner, 1830'], ['Host', 'First officer'], ['Seats', '10, two guests tonight']], note: 'The officers eat here and meet off watch. The captain dines here on the first night of every patrol.', acts: [] }) },
 });
 FUNC.liftcar = FUNC.deckdir = FUNC.sealed = 'acc';
@@ -5494,7 +5815,7 @@ function frame() {
     });
     const ll = liftLocation(here && here.label); if (ll !== lastLoc) { lastLoc = ll; locNode.nodeValue = ll; } }
   { const closed = state.shutters === 'closed' || (state.shutters === 'auto' && state.alert === 'red');
-    SHUTTERS.forEach((sh) => { sh.cur += ((closed ? 1 : 0) - sh.cur) * Math.min(1, dt * 2.2); const a = sh.cur * (Math.PI / 2 - 0.05); sh.slats.forEach((sl) => { sl.rotation.x = a; }); }); }
+    SHUTTERS.forEach((sh) => { sh.cur += ((closed ? 1 : 0) - sh.cur) * Math.min(1, dt * 2.2); const a = sh.cur * (Math.PI / 2 - 0.05); sh.slats.forEach((sl) => { sl.rotation.x = a; if (sh.hideOpen) sl.visible = sh.cur > 0.02; }); }); }
   if (cur.speed > 0.3) {
     extStreaks.visible = true; extMat.opacity = Math.min(1, cur.speed / 10) * 0.85; const L2 = 0.3 + cur.len * 0.45;
     for (let i = 0; i < EXT_N; i++) {

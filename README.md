@@ -26,9 +26,13 @@ Everything here is original: the ship, its layout, the interface language, the i
 | Area | What you can do |
 | --- | --- |
 | **Lift 1 lobby** | Deck sign, the deck directory, a bench. The captain's quarters are straight ahead; the corridor runs aft. |
-| **Captain's quarters** | A day cabin with a sofa facing the forward viewport, a dining table for four, a desk with the personal log, a galley with its own synthesizer, bookshelves, and a sleeping cabin behind a partition. |
-| **Officers' corridor** | Runs aft past the first officer's and senior officers' cabins (sealed until the next stage). |
+| **Captain's quarters** | A day cabin with a sofa facing the forward viewport, a dining table for four, a desk whose top is a touch display (the personal log), a galley with its own synthesizer, bookshelves, and a sleeping cabin behind a partition. |
+| **Officers' corridor** | Runs aft past the first officer's quarters (port) and the two senior officers' cabins (starboard) to the wardroom. |
+| **First officer's quarters** | The captain's quarters, smaller: a sofa facing the port viewport, a touch-display desk with the duty roster, a galley niche, and a sleeping cabin behind a partition. |
+| **Senior officers' cabins** | Two mirror-image cabins for department heads: bed, starboard viewport, desk, armchair, galley niche. |
 | **Officers' wardroom** | A table for ten, a sideboard, the ship's crest, the mess board, and a starboard viewport. |
+| **Officers' passage** | From the corridor's end, to port and aft along the wardroom, past the sealed turret capacitor bank. |
+| **Observation lounge** | Across the stern of the spine: a wide window looking aft over the dorsal turret's arch and both nacelles, a window ledge with swivel chairs, small tables, and a bar. The view outside is a simple stand-in for the exterior model. |
 
 ## Controls
 
@@ -56,7 +60,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
-  | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, captain's quarters, wardroom |
+  | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, all the officers' quarters, wardroom, passage, observation lounge, and the exterior set piece seen through its windows |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |
   | `render.js` | Haze light shafts, post-processing, screen redraw scheduler, hero shots, frame loop |
@@ -75,7 +79,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   1. `python3 tools/bake_export.py . <work>`: opens the ship headlessly and writes its geometry and fixtures.
   2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 12 minutes on two cores at 160 samples.
   3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`. It stores the light at exposure 7.0, the brightness the ship was tuned at (set `EXPOSURE` to change it).
-- **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors.
+- **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors; `tools/check_deck2.py` rides to Deck 2 and checks its rooms, stations, doors, walkways and the exterior set piece.
 - **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. Block-style screens in palette A (see Interface above; `docs/interface-style-sheet.md` describes the earlier amber scheme and is superseded). Only screens near the player redraw, to keep phones smooth.
 - **Viewscreen:** renders a separate space scene (starfield, nebula, planet, warp streaks) to a texture.
@@ -85,6 +89,6 @@ Everything here is original: the ship, its layout, the interface language, the i
 
 ## Status
 
-**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`), then two detail passes: denser screens and a new master systems display, followed by new chairs, the situation table, an orbital view and continuously animated displays. Next is Deck 2 part 2: the first officer's and senior officers' quarters and the observation lounge.
+**Captain simulator (branch `captain-sim`):** the design is in `docs/superpowers/specs/2026-11-22-captain-sim-design.md`. Stage 1 (ship model, live consoles, new colors) is done. Gameplay is on hold while the ship is built out. Build-out Stages 1 to 3 are done (bigger Deck 1 rooms, a working Lift 1, Deck 2 part 1), along with a bridge refit: block-style screens in a new palette, a brighter room and rebuilt stations (design: `docs/superpowers/specs/2026-11-25-bridge-refit-design.md`), then two detail passes: denser screens and a new master systems display, followed by new chairs, the situation table, an orbital view and continuously animated displays. Deck 2 part 2 is done too: the first officer's and senior officers' quarters, a passage and the observation lounge (design: `docs/superpowers/specs/2026-11-26-deck2-part2-design.md`).
 
 Deck 1 is complete. In the build-out (gameplay paused), Stage 1 gave it more room: every bridge wall moved out 0.8 m for wider walkways (consoles moved with the walls; the dais, pods and situation table stayed put), the ready room and conference room grew to about 6 x 6.5 m and 8 x 6.5 m with 3.1 m ceilings, and the light was re-baked at 160 samples. Stages 0 (engine upgrade, code split, hero shots), 1 (baked fixture lighting, contact shadows, bounce light, haze) and 3 (surfaces and wear) of the visual overhaul are done. Stages 2 (camera and colour grade) and 7 (sound and quality settings) are queued after the first mission; Stages 4 to 6 are parked. The exterior model and other decks come later.

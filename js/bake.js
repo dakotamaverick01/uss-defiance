@@ -164,7 +164,8 @@ BAKE.ready = (async () => {
   mats.forEach((e, m) => { if (e.o) bakePatch(m, 'pr'); else bakePatch(m, 'lm'); });
   BAKE.receivers.forEach((o) => {
     if (o.material.userData.bk === 'lm') return;
-    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
+    // the copy keeps the material's own patches but not its probe patch (two bake patches would redefine the uniforms)
+    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c._patches = c._patches.filter((q) => !q.key.startsWith('bk-')); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
     o.material = c;
   });
   DECALS.forEach((m) => { m.visible = false; });

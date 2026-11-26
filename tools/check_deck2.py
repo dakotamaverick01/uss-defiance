@@ -49,6 +49,12 @@ CHECK_JS = r"""() => {
   ok('set piece exists inside Deck 2', ext && (() => { for (let p = ext; p; p = p.parent) if (p === DECK2) return true; return false; })());
   ok('set piece has no baked materials', ext && std === 0, std);
   ok('set piece under 20k triangles', ext && tris < 20000, Math.round(tris));
+  // every Deck 2 screen sits in front of its wall (walls are inset 6 cm from each room's outline)
+  { const p = new THREE.Vector3(), hid = []; screens.forEach((sc) => { let d2 = false; for (let o = sc.mesh; o; o = o.parent) if (o === DECK2) d2 = true; if (!d2) return; sc.mesh.getWorldPosition(p); const x = p.x, z = p.z;
+      if (!D2.rooms.some((r) => x > r.x0 + 0.061 && x < r.x1 - 0.061 && z > r.z0 + 0.061 && z < r.z1 - 0.061)) hid.push(sc.station + '@' + x.toFixed(2) + ',' + z.toFixed(2)); });
+    ok('no screen behind a wall', hid.length === 0, hid.join(' ')); }
+  // the bake patches each material once: a second patch redefines its uniforms and the shader fails to compile
+  { let twice = 0; scene.traverse((o) => { if (o.isMesh && (o.material._patches || []).filter((q) => q.key.startsWith('bk-')).length > 1) twice++; }); ok('no mesh patched twice by the bake', twice === 0, twice); }
   liftSetDeck(1);
   return out;
 }"""
