@@ -41,7 +41,9 @@ shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
 // load, three.js's own bloom is used as before; if that fails too, a plain render.
 let composer = null, bloom = null, aoPass = null;
 const POST = { kind: 'none' };
-const PERF_OPT = { screens: isMobile ? 2 : 4 }; // display redraws per frame; perf.js can raise it
+// knobs perf.js can turn: display redraws per frame, whether the bridge viewscreen renders, and the measured
+// time this code spends preparing each frame on the processor (cpu, ms)
+const PERF_OPT = { screens: isMobile ? 2 : 4, viewscreen: true, cpu: 0 };
 function flagXR(t) { if (t) { t.isXRRenderTarget = true; t.texture.colorSpace = THREE.LinearSRGBColorSpace; } }
 try {
   if (THREE.PP) {
@@ -135,6 +137,7 @@ function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math
 
 let simLast = performance.now(), livePanelT = 0;
 function frame() {
+  const _t0 = performance.now();
   const dt = Math.min(clock.getDelta(), 0.05); elapsed += dt;
   // the ship model runs on real time (not the capped frame time) so it keeps pace on slow phones
   { const now = performance.now(); simUpdate(Math.min(1, (now - simLast) / 1000)); simLast = now; drainSimEvents(dt); }
@@ -261,7 +264,7 @@ function frame() {
   // screens: every frame, redraw a few of the visible ones, the nearest and longest-waiting first, so they all keep moving
   { _scrPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _scrFr.setFromProjectionMatrix(_scrPM);
     const budget = PERF_OPT.screens, pick = [];
-    for (const sc of screens) {
+    if (budget > 0) for (const sc of screens) {
       if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); }
       const d2 = sc.wp.distanceToSquared(camera.position); if (d2 > 110) continue;
       const big = sc.w * sc.h > 900000, age = elapsed - (sc.last || -9); if (age < (big ? 1 / 12 : 1 / 30)) continue;
@@ -275,10 +278,11 @@ function frame() {
 
   aimTimer += dt; if (aimTimer > 0.12) { aimTimer = 0; aim(); }
 
-  scene.fog = null; renderer.setRenderTarget(rt); if (LIFT.deck === 1) renderer.render(scene, vcam);
+  scene.fog = null; renderer.setRenderTarget(rt); if (LIFT.deck === 1 && PERF_OPT.viewscreen) renderer.render(scene, vcam);
   { const sk = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.5 : 1) * (1 + Math.sin(elapsed * 0.7) * 0.15); shaftMat.uniforms.k.value = 0.06 * sk; shafts[shafts.length - 1].material.uniforms.k.value = 0.035 * sk; }
   scene.fog = FOG; renderer.setRenderTarget(null);
   if (composer) composer.render(); else renderer.render(scene, camera);
+  PERF_OPT.cpu = performance.now() - _t0;
   requestAnimationFrame(frame);
 }
 setAlert('green');
