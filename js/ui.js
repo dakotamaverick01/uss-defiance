@@ -191,8 +191,8 @@ function renderPanel() {
   }));
   if (focused !== undefined) { const b = ui.acts.querySelector(`[data-idx="${focused}"]`); if (b && !b.disabled) b.focus({ preventScroll: true }); }
 }
-function openStation(id) { state.open = id; ui.panel.style.setProperty('--fn', FUNC_CSS[FUNC[id] || 'acc']); ui.panel.hidden = false; ui.seatbar.hidden = true; beep([880, 1175], 0.05, 0.035); renderPanel(); updateHighlights(); }
-function closePanel() { state.open = null; ui.acts.dataset.station = ''; ui.panel.hidden = true; ui.seatbar.hidden = !state.sitting; updateHighlights(); }
+function openStation(id) { if (typeof unlockLook === 'function') unlockLook(); state.open = id; ui.panel.style.setProperty('--fn', FUNC_CSS[FUNC[id] || 'acc']); ui.panel.hidden = false; ui.seatbar.hidden = true; beep([880, 1175], 0.05, 0.035); renderPanel(); updateHighlights(); }
+function closePanel() { state.open = null; ui.acts.dataset.station = ''; ui.panel.hidden = true; ui.seatbar.hidden = !state.sitting; updateHighlights(); if (typeof lockLook === 'function') lockLook(); }
 $('p-close').addEventListener('click', closePanel);
 
 function setSpeed(s) {

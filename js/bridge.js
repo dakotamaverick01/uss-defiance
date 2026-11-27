@@ -618,25 +618,28 @@ holo.visible = holoBeam.visible = false; // the old hologram is retired; the tab
 // doors: Lift + Ready Room (aft), Head (aft-port), Conference Room (aft-starboard)
 const DOORS = [];
 function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }
-// a sliding double door at (px, pz), frame on the local +z side; parent and deck default to the bridge (Deck 1)
-function doorAt(px, pz, rot, label, station, auto, room, parent, deck) {
+// a sliding double door at (px, pz), frame on the local +z side; parent and deck default to the bridge (Deck 1);
+// w is the clear opening (1.2 m standard), each leaf half of it
+function doorAt(px, pz, rot, label, station, auto, room, parent, deck, w) {
+  w = w || 1.2; const hw = w / 2, k = w / 1.2;
   const g = group(px, 0, pz, rot, parent), tx = Math.cos(rot), tz = -Math.sin(rot);
   const back = cnv(256, 400); { const c = back.getContext('2d'); const gr = c.createLinearGradient(0, 0, 0, 400); gr.addColorStop(0, '#f4f6fa'); gr.addColorStop(1, '#c9d2e0'); c.fillStyle = gr; c.fillRect(0, 0, 256, 400); }
-  if (!room) mesh(new THREE.PlaneGeometry(1.2, 2.3), new THREE.MeshBasicMaterial({ map: tex(back), toneMapped: false }), 0, 1.15, 0.012, g);
+  if (!room) mesh(new THREE.PlaneGeometry(w, 2.3), new THREE.MeshBasicMaterial({ map: tex(back), toneMapped: false }), 0, 1.15, 0.012, g);
   const reveal = [];
-  if (room) { [-1, 1].forEach((sd) => reveal.push(mesh(BOX(0.04, 2.3, 0.22), MAT.gun, sd * 0.62, 1.15, -0.1, g))); reveal.push(mesh(BOX(1.28, 0.04, 0.22), MAT.gun, 0, 2.32, -0.1, g), mesh(BOX(1.2, 0.012, 0.24), MAT.steel, 0, 0.006, -0.1, g)); }
-  [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
-  mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
-  mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
+  if (room) { [-1, 1].forEach((sd) => reveal.push(mesh(BOX(0.04, 2.3, 0.22), MAT.gun, sd * (hw + 0.02), 1.15, -0.1, g))); reveal.push(mesh(BOX(w + 0.08, 0.04, 0.22), MAT.gun, 0, 2.32, -0.1, g), mesh(BOX(w, 0.012, 0.24), MAT.steel, 0, 0.006, -0.1, g)); }
+  [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * (hw + 0.11), 1.3, 0.12, g));
+  mesh(RBOX(w + 0.44, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g);
+  mesh(BOX(w, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
   const lp = cnv(320, 56); { const c = lp.getContext('2d'); c.fillStyle = '#000'; c.fillRect(0, 0, 320, 56); hexNode(c, 28, 28, 16); c.fillStyle = station === 'capbank' ? '#E05A50' : '#E8A06A'; c.fill(); if (!THREE.TroikaText) { c.fillStyle = '#F5E6CF'; c.font = `700 26px ${DISP}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(label, 56, 30); } }
   const lpm = mesh(new THREE.PlaneGeometry(1.0, 0.175), new THREE.MeshBasicMaterial({ map: tex(lp), toneMapped: false }), 0, 2.45, 0.276, g);
   text3d(lpm, label, 0.085, 0xF5E6CF, -0.325, 0.004, 0.002);
-  const L = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, -0.3, 1.15, 0.06, g);
-  const Rr = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, 0.3, 1.15, 0.06, g);
-  [L, Rr].forEach((d, k) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, k ? -0.27 : 0.27, 0, 0.04, d); mesh(BOX(0.4, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
-  addHit(BOX(1.6, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
-  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal, deck: deck || 1 };
-  if (room) dd.seg = [px - tx * 0.6, pz - tz * 0.6, px + tx * 0.6, pz + tz * 0.6, 0.2];
+  const L = mesh(RBOX(hw, 2.3, 0.06, 0.015), MAT.panel, -hw / 2, 1.15, 0.06, g);
+  const Rr = mesh(RBOX(hw, 2.3, 0.06, 0.015), MAT.panel, hw / 2, 1.15, 0.06, g);
+  [L, Rr].forEach((d, j) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, (j ? -1 : 1) * (hw / 2 - 0.03), 0, 0.04, d); mesh(BOX(0.4 * k, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
+  addHit(BOX(w + 0.4, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
+  // each leaf sits hw/2 off centre when shut and slides hw - 0.04 into the wall when open (render.js)
+  const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal, deck: deck || 1, q: hw / 2, slide: hw - 0.04, reach: w > 1.5 ? 2.0 : 1.7 };
+  if (room) dd.seg = [px - tx * hw, pz - tz * hw, px + tx * hw, pz + tz * hw, 0.2];
   DOORS.push(dd); return dd;
 }
 door(4, LIFT_GAP.t, 'LIFT', 'lift', true, true);

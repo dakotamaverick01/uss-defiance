@@ -224,10 +224,10 @@ function frame() {
   }
 
   DOORS.forEach((d) => {
-    const near = d.auto && d.deck === LIFT.deck && !state.sitting && Math.hypot(camera.position.x - d.wx, camera.position.z - d.wz) < (d.room ? 1.7 : 1.5);
+    const near = d.auto && d.deck === LIFT.deck && !state.sitting && Math.hypot(camera.position.x - d.wx, camera.position.z - d.wz) < (d.room ? d.reach : 1.5);
     if (d.station === 'lift') d.open = LIFT.door; // lift.js runs the lift doors
     else d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
-    d.L.position.x = -0.3 - d.open * 0.56; d.Rr.position.x = 0.3 + d.open * 0.56;
+    d.L.position.x = -d.q - d.open * d.slide; d.Rr.position.x = d.q + d.open * d.slide;
   });
   // rooms: light the one you are in or approaching, name it in the HUD
   { let here = null;

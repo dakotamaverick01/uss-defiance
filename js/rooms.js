@@ -119,13 +119,23 @@ function viewport(g, x0, x1, y0, y1, z) {
   SHUTTERS.push({ slats, cur: 0 });
   addHit(BOX(w, h, 0.4), { station: 'shutters' }, g, cx, cy, z - 0.2);
 }
-function plantAt(parent, x, z, scale) {
+// box = [x0, x1, z0, z1]: optional wall faces around the plant (parent coordinates). Leaves that would reach through
+// a wall are stood more upright so the whole plant stays in its room.
+function plantAt(parent, x, z, scale, box) {
   const g = group(x, 0, z, 0, parent); g.scale.setScalar(scale || 1);
+  const room = (a) => { // how far the room lets a leaf reach from the pot in direction a (world-scaled metres)
+    if (!box) return Infinity; const dx = Math.sin(a), dz = Math.cos(a); let t = Infinity;
+    if (dx > 1e-4) t = Math.min(t, (box[1] - x) / dx); if (dx < -1e-4) t = Math.min(t, (box[0] - x) / dx);
+    if (dz > 1e-4) t = Math.min(t, (box[3] - z) / dz); if (dz < -1e-4) t = Math.min(t, (box[2] - z) / dz);
+    return t - 0.07;
+  };
   mesh(CYL(0.2, 0.15, 0.5, 24), POT, 0, 0.25, 0, g);
   mesh(new THREE.TorusGeometry(0.2, 0.015, 6, 24), BRASS, 0, 0.5, 0, g).rotation.x = Math.PI / 2;
   const rr = mulberry(Math.round(x * 100 + z * 37) + 99);
   for (let i = 0; i < 13; i++) {
-    const a = i / 13 * Math.PI * 2 + rr() * 0.4, tilt = 0.3 + rr() * 0.6, len = 0.4 + rr() * 0.35;
+    const a = i / 13 * Math.PI * 2 + rr() * 0.4, len = 0.4 + rr() * 0.35; let tilt = 0.3 + rr() * 0.6;
+    // a leaf reaches about 1.9 x len x sin(tilt) out from the pot; keep that inside the walls
+    const k = room(a) / (1.9 * len * (scale || 1)); if (k < Math.sin(tilt)) tilt = Math.asin(Math.max(0.05, Math.min(1, k)));
     const piv = group(0, 0.5, 0, a, g);
     const l = mesh(new THREE.SphereGeometry(1, 10, 6), LEAF, 0, 0, 0, piv); l.scale.set(0.065, len, 0.022);
     l.position.set(0, Math.cos(tilt) * len * 0.9, Math.sin(tilt) * len * 0.9); l.rotation.x = tilt;

@@ -8,7 +8,7 @@
 
 const D2Y = -3.5, D2H = 2.75, D2C = 2.6; // floor height, room ceiling, corridor ceiling
 const DECK2 = group(0, D2Y, 0, 0); DECK2.name = 'Deck 2';
-const D2 = { segs: [], obs: [], rooms: [], door: null };
+const D2 = { segs: [], obs: [], rooms: [], door: null, labels: [], rails: [] };
 const d2RoomWall = roomWallMat(D2H, 'fabric'), d2CorrWall = roomWallMat(D2C, 'fabric');
 const [D2_LX] = onEdge(LIFT_GAP.edge, LIFT_GAP.t, 0); // the lift door's x; the doors open forward at z = 6.2
 function d2seg(ax, az, bx, bz, r) { D2.segs.push([ax, az, bx, bz, r === undefined ? 0.33 : r]); }
@@ -75,11 +75,25 @@ function d2desk(parent, w, d, station, sub, title, code) {
   addHit(BOX(w, 1.0, d), { station }, g, 0, 0.6, 0);
   return g;
 }
+// a potted plant kept inside the walls of the room it stands in (walls are inset 6 cm from each room's outline)
+function d2plant(x, z, scale) {
+  const r = D2.rooms.find((q) => x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1), I = 0.06;
+  plantAt(DECK2, x, z, scale, r && [r.x0 + I, r.x1 - I, r.z0 + I, r.z1 - I]); d2obs(x, z, 0.3);
+}
+// a handrail along a wall at x from z0 to z1, broken at each gap [za, zb] (doorways and openings), with end brackets
+function d2rail(x, z0, z1, gaps, side) {
+  let runs = [[z0, z1]];
+  (gaps || []).forEach(([a, b]) => { runs = runs.flatMap(([p, q]) => (b <= p || a >= q) ? [[p, q]] : [[p, a], [b, q]].filter(([u, v]) => v - u > 0.25)); });
+  runs.forEach(([p, q]) => {
+    const r = mesh(CYL(0.022, 0.022, q - p, 10), MAT.steel, x, 0.95, (p + q) / 2, DECK2); r.rotation.x = Math.PI / 2; D2.rails.push([x, p, q]);
+    [p + 0.06, q - 0.06].forEach((z) => mesh(BOX(0.07, 0.025, 0.025), MAT.steel, x - side * 0.035, 0.95, z, DECK2));
+  });
+}
 function d2label(text, x, y, z, rot, w) {
   const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
   hexTab(g, 6, 10, 40, 60, true, false); g.fillStyle = '#E8A06A'; g.fill();
   g.fillStyle = '#E8A06A'; g.font = `600 44px ${DISP}`; g.textBaseline = 'middle'; g.fillText(text, 60, 43);
-  const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; return m;
+  const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; D2.labels.push(m); return m;
 }
 
 // a bed with its headboard to local -x: frame, mattress, cover, pillows, headboard; bedside tables at local z +-(wid/2 + 0.32)
@@ -129,7 +143,7 @@ function d2synth(parent, x, y, z, rot, station, title, code) {
 const D2_LOBBY = { x0: -5.4, x1: 0.2, z0: 2.8, z1: 6.2 };
 const D2_QTR = { x0: -7.2, x1: 1.6, z0: -5.2, z1: 2.8, door: -2.6 };
 const D2_COR = { x0: 0.2, x1: 2.4, z0: 2.8, z1: 17.0 };
-const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3 };
+const D2_WARD = { x0: -3.2, x1: 5.8, z0: 17.0, z1: 24.5, door: 1.3, aft: 1.3 }; // aft: the 2 m double doors into the lounge
 const D2_SO = { x0: 2.4, x1: 6.2 };
 const D2_PAS = { z0: 15.0, z1: 17.0, ax0: -5.4, ax1: -3.2, az1: 24.5, cap: 20.5 };
 const D2_LNG = { x0: -5.4, x1: 5.8, z0: 24.5, z1: 31.0, door: -4.3 };
@@ -165,7 +179,7 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
   const dg = group(x0 + 0.1, 1.45, (z0 + z1) / 2, Math.PI / 2, DECK2); display(dg, 1.3, 0.8, 640, 394, 'deck2', 'deckdir', 'Deck 2 directory', 'D2·00');
   { const b = group(x0 + 0.3, 0, (z0 + z1) / 2, Math.PI / 2, DECK2); mesh(RBOX(1.6, 0.1, 0.42, 0.03), MAT.leather, 0, 0.45, 0, b); mesh(RBOX(1.6, 0.36, 0.36, 0.02), MAT_PED, 0, 0.2, 0.02, b); }
   d2obs(x0 + 0.3, (z0 + z1) / 2 - 0.5, 0.3); d2obs(x0 + 0.3, (z0 + z1) / 2 + 0.5, 0.3);
-  plantAt(DECK2, x1 - 0.45, z1 - 0.45, 0.9); d2obs(x1 - 0.45, z1 - 0.45, 0.3);
+  d2plant(x1 - 0.45, z1 - 0.45, 0.9);
   d2down(D2_LX, (z0 + z1) / 2, H); d2down(x0 + 1.0, (z0 + z1) / 2, H); d2down(x1 - 1.1, (z0 + z1) / 2, H);
 }
 
@@ -184,14 +198,16 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
     mesh(RBOX(x1 - x0, 0.12, 0.16, 0.02), MAT.gunDark, cx, H - 0.06, z, DECK2);
     if (z + 1.2 < z1 - 0.5) d2panel(cx, z + 1.2, H, 0.9, 0.36);
   }
-  [x0 + 0.06, x1 - 0.06].forEach((x) => { const r = mesh(CYL(0.022, 0.022, z1 - z0 - 0.6, 10), MAT.steel, x, 0.95, (z0 + z1) / 2, DECK2); r.rotation.x = Math.PI / 2; });
+  // handrails both sides, broken at every doorway (door jambs stand 0.82 m either side of a door's centre) and opening
+  d2rail(x0 + 0.06, z0 + 0.3, z1 - 0.3, [[3.55, 5.05], [D2_XO.door - 0.85, D2_XO.door + 0.85], [15.15, 16.65]], -1);
+  d2rail(x1 - 0.06, z0 + 0.3, z1 - 0.3, [[7.2 - 0.85, 7.2 + 0.85], [12.0 - 0.85, 12.0 + 0.85]], 1);
   // doors along the corridor: first officer (port), two senior officers' cabins (starboard), the wardroom aft
   doorAt(x0, D2_XO.door, Math.PI / 2, 'FIRST OFFICER', 'xoq', true, true, DECK2, 2);
   doorAt(x1, 7.2, -Math.PI / 2, 'SENIOR OFFICER', 'so1q', true, true, DECK2, 2);
   doorAt(x1, 12.0, -Math.PI / 2, 'SENIOR OFFICER', 'so2q', true, true, DECK2, 2);
   doorAt(D2_WARD.door, z1, Math.PI, 'WARDROOM', 'wardoor', true, true, DECK2, 2);
   d2label('AFT · WARDROOM', x1 - 0.08, 2.0, 4.6, -Math.PI / 2, 0.9);
-  d2label('PORT · OBSERVATION LOUNGE', x1 - 0.08, 2.0, 15.9, -Math.PI / 2, 1.2);
+  d2label('PORT · OBSERVATION LOUNGE', x1 - 0.08, 2.0, 14.4, -Math.PI / 2, 1.2);
   // lined reveal for the open way through to the officers' passage
   [15.2, 16.6].forEach((z) => mesh(BOX(0.16, 2.35, 0.04), MAT.gun, x0, 1.175, z, DECK2)); mesh(BOX(0.16, 0.04, 1.44), MAT.gun, x0, 2.35, 15.9, DECK2);
 }
@@ -272,7 +288,7 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
     const sc = group(-0.55, 0, -0.02, 0, n); display(sc, 0.36, 0.5, 220, 300, 'aux', 'qgalley', 'Galley', 'GAL·01');
     addHit(BOX(1.4, 1.0, 0.6), { station: 'qgalley' }, n, -0.2, 0, -0.2);
     d2seg(gx - 0.9, gz - 0.3, gx + 0.9, gz - 0.3, 0.3);
-    plantAt(DECK2, Q.x1 - 0.45, -3.8, 1.0); d2obs(Q.x1 - 0.45, -3.8, 0.3);
+    d2plant(Q.x1 - 0.45, -3.8, 1.0);
     d2down(gx, gz - 0.8, H); d2down(-2.6, 1.9, H);
   }
 }
@@ -304,7 +320,7 @@ function d2cabin(n, z0, z1, doorZ, mirror, seed) {
     d2synth(DECK2, 4.45, 1.42, zn - f * 0.04, mirror ? 0 : Math.PI, id + 'galley', 'Galley', 'GAL·0' + (2 + n)); d2seg(4.0, zn - f * 0.56, 5.4, zn - f * 0.56, 0.3); }
   d2shelf(DECK2, x1 - 0.22, Z(5.9), -Math.PI / 2, seed + 5); d2obs(x1 - 0.22, Z(5.9), 0.4);
   d2rug(4.5, Z(3.7), 2.0, 2.4, pick(['#2c3340', '#3a2f2a', '#2a3329']), pick(['rgba(201,182,140,0.7)', 'rgba(182,147,196,0.55)', 'rgba(217,176,126,0.6)']), seed);
-  plantAt(DECK2, x0 + 0.45, Z(6.3), 0.85); d2obs(x0 + 0.45, Z(6.3), 0.3);
+  d2plant(x0 + 0.45, Z(6.3), 0.85);
   d2down(4.6, Z(1.1), H); d2down(4.3, Z(3.6), H); d2down(4.3, Z(5.8), H);
 }
 d2cabin(1, 2.8, 9.6, 7.2, false, 211);
@@ -334,7 +350,7 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
     d2obs(sx - 1.05, sz - 0.35, 0.33); d2obs(sx - 1.05, sz + 0.35, 0.33);
     d2rug(sx - 0.75, sz, 2.4, 2.8, '#2c3340', 'rgba(201,182,140,0.7)', 91);
     d2down(sx - 0.75, sz - 0.9, H); d2down(sx - 0.75, sz + 0.9, H);
-    plantAt(DECK2, Q.x0 + 0.42, PZ - 0.35, 0.9); d2obs(Q.x0 + 0.42, PZ - 0.35, 0.3);
+    d2plant(Q.x0 + 0.42, PZ - 0.35, 0.9);
     // a framed print of a ringed planet on the forward wall, above the sofa's end
     const c = cnv(384, 256), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#101826'); gr.addColorStop(1, '#2a2233'); x.fillStyle = gr; x.fillRect(0, 0, 384, 256);
     x.fillStyle = '#c9a477'; x.beginPath(); x.arc(200, 130, 62, 0, Math.PI * 2); x.fill(); x.strokeStyle = 'rgba(230,205,160,0.8)'; x.lineWidth = 5; x.beginPath(); x.ellipse(200, 132, 120, 22, -0.25, 0, Math.PI * 2); x.stroke();
@@ -371,7 +387,10 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
   d2room('Officers’ wardroom', W2.x0, W2.x1, W2.z0, W2.z1, H, d2RoomWall, MAT.roomCarpet, {
     n: [{ a: W2.door - 0.6 - W2.x0, b: W2.door + 0.6 - W2.x0, y0: 0, y1: 2.3 }],
     e: [{ a: 1.5, b: 6.0, y0: 0.95, y1: 2.25 }],
+    s: [{ a: W2.aft - 1.0 - W2.x0, b: W2.aft + 1.0 - W2.x0, y0: 0, y1: 2.3 }],
   });
+  // wide double doors aft into the observation lounge: dinner here, drinks and the view next door
+  doorAt(W2.aft, W2.z1, Math.PI, 'OBSERVATION LOUNGE', 'wlink', true, true, DECK2, 2, 2.0);
   const vp = group(W2.x1 - 0.06, 0, 20.75, Math.PI / 2, DECK2); viewport(vp, -2.25, 2.25, 0.95, 2.25, 0);
   // the long table for ten, on two pedestals
   const t = group(cx, 0, cz, 0, DECK2);
@@ -385,17 +404,26 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
   // light: two long panels over the table, downlights round the edge
   [-1.25, 1.25].forEach((x) => d2panel(cx + x, cz, H, 2.0, 0.5));
   [[W2.x0 + 1.0, 18.2], [W2.x0 + 1.0, 23.4], [W2.x1 - 1.0, 18.2], [W2.x1 - 1.0, 23.4], [cx, 18.0], [cx, 23.8]].forEach(([x, z]) => d2down(x, z, H));
-  // sideboard and the ship's crest on the aft wall
-  mesh(RBOX(3.6, 0.9, 0.5, 0.03), WOOD, cx, 0.45, W2.z1 - 0.3, DECK2); mesh(RBOX(3.66, 0.04, 0.54, 0.01), MAT.gunDark, cx, 0.92, W2.z1 - 0.3, DECK2);
-  d2seg(cx - 1.8, W2.z1 - 0.55, cx + 1.8, W2.z1 - 0.55, 0.3);
-  [-1.2, -0.9, 1.0].forEach((x, i) => mesh(lathe(i === 2 ? [[0, 0], [0.07, 0], [0.08, 0.12], [0.03, 0.28], [0.03, 0.34], [0, 0.34]] : [[0, 0], [0.04, 0], [0.045, 0.1], [0, 0.1]], 18), i === 2 ? GLASS : CERAMIC, cx + x, 0.94, W2.z1 - 0.3, DECK2));
+  // a sideboard either side of the lounge doors; the ship's crest over the port one, a painting over the starboard one
+  const SB = [W2.aft - 2.2, W2.aft + 2.2];
+  SB.forEach((sx) => { mesh(RBOX(1.8, 0.9, 0.5, 0.03), WOOD, sx, 0.45, W2.z1 - 0.3, DECK2); mesh(RBOX(1.86, 0.04, 0.54, 0.01), MAT.gunDark, sx, 0.92, W2.z1 - 0.3, DECK2);
+    d2seg(sx - 0.9, W2.z1 - 0.55, sx + 0.9, W2.z1 - 0.55, 0.3); });
+  [[SB[0] - 0.5, 0], [SB[0] - 0.2, 0], [SB[1] + 0.45, 1]].forEach(([x, i]) => mesh(lathe(i ? [[0, 0], [0.07, 0], [0.08, 0.12], [0.03, 0.28], [0.03, 0.34], [0, 0.34]] : [[0, 0], [0.04, 0], [0.045, 0.1], [0, 0.1]], 18), i ? GLASS : CERAMIC, x, 0.94, W2.z1 - 0.3, DECK2));
+  { const c = cnv(640, 400), x = c.getContext('2d'), rr = mulberry(733); // an original painting: a ringed planet over a nebula
+    const gr = x.createLinearGradient(0, 0, 640, 400); gr.addColorStop(0, '#141b2e'); gr.addColorStop(0.55, '#2c2442'); gr.addColorStop(1, '#5a3a3a'); x.fillStyle = gr; x.fillRect(0, 0, 640, 400);
+    for (let i = 0; i < 9; i++) { const g2 = x.createRadialGradient(rr() * 640, rr() * 400, 0, 320, 200, 260); g2.addColorStop(0, 'rgba(232,160,106,0.10)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g2; x.fillRect(0, 0, 640, 400); }
+    for (let i = 0; i < 220; i++) { x.fillStyle = `rgba(255,245,230,${0.3 + rr() * 0.7})`; x.fillRect(rr() * 640, rr() * 400, rr() < 0.1 ? 2 : 1, rr() < 0.1 ? 2 : 1); }
+    const pg = x.createRadialGradient(400, 230, 10, 430, 250, 110); pg.addColorStop(0, '#e7c9a0'); pg.addColorStop(0.7, '#9a6f4c'); pg.addColorStop(1, '#3a2a22'); x.fillStyle = pg; x.beginPath(); x.arc(430, 250, 100, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = 'rgba(240,220,190,0.55)'; x.lineWidth = 5; x.beginPath(); x.ellipse(430, 250, 175, 34, -0.25, 0, Math.PI * 2); x.stroke();
+    const f = mesh(RBOX(1.32, 0.86, 0.05, 0.01), MAT.gunDark, SB[1], 1.75, W2.z1 - 0.085, DECK2);
+    const m = mesh(new THREE.PlaneGeometry(1.2, 0.75), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.6 }), SB[1], 1.75, W2.z1 - 0.115, DECK2); m.rotation.y = Math.PI; }
   { const c = cnv(512, 512), x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#8a6a44'); gr.addColorStop(1, '#5e462c'); x.fillStyle = gr; x.fillRect(0, 0, 512, 512);
     x.strokeStyle = 'rgba(255,230,190,0.6)'; x.lineWidth = 6; x.strokeRect(18, 18, 476, 476); drawCrest(x, 256, 210, 130, '#f3dcb4', 8);
     x.fillStyle = '#f7e6c8'; x.textAlign = 'center'; x.font = `600 40px ${DISP}`; x.fillText('U.S.S. DEFIANCE', 256, 400); x.font = `500 26px ${DISP}`; x.fillText('STEADY UNDER FIRE', 256, 446);
-    const m = mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), cx, 1.8, W2.z1 - 0.08, DECK2); m.rotation.y = Math.PI; }
+    const m = mesh(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshStandardMaterial({ map: tex(c), metalness: 0.7, roughness: 0.35 }), SB[0], 1.78, W2.z1 - 0.08, DECK2); m.rotation.y = Math.PI; }
   // wall screen on the port side: the mess board
   const sg = group(W2.x0 + 0.1, 1.5, cz, Math.PI / 2, DECK2); display(sg, 1.5, 0.84, 720, 404, 'mess', 'wardroom', 'Wardroom', 'WRD·01');
-  plantAt(DECK2, W2.x0 + 0.5, W2.z1 - 0.5, 1.1); plantAt(DECK2, W2.x1 - 0.5, W2.z1 - 0.5, 1.1); d2obs(W2.x0 + 0.5, W2.z1 - 0.5, 0.3); d2obs(W2.x1 - 0.5, W2.z1 - 0.5, 0.3);
+  d2plant(W2.x0 + 0.5, W2.z1 - 0.5, 1.1); d2plant(W2.x1 - 0.5, W2.z1 - 0.5, 1.1);
 }
 
 // ---------- officers' passage and observation lounge ----------
@@ -419,7 +447,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   [P.z0 + 0.12, P.z1 - 0.12].forEach((z) => mesh(BOX(0.16, 2.35, 0.04), MAT.gun, P.ax1, 1.175, z, DECK2)); mesh(BOX(0.16, 0.04, 1.8), MAT.gun, P.ax1, 2.35, (P.z0 + P.z1) / 2, DECK2);
   d2panel((P.ax1 + 0.2) / 2, (P.z0 + P.z1) / 2, H, 0.9, 0.36);
   d2frames(P.ax0, P.ax1, P.z1, P.az1, H);
-  { const r = mesh(CYL(0.022, 0.022, P.az1 - P.z1 - 0.6, 10), MAT.steel, P.ax1 - 0.06, 0.95, (P.z1 + P.az1) / 2, DECK2); r.rotation.x = Math.PI / 2; }
+  d2rail(P.ax1 - 0.06, P.z1 + 0.3, P.az1 - 0.3, [], 1);
   d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.08, 2.0, 16.0, Math.PI / 2, 1.2);
   doorAt(P.ax0, P.cap, Math.PI / 2, 'POD CAPACITORS', 'capbank', false, true, DECK2, 2);
   doorAt(D2_LNG.door, P.az1, Math.PI, 'OBSERVATION LOUNGE', 'lngdoor', true, true, DECK2, 2);
@@ -427,9 +455,10 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
 {
   const L = D2_LNG, H = D2H, cx = (L.x0 + L.x1) / 2, WY0 = 0.75, WY1 = 2.35;
   d2room('Observation lounge', L.x0, L.x1, L.z0, L.z1, H, d2RoomWall, MAT.roomCarpet, {
-    n: [{ a: L.door - 0.6 - L.x0, b: L.door + 0.6 - L.x0, y0: 0, y1: 2.3 }],
+    n: [{ a: L.door - 0.6 - L.x0, b: L.door + 0.6 - L.x0, y0: 0, y1: 2.3 }, { a: D2_WARD.aft - 1.0 - L.x0, b: D2_WARD.aft + 1.0 - L.x0, y0: 0, y1: 2.3 }],
     s: [{ a: 0.6, b: 10.6, y0: WY0, y1: WY1 }],
   });
+  d2label('WARDROOM', D2_WARD.aft, 2.41, L.z0 + 0.225, 0, 0.9); // under the cove shelf, proud of the doors' reveal
   const vp = group(cx, 0, L.z1 - 0.06, 0, DECK2); viewport(vp, -5.0, 5.0, WY0, WY1, 0);
   SHUTTERS[SHUTTERS.length - 1].hideOpen = true; // the lounge's shutters fold away completely when open, so nothing crosses the view
   // the sill ledge under the window, with swivel chairs facing out
@@ -439,7 +468,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   d2seg(L.x0 + 0.4, L.z1 - 0.53, L.x1 - 0.4, L.z1 - 0.53, 0.3);
   [-4.0, -2.4, -0.8, 1.2, 2.8, 4.4].forEach((x) => { d2chair(x, L.z1 - 1.0, Math.PI, MAT.leather, 'station'); d2obs(x, L.z1 - 1.0, 0.26); });
   // small round tables, three chairs each
-  [[-2.5, 27.5, 0.3], [1.1, 26.9, 1.1], [3.9, 27.6, 0.7]].forEach(([tx, tz, a0], i) => {
+  [[-2.5, 27.5, 0.3], [1.1, 27.6, 1.1], [3.9, 27.6, 0.7]].forEach(([tx, tz, a0], i) => {
     mesh(CYL(0.42, 0.42, 0.045, 32), WOOD, tx, 0.72, tz, DECK2); mesh(CYL(0.05, 0.09, 0.68, 14), MAT.steel, tx, 0.35, tz, DECK2); mesh(CYL(0.26, 0.3, 0.03, 24), MAT.steel, tx, 0.015, tz, DECK2);
     d2obs(tx, tz, 0.46);
     [0, 1, 2].forEach((k) => { const a = a0 + k * Math.PI * 2 / 3, x = tx + Math.sin(a) * 0.78, z = tz + Math.cos(a) * 0.78; d2chair(x, z, a, [MAT.leather, FABRIC, MAT.leatherDark][i]); d2obs(x, z, 0.26); });
@@ -456,11 +485,11 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
     [bz - 0.6, bz + 0.6].forEach((z) => { d2chair(bx - 0.85, z, -Math.PI / 2, MAT.leatherDark, 'station'); d2obs(bx - 0.85, z, 0.26); });
     d2down(bx - 0.4, bz, H); }
   // the wall screen on the forward wall, and the view it describes
-  { const g = group(1.6, 1.55, L.z0 + 0.1, 0, DECK2); display(g, 1.7, 0.95, 720, 402, 'lounge', 'lounge', 'Observation lounge', 'OBS·01'); }
-  plantAt(DECK2, L.x0 + 0.45, L.z1 - 1.2, 1.1); d2obs(L.x0 + 0.45, L.z1 - 1.2, 0.3);
-  plantAt(DECK2, L.x0 + 0.45, L.z0 + 1.6, 1.0); d2obs(L.x0 + 0.45, L.z0 + 1.6, 0.3);
-  plantAt(DECK2, -0.6, L.z0 + 0.45, 1.0); d2obs(-0.6, L.z0 + 0.45, 0.3);
-  [-3.6, -1.0, 1.6, 4.2].forEach((x) => d2down(x, L.z1 - 1.0, H)); d2down(-3.9, 25.4, H); d2down(1.6, 25.3, H);
+  { const g = group(-1.75, 1.55, L.z0 + 0.1, 0, DECK2); display(g, 1.7, 0.95, 720, 402, 'lounge', 'lounge', 'Observation lounge', 'OBS·01'); }
+  d2plant(L.x0 + 0.45, L.z1 - 1.2, 1.1);
+  d2plant(L.x0 + 0.45, L.z0 + 1.6, 1.0);
+  d2plant(3.3, L.z0 + 0.45, 1.0);
+  [-3.6, -1.0, 1.6, 4.2].forEach((x) => d2down(x, L.z1 - 1.0, H)); d2down(-3.9, 25.4, H); d2down(-1.75, 25.3, H);
 }
 
 // ---------- outside: the ship herself, seen through Deck 2's windows ----------

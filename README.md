@@ -30,14 +30,14 @@ Everything here is original: the ship, its layout, the interface language, the i
 | **Officers' corridor** | Runs aft past the first officer's quarters (port) and the two senior officers' cabins (starboard) to the wardroom. |
 | **First officer's quarters** | The captain's quarters, smaller: a sofa facing the port viewport, a touch-display desk with the duty roster, a galley niche, and a sleeping cabin behind a partition. |
 | **Senior officers' cabins** | Two mirror-image cabins for department heads: bed, starboard viewport, desk, armchair, galley niche. |
-| **Officers' wardroom** | A table for ten, a sideboard, the ship's crest, the mess board, and a starboard viewport. |
+| **Officers' wardroom** | Where the officers dine: a table for ten, two sideboards under the ship's crest and a painting, the mess board, a starboard viewport, and double doors aft into the observation lounge. |
 | **Officers' passage** | From the corridor's end, to port and aft along the wardroom, past the sealed pod capacitor bank. |
 | **Observation lounge** | Across the stern of the spine: a wide window looking aft over the saucer's back to the rollbar arching over the ship with the weapons pod on its crown and a nacelle out to either side, a window ledge with swivel chairs, small tables, and a bar. |
 
 ## Controls
 
 - **Phone:** drag the stick on the left to walk, drag the right side to look, tap a station when you're close to use it.
-- **Desktop:** W A S D or the arrow keys to walk, drag with the mouse to look, click a station (or press E when it's centered) to use it, Esc to close a panel.
+- **Desktop:** click the view once and the mouse looks around freely (the browser hides the cursor; no dragging). W A S D or the arrow keys to walk; put the centre dot on a station and click, or press E, to use it. Opening a panel or pressing Esc gives the cursor back; click the view to look again. Where the page can't capture the mouse, drag to look instead.
 
 ## How it's built
 
@@ -81,8 +81,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 - **3D text:** station ID plates and door labels use [troika-three-text](https://github.com/protectwise/troika) (MIT), which draws each letter from the font's outline as a signed-distance field, so text stays sharp at any distance. The font is Antonio (SIL Open Font License, `fonts/OFL-antonio.txt`), bundled in `fonts/` as woff (troika cannot read woff2).
 - **Re-baking the light** (needed after moving any fixed geometry; the ship warns in the console and falls back to the old light if the bake no longer matches):
   1. `python3 tools/bake_export.py . <work>`: opens the ship headlessly and writes its geometry and fixtures.
-  2. `<venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment). About 12 minutes on two cores at 160 samples.
-  3. `python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/`. It stores the light at exposure 7.0, the brightness the ship was tuned at (set `EXPOSURE` to change it).
+  2. `RIG='{"disc": 6.0, "panel": 6.0, "down": 0.9, "spot_bridge": 220.0, "spot_room": 150.0}' <venv>/bin/python tools/bake_blender.py <work> 160`: renders the light with Blender's Cycles (`pip install bpy` into a virtual environment; bpy 5.3 on Python 3.13 works). The `RIG` values are the brighter "bright workhorse" fixture strengths the ship ships with; without them the script's older, dimmer defaults are used. About 45 minutes on two cores at 160 samples.
+  3. `EXPOSURE=10.5 python3 tools/bake_encode.py <work> .`: cleans up the result and writes `bake/` at the shipped brightness (exposure 10.5; the script's default is the older 7.0).
 - **Checks:** `tools/hero_shots.py` captures the six hero shots; `tools/check_stations.py` opens every station at desktop and phone size and reports errors; `tools/check_deck2.py` rides to Deck 2 and checks its rooms, stations, doors, walkways and the exterior model (no baked materials, triangle count within the phone budget); `tools/check_plan.py` checks the shared ship geometry (both copies identical, every compartment inside the hull, no overlaps); `tools/plan_shots.py` renders the deck-plan page and dumps the bridge display and situation table.
 - **Ship model:** `sim.js` holds the ship's live state and rules, with every starting number in one tuning table (`SIM`). It advances on its own fixed tick, separate from drawing, so it keeps running when no screen redraws. Screens and station menus only read it and call its orders. Tests: `node --test tests/sim.test.js`.
 - **Screens:** every console display is drawn live onto an HTML canvas from a shared set of widgets (tables, bar graphs, dials, plots), reading the ship model. Block-style screens in palette A (see Interface above; `docs/interface-style-sheet.md` describes the earlier amber scheme and is superseded). Only screens near the player redraw, to keep phones smooth.

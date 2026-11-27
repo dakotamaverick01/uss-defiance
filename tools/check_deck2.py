@@ -13,7 +13,7 @@ CHECK_JS = r"""() => {
   const want = ['First officer’s quarters', 'Senior officers’ cabin 1', 'Senior officers’ cabin 2', 'Officers’ passage', 'Observation lounge'];
   const labels = D2.rooms.map((r) => r.label);
   want.forEach((w) => ok('room ' + w, labels.includes(w)));
-  ['xoq', 'so1q', 'so2q', 'capbank', 'lngdoor', 'xodesk', 'so1desk', 'so2desk', 'xogalley', 'lgalley', 'lounge'].forEach((s) => ok('station ' + s, STATIONS[s]));
+  ['xoq', 'so1q', 'so2q', 'capbank', 'lngdoor', 'wlink', 'xodesk', 'so1desk', 'so2desk', 'xogalley', 'lgalley', 'lounge'].forEach((s) => ok('station ' + s, STATIONS[s]));
   ok('d2sealed retired', !STATIONS.d2sealed);
   ok('no sealed rooms on Deck 2', LIFT_DECKS[1].sealed.length === 0, LIFT_DECKS[1].sealed.join(','));
   ['xoq', 'so1q', 'so2q', 'lngdoor'].forEach((s) => { const d = DOORS.find((q) => q.station === s); ok('auto door ' + s, d && d.auto && d.deck === 2); });
@@ -43,6 +43,24 @@ CHECK_JS = r"""() => {
   walk('passage', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 22.0]], 'Officers’ passage');
   walk('lounge', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 24.0], [-4.3, 25.6], [-1.0, 26.0], [0.0, 28.6]], 'Observation lounge');
   walk('wardroom', [[1.3, 5.0], [1.3, 16.5], [1.3, 18.2]], 'Officers’ wardroom');
+  walk('wardroom to lounge through the double doors', [[1.3, 5.0], [1.3, 16.5], [1.3, 18.2], [-2.5, 18.6], [-2.5, 23.3], [1.3, 23.6], [1.3, 26.0]], 'Observation lounge');
+  { const d = DOORS.find((q) => q.station === 'wlink'); ok('wardroom-lounge double doors (2 m, auto)', d && d.auto && d.deck === 2 && Math.abs(d.q * 4 - 2.0) < 0.01, d && (d.q * 4).toFixed(2)); }
+  // nothing standing in a room reaches through its walls: anything whose centre is well inside a room (so not a door,
+  // frame, sign or window, which sit in the walls on purpose) must stay within the room's outline plus the 6 cm inset
+  { const B = new THREE.Box3(), c = new THREE.Vector3(), walls = new Set([d2RoomWall, d2CorrWall]), bad = new Set(); DECK2.updateMatrixWorld(true);
+    DECK2.traverse((o) => { if (!o.isMesh || walls.has(o.material) || !o.visible || (o.material.isMeshBasicMaterial && o.material.transparent)) return; for (let p = o; p; p = p.parent) if (p === EXTSET) return;
+      B.setFromObject(o); B.getCenter(c); const r = D2.rooms.find((q) => c.x > q.x0 + 0.15 && c.x < q.x1 - 0.15 && c.z > q.z0 + 0.15 && c.z < q.z1 - 0.15); if (!r) return;
+      const ov = Math.max(r.x0 - B.min.x, B.max.x - r.x1, r.z0 - B.min.z, B.max.z - r.z1); if (ov > 0.06) bad.add(r.label + '@' + c.x.toFixed(1) + ',' + c.z.toFixed(1)); });
+    ok('nothing pokes through a wall', bad.size === 0, [...bad].slice(0, 8).join(' ')); }
+  // handrails stop at doorways (door jambs reach the clear opening's half-width + 0.22 m from the door's centre)
+  { const hit = []; D2.rails.forEach(([x, p, q]) => DOORS.forEach((d) => { if (d.deck !== 2 || Math.abs(d.wx - x) > 0.3) return; const h = d.q * 2 + 0.22; if (p < d.wz + h && q > d.wz - h) hit.push(d.station); }));
+    ok('no handrail across a doorway', hit.length === 0, hit.join(',')); }
+  // signs hang clear of the structural frames
+  { const A = new THREE.Box3(), F = new THREE.Box3(), hit = []; DECK2.updateMatrixWorld(true);
+    D2.labels.forEach((l) => { A.setFromObject(l); DECK2.traverse((o) => { if (o.isMesh && o.material === MAT.gunDark && o.geometry.type !== 'PlaneGeometry') { F.setFromObject(o); if (A.intersectsBox(F)) hit.push(l.position.x.toFixed(1) + ',' + l.position.z.toFixed(1)); } }); });
+    ok('no sign crosses a frame', hit.length === 0, [...new Set(hit)].join(' ')); }
+  // the lift car has its own doors, shut whenever the landing doors are
+  ok('lift car doors', LIFT.carDoor && Math.abs(LIFT.carDoor.L.position.x - (LIFT_DX - 0.3 - LIFT.door * 0.56)) < 0.01, LIFT.carDoor ? 'ok' : 'missing');
   // the exterior model outside the windows: inside DECK2, no baked (standard) materials
   const ext = typeof EXTSET !== 'undefined' ? EXTSET : null; let std = 0, tris = 0;
   if (ext) ext.traverse((o) => { if (o.isMesh) { if (o.material.isMeshStandardMaterial) std++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });

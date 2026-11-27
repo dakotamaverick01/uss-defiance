@@ -132,6 +132,11 @@ function segs(list, pts, r) { for (let i = 0; i + 1 < pts.length; i++) list.push
   };
   rail(x0 + 0.07, z0 + 0.35, x0 + 0.07, z1 - 0.25); rail(x1 - 0.07, z0 + 0.35, x1 - 0.07, z1 - 0.25); rail(x0 + 0.3, z1 - 0.07, x1 - 0.3, z1 - 0.07);
   segs(LIFT.carSegs, [[x0, LIFT_DZ], [x0, z1], [x1, z1], [x1, LIFT_DZ]], 0.3);
+  // the car's own doors, just behind its front wall: they shut with the landing doors, so during the ride the opening
+  // shows door, not the shaft and the decks sliding past. Open, they tuck in behind the front wall.
+  const zc = z0 - 0.05, mk = (sd) => { const d = mesh(RBOX(0.6, 2.3, 0.05, 0.015), LIFT_MAT.panel, LIFT_DX + sd * 0.3, 1.15, zc, R);
+    mesh(BOX(0.02, 1.9, 0.02), CAR_SLOT, -sd * 0.27, 0, 0.03, d); mesh(BOX(0.4, 0.05, 0.02), LIFT_MAT.steel, 0, 0.1, 0.03, d); return d; };
+  LIFT.carDoor = { L: mk(-1), Rr: mk(1) };
 }
 
 // ---------- displays: the car's deck panel, the indicator over the door, lobby signs ----------
@@ -313,6 +318,7 @@ function liftUpdate(dt) {
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
   [LIFT.stubDoor, D2.door].forEach((s) => { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; });
+  LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
   const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
   if (k !== LIFT.k) { LIFT.k = k; LIFT.mats.forEach((m) => { m.lightMapIntensity = m.userData.lmBase * k; }); LUM.forEach((m) => m.color.setHex(state.alert === 'red' ? 0xffb0a0 : 0xffffff).multiplyScalar(LIFT.lum * Math.min(1, 0.4 + 0.6 * k))); }
@@ -346,7 +352,7 @@ Object.assign(STATIONS, {
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {
     const d = liftDeck(LIFT.deck); STATIONS.deckdir.role = `Deck ${d.n} · ${d.name}`;
-    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')]].concat(d.sealed.length ? [['Still sealed', d.sealed.join(', ')]] : []), note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft past the officers’ cabins to the wardroom; the passage to port at its end leads to the observation lounge.', acts: [] };
+    if (d.n === 2) return { read: [['Open', d.rooms.join(', ')]].concat(d.sealed.length ? [['Still sealed', d.sealed.join(', ')]] : []), note: 'The captain’s quarters are forward through the door ahead of the lift. The corridor runs aft past the officers’ cabins to the wardroom, and double doors at the back of the wardroom open into the observation lounge. The passage to port at the corridor’s end also leads there.', acts: [] };
     return { read: [['On this deck', (d.rooms || []).join(', ') || 'Main bridge, ready room, conference room'], ['Status', d.built ? 'Open' : 'Sealed for fitting-out']],
       note: 'Not built yet. Take the lift back up, or look around another deck.', acts: [] };
   } },
@@ -362,7 +368,8 @@ function galleyStation(key, role, note, menu) {
 }
 Object.assign(STATIONS, {
   capq: { title: 'Captain’s quarters', role: 'Deck 2 · forward', panel: () => ({ read: [['Inside', 'Day cabin, dining table, desk, galley, sleeping cabin'], ['Viewport', 'Forward, armored, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
-  wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, sideboard, the ship’s crest'], ['Viewport', 'Starboard']], note: 'Walk up to the door to go in.', acts: [] }) },
+  wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, two sideboards, the ship’s crest'], ['Viewport', 'Starboard'], ['Aft', 'Double doors to the observation lounge']], note: 'Where the officers dine. Walk up to the door to go in.', acts: [] }) },
+  wlink: { title: 'Observation lounge', role: 'Deck 2 · through the wardroom', panel: () => ({ read: [['Inside', 'Window over the stern, tables, the bar'], ['Doors', 'Double, open whenever someone walks up']], note: 'The officers’ lounge: after dinner the wardroom empties through these doors to the bar and the view aft.', acts: [] }) },
   capbank: { title: 'Pod capacitor bank', role: 'Deck 2 · restricted', panel: () => ({ read: [['Access', 'Engineering only'], ['Charge', state.alert === 'red' ? 'Full, feeding the pod' : 'Held at 40%']], note: 'Power banks that feed the weapons pod and its torpedo launchers, up on the rollbar. Sealed to everyone but engineering.', acts: [] }) },
   lngdoor: { title: 'Observation lounge', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Window over the stern, tables, the bar'], ['View', 'The rollbar and its weapons pod']], note: 'Walk up to the door to go in.', acts: [] }) },
   lounge: { title: 'Observation lounge', role: 'View aft', panel: () => ({ read: [['Weapons pod', state.alert === 'red' ? 'Armed' : 'Safe'], ['Rollbar', state.alert === 'red' ? 'Floods off' : 'Floodlit'], ['Shutters', state.alert === 'red' ? 'Closed for Red Alert' : 'Open']], note: 'The crew’s favourite window: the rollbar arching over the ship’s back with the weapons pod on its crown, 38 m aft, and a nacelle out to either side.', acts: [] }) },
