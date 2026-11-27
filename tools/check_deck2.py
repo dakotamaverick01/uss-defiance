@@ -43,12 +43,12 @@ CHECK_JS = r"""() => {
   walk('passage', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 22.0]], 'Officers’ passage');
   walk('lounge', [[1.3, 5.0], [1.3, 15.8], [-1.5, 15.8], [-4.3, 15.8], [-4.3, 24.0], [-4.3, 25.6], [-1.0, 26.0], [0.0, 28.6]], 'Observation lounge');
   walk('wardroom', [[1.3, 5.0], [1.3, 16.5], [1.3, 18.2]], 'Officers’ wardroom');
-  // the set piece outside the lounge: inside DECK2, no baked (standard) materials
+  // the exterior model outside the windows: inside DECK2, no baked (standard) materials
   const ext = typeof EXTSET !== 'undefined' ? EXTSET : null; let std = 0, tris = 0;
   if (ext) ext.traverse((o) => { if (o.isMesh) { if (o.material.isMeshStandardMaterial) std++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
   ok('set piece exists inside Deck 2', ext && (() => { for (let p = ext; p; p = p.parent) if (p === DECK2) return true; return false; })());
   ok('set piece has no baked materials', ext && std === 0, std);
-  ok('set piece under 20k triangles', ext && tris < 20000, Math.round(tris));
+  ok('exterior model within the phone budget (60k triangles)', ext && tris < 60000, Math.round(tris) + ' triangles');
   // every Deck 2 screen sits in front of its wall (walls are inset 6 cm from each room's outline)
   { const p = new THREE.Vector3(), hid = []; screens.forEach((sc) => { let d2 = false; for (let o = sc.mesh; o; o = o.parent) if (o === DECK2) d2 = true; if (!d2) return; sc.mesh.getWorldPosition(p); const x = p.x, z = p.z;
       if (!D2.rooms.some((r) => x > r.x0 + 0.061 && x < r.x1 - 0.061 && z > r.z0 + 0.061 && z < r.z1 - 0.061)) hid.push(sc.station + '@' + x.toFixed(2) + ',' + z.toFixed(2)); });

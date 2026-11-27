@@ -1,6 +1,6 @@
 # Checks the ship geometry shared by the deck-plan page and the bridge's master systems display.
 # usage: python3 tools/check_plan.py <site_dir>
-# 1. the SHIPGEO block is identical in docs/master-systems-display.html and js/screens.js
+# 1. the SHIPGEO block is identical in docs/master-systems-display.html and js/shipgeo.js
 # 2. every compartment sits inside the hull (Decks 1-2 inside the spine) at its mid-deck depth, at both ends
 # 3. compartments on one deck and side don't overlap
 import sys, os, json, subprocess
@@ -9,13 +9,13 @@ def block(path):
   s = open(os.path.join(root, path), encoding='utf-8').read()
   a, b = s.find('// SHIPGEO-BEGIN'), s.find('// SHIPGEO-END')
   return s[a:b] if a >= 0 and b > a else None
-page, scr = block('docs/master-systems-display.html'), block('js/screens.js')
+page, scr = block('docs/master-systems-display.html'), block('js/shipgeo.js')
 fails = []
 def ok(name, cond, info=''):
   print(('OK   ' if cond else 'FAIL ') + name + (' · ' + info if info and not cond else ''))
   if not cond: fails.append(name)
 ok('SHIPGEO block present in the page', page is not None)
-ok('SHIPGEO block identical in js/screens.js', scr is not None and scr == page, 'copy the page block into screens.js')
+ok('SHIPGEO block identical in js/shipgeo.js', scr is not None and scr == page, 'copy the page block into shipgeo.js')
 G = json.loads(subprocess.run(['node', '-e', page + '\nprocess.stdout.write(JSON.stringify(SHIPGEO));'], capture_output=True, text=True, check=True).stdout)
 def at(pts, m):  # linear between the curve's points (the smooth curve passes through them)
   pts = sorted(pts)

@@ -463,69 +463,10 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   [-3.6, -1.0, 1.6, 4.2].forEach((x) => d2down(x, L.z1 - 1.0, H)); d2down(-3.9, 25.4, H); d2down(1.6, 25.3, H);
 }
 
-// ---------- outside: the set piece seen through Deck 2's windows ----------
-// A simple, original stand-in for the exterior until the real model is built, following the bridge's systems display:
-// a long swept hull back under the officers' spine (its top just below every window sill), the raised arch aft of the
-// lounge with the dorsal turret on its crown, and slim nacelles on swept spars, low and aft. Matcap materials
-// (a painted ball of light, no scene lights) and additive glows: the light bake ignores all of it (bake_export skips EXTSET).
-const EXTSET = group(0, 0, 0, 0, DECK2); EXTSET.name = 'Exterior set piece';
-{
-  const mc = cnv(256, 256), m = mc.getContext('2d');
-  { const g = m.createRadialGradient(92, 84, 8, 128, 128, 128); g.addColorStop(0, '#f2efe8'); g.addColorStop(0.45, '#b8bbbf'); g.addColorStop(0.8, '#6b717a'); g.addColorStop(1, '#3a4049'); m.fillStyle = g; m.fillRect(0, 0, 256, 256);
-    const r = m.createRadialGradient(190, 200, 10, 190, 200, 90); r.addColorStop(0, 'rgba(232,160,106,0.28)'); r.addColorStop(1, 'rgba(232,160,106,0)'); m.fillStyle = r; m.fillRect(0, 0, 256, 256); }
-  const plate = cnv(512, 512), q = plate.getContext('2d'), rr = mulberry(1701);
-  q.fillStyle = '#d9d9d6'; q.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 40; i++) { const v = 200 + ((rr() * 30) | 0); q.fillStyle = `rgb(${v},${v},${v - 4})`; q.fillRect((rr() * 8 | 0) * 64, (rr() * 8 | 0) * 64, 64 * (1 + (rr() * 3 | 0)), 64 * (1 + (rr() * 2 | 0))); }
-  q.strokeStyle = 'rgba(40,44,52,0.18)'; q.lineWidth = 2; for (let k = 0; k <= 512; k += 64) { q.beginPath(); q.moveTo(k, 0); q.lineTo(k, 512); q.stroke(); }
-  for (let k = 0; k <= 512; k += 128) { q.beginPath(); q.moveTo(0, k + ((k / 128) % 2) * 32); q.lineTo(512, k + ((k / 128) % 2) * 32); q.stroke(); }
-  const pt = tex(plate); pt.wrapS = pt.wrapT = THREE.RepeatWrapping; pt.colorSpace = THREE.SRGBColorSpace;
-  const HULL = new THREE.MeshMatcapMaterial({ matcap: tex(mc), map: pt, fog: false });
-  const DARK = new THREE.MeshMatcapMaterial({ matcap: tex(mc), color: 0x6a7078, fog: false });
-  const glow = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false });
-  const GRILLE = glow(0x6fb6e6, 0.85), CAP = glow(0xe0704a, 0.9), IMP = glow(0xd2503c, 0.8);
-  const lerpT = (T, z) => { for (let i = 1; i < T.length; i++) if (z <= T[i][0]) { const [z0, a] = T[i - 1], [z1, b] = T[i], t = (z - z0) / (z1 - z0); return a + (b - a) * t * t * (3 - 2 * t); } return T[T.length - 1][1]; };
-  const W = [[-64, 0.5], [-58, 24], [-30, 40], [14, 46], [48, 40], [76, 20], [132, 14], [136, 9]]; // half-beam
-  const Y = [[-64, -14], [-34, -3.5], [-4, -0.6], [86, -0.7], [118, -4], [136, -9.5]];              // top of the hull back
-  // the hull back: a grid across the beam, falling away at the edges into a skirt
-  { const NZ = 90, NX = 30, pos = [], uv = [], idx = [];
-    for (let i = 0; i <= NZ; i++) { const z = -64 + 200 * i / NZ, w = lerpT(W, z), y0 = lerpT(Y, z);
-      for (let j = 0; j <= NX; j++) { const v = j / NX * 2 - 1, a = Math.abs(v), x = v * w * (a > 0.85 ? 1 - (a - 0.85) * 0.5 : 1), y = y0 - 5 * Math.pow(Math.min(a, 0.85) / 0.85, 2.6) - (a > 0.85 ? (a - 0.85) / 0.15 * 9 : 0);
-        pos.push(x, y, z); uv.push(x / 34, z / 34); } }
-    for (let i = 0; i < NZ; i++) for (let j = 0; j < NX; j++) { const a = i * (NX + 1) + j, b = a + NX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-    const hm = new THREE.Mesh(g, HULL); hm.material.side = THREE.DoubleSide; EXTSET.add(hm); }
-  // sweep a rounded box section along a path: P = [[x, y, z]...], sec(t) = [half width, half thickness], side = lateral axis
-  function sweep(P, sec, side, n) {
-    const curve = new THREE.CatmullRomCurve3(P.map((p) => new THREE.Vector3(...p))), N = n || 40, R = 12, pos = [], idx = [], S = new THREE.Vector3(...side).normalize();
-    for (let i = 0; i <= N; i++) { const t = i / N, c = curve.getPointAt(t), T = curve.getTangentAt(t), U = new THREE.Vector3().crossVectors(T, S).normalize(), L = new THREE.Vector3().crossVectors(U, T).normalize(), [hw, ht] = sec(t);
-      for (let k = 0; k < R; k++) { const a = k / R * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a), ex = Math.sign(cx) * Math.pow(Math.abs(cx), 0.45) * hw, ey = Math.sign(cy) * Math.pow(Math.abs(cy), 0.45) * ht;
-        pos.push(c.x + L.x * ex + U.x * ey, c.y + L.y * ex + U.y * ey, c.z + L.z * ex + U.z * ey); } }
-    for (let i = 0; i < N; i++) for (let k = 0; k < R; k++) { const a = i * R + k, b = i * R + (k + 1) % R; idx.push(a, a + R, b, b, a + R, b + R); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
-  }
-  // the arch over the back: two rails rising from the hull either side of the centreline, joined at the crown by the
-  // turret deck, so from the lounge it frames the view aft like a gate; in side view it is the MSD's arch
-  [-1, 1].forEach((sd) => EXTSET.add(new THREE.Mesh(sweep([[sd * 7.5, -1.5, 47], [sd * 6.5, 6.5, 54], [sd * 5.2, 11, 65], [sd * 5.2, 11, 73], [sd * 6.5, 6.5, 84], [sd * 7.5, -1.5, 91]], (t) => { const e = Math.abs(t - 0.5) * 2; return [0.9 + Math.pow(e, 3) * 1.6, 0.6 + Math.pow(e, 3) * 0.9]; }, [1, 0, 0], 40), DARK)));
-  mesh(RBOX(11.4, 0.9, 9.0, 0.3), DARK, 0, 11.1, 69, EXTSET);
-  mesh(BOX(11.0, 0.12, 0.3), GRILLE, 0, 10.6, 64.4, EXTSET);
-  { const tg = group(0, 11.55, 69, 0, EXTSET);
-    mesh(lathe([[0, 0], [3.0, 0], [3.1, 0.5], [2.7, 1.5], [1.6, 2.2], [0, 2.4]], 36), DARK, 0, 0, 0, tg);
-    mesh(new THREE.TorusGeometry(2.95, 0.12, 6, 40), GRILLE, 0, 0.55, 0, tg).rotation.x = Math.PI / 2;
-    [-0.7, 0.7].forEach((x) => { const b = mesh(CYL(0.28, 0.36, 6.5, 12), DARK, x, 1.3, -3.6, tg); b.rotation.x = Math.PI / 2; mesh(CYL(0.2, 0.2, 0.1, 10), GRILLE, x, 1.3, -6.85, tg).rotation.x = Math.PI / 2; }); }
-  // a low dorsal strake running aft down the centreline, and dark sensor strips along the shoulders
-  mesh(RBOX(2.2, 0.6, 80, 0.25), DARK, 0, -0.55, 70, EXTSET);
-  [-1, 1].forEach((sd) => { const st = mesh(BOX(0.6, 0.1, 50), DARK, sd * 18, -3.0, 70, EXTSET); st.rotation.z = sd * 0.35; });
-  // spars and nacelles, low and aft
-  [-1, 1].forEach((sd) => {
-    EXTSET.add(new THREE.Mesh(sweep([[sd * 14, -3.5, 72], [sd * 26, -4.6, 84], [sd * 38, -5.8, 96], [sd * 46, -6.2, 104]], (t) => [3.2 - t * 1.4, 0.5], [0, 1, 0], 20), DARK));
-    const ng = group(sd * 48, -6.3, 70, 0, EXTSET);
-    const prof = [[0, 0], [1.3, 0.25], [2.1, 1.0], [2.5, 2.4], [2.6, 5], [2.6, 50], [2.3, 58], [1.4, 64], [0, 65]];
-    const nm = mesh(lathe(prof, 32), HULL, 0, 0, 0, ng); nm.rotation.x = Math.PI / 2;
-    const cap = mesh(lathe([[0, 0], [1.35, 0.28], [2.05, 1.0], [2.4, 2.2], [0, 2.4]], 28), CAP, 0, 0, 0, ng); cap.rotation.x = Math.PI / 2; cap.scale.setScalar(1.02);
-    [-1, 1].forEach((up) => { const gr = mesh(BOX(0.18, 0.5, 40), GRILLE, -sd * 2.55, up * 0.8, 28, ng); gr.rotation.z = -sd * up * 0.3; });
-    mesh(new THREE.SphereGeometry(0.35, 10, 8), glow(sd < 0 ? 0xff4a3a : 0x5aff7a, 1), sd * 2.7, 0, 60, ng);
-  });
-  mesh(BOX(14, 1.4, 0.4), IMP, 0, -6.5, 135.8, EXTSET);
-  EXTSET.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.userData.noPick = true; } });
-}
+// ---------- outside: the ship herself, seen through Deck 2's windows ----------
+// The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the hull back under the spine (its top
+// below every window sill), the arch and turret aft of the lounge, the nacelles slung low under the keel (out of sight
+// from up here). It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
+// lighter build.
+const EXTSET = buildExterior({ lite: isMobile }); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
 DECK2.updateMatrixWorld(true);
