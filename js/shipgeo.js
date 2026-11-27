@@ -17,8 +17,14 @@ const SHIPGEO = {
   // the engineering body: half-beam, top depth and bottom depth along the ship (smooth curves); n shapes its section
   eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.8], [200, 7]], t: [[90, 15], [100, 10.5], [112, 8.6], [150, 8.6], [200, 15.5]],
     b: [[90, 15], [94.5, 23.5], [100.5, 29.5], [112, 33.2], [182, 34.5], [200, 25]], n: 2.4 },
-  spine: [[50, 7.8], [53.5, 5.6], [56, 3.8], [57.5, 1.8], [59.5, 0.5], [62, 0.1], [77, 0.1], [79.5, 1], [81, 2.8], [82.5, 3.4], [94.5, 3.4], [96.5, 5.3], [98, 7.7]],
-  spinePlan: [52, 96, -6.2, 7.2], pod: [[58, -3.55], [58, 3.55], [61.1, 6.4], [66.9, 6.4], [70.2, 4.0], [70.2, -4.0], [66.9, -6.4], [61.1, -6.4]],
+  // the officers' spine on the saucer's back, faired round the rooms of Decks 1 and 2: a rounded body over Deck 2 and a
+  // broad, low bridge module over Deck 1. Each is a superellipse across the beam about the centreline: half-width w and
+  // top depth t along the ship (smooth curves), centre depth c, depth reach below the centre dn, exponent n. The two
+  // merge with a soft fillet (k: higher is sharper). Its side and plan outlines (spineTop, spinePlan, pod) are worked
+  // out after the object.
+  spine: { k: 6,
+    body: { w: [[49, 0.3], [53, 7.6], [59, 10.2], [93, 10.2], [98.5, 7.4], [102, 0.3]], t: [[49, 8.7], [53, 5.4], [58, 2.7], [96, 2.7], [99.5, 5.2], [102.5, 9.0]], c: 9.0, dn: 3, n: 3.2 },
+    bridge: { w: [[53, 0.3], [56, 6.0], [59, 9.4], [63, 14.0], [67, 16.1], [72, 16.2], [78, 13.4], [83, 0.3]], t: [[53, 3.0], [55.8, 0.3], [59.5, -0.95], [75, -0.95], [79.5, 0.6], [83, 2.9]], c: 2.6, dn: 2.0, n: 4.2 } },
   // the rollbar: feet on the saucer's back at m foot[0], foot[1] m out to each side; it arches up and back to its crown
   // over m crown at depth top. The weapons pod rides the crown (m from, to; centre depth d; half-width w, half-height h),
   // with torpedo launchers [from m, to m, out, d, half-width, half-height]: two firing forward, one aft
@@ -77,6 +83,38 @@ function shipTopAt(m, x) {
   for (let k = 0; k < 30; k++) { const a = (lo + hi) / 2; if (H.r(a) * Math.cos(a) < x) lo = a; else hi = a; }
   return H.dc + H.r(lo) * Math.sin(lo);
 }
+// the spine (SHIPGEO.spine) at m: f(out, d) is below 1 inside and above 1 outside, out = metres across the beam
+function shipSpineField(m) {
+  const S = SHIPGEO.spine, at = (pts, x) => x <= pts[0][0] ? pts[0][1] : x >= pts[pts.length - 1][0] ? pts[pts.length - 1][1] : shipAt(pts, x);
+  const sh = [S.body, S.bridge].filter((q) => m > q.w[0][0] && m < q.w[q.w.length - 1][0]).map((q) => ({ w: Math.max(0.05, at(q.w, m)), t: at(q.t, m), c: q.c, dn: q.dn, n: q.n }));
+  return (x, d) => { let s = 0; for (const q of sh) { const h = d < q.c ? Math.max(0.05, q.c - q.t) : q.dn;
+    s += Math.pow(Math.pow(Math.pow(Math.abs(x) / q.w, q.n) + Math.pow(Math.abs(d - q.c) / h, q.n), 1 / q.n), -S.k); }
+    return s > 0 ? Math.pow(s, -1 / S.k) : 9; };
+}
+// the spine's cross-section at m, starboard half: n + 1 points [out, d] evenly spaced from its foot (where it reaches
+// depth footD) up to the top of the centreline; found along rays from a point inside the body (the outermost crossing)
+function shipSpineRing(m, footD, n) {
+  const f = shipSpineField(m), B = SHIPGEO.spine.body, at = (pts, x) => x <= pts[0][0] ? pts[0][1] : x >= pts[pts.length - 1][0] ? pts[pts.length - 1][1] : shipAt(pts, x);
+  const bt = at(B.t, m), o = bt + 0.5 * (B.c - bt);
+  const bnd = (phi) => { const c = Math.cos(phi), s = Math.sin(phi); let r = 20; while (r > 0 && f(c * r, o - s * r) >= 1) r -= 0.5;
+    let lo = Math.max(0, r), hi = r + 0.5; for (let k = 0; k < 14; k++) { const md = (lo + hi) / 2; if (f(c * md, o - s * md) < 1) lo = md; else hi = md; } return [c * lo, o - s * lo]; };
+  let a = -Math.PI / 2 + 0.02, z = 0.6; for (let k = 0; k < 24; k++) { const md = (a + z) / 2; if (bnd(md)[1] > footD) a = md; else z = md; }
+  const D = []; for (let i = 0; i <= 120; i++) D.push(bnd(z + (Math.PI / 2 - z) * i / 120));
+  const L = [0]; for (let i = 1; i < D.length; i++) L.push(L[i - 1] + Math.hypot(D[i][0] - D[i - 1][0], D[i][1] - D[i - 1][1]));
+  const out = []; let j = 1;
+  for (let i = 0; i <= n; i++) { const t = L[L.length - 1] * i / n; while (j < L.length - 1 && L[j] < t) j++;
+    const u = (t - L[j - 1]) / Math.max(1e-9, L[j] - L[j - 1]); out.push([D[j - 1][0] + (D[j][0] - D[j - 1][0]) * u, D[j - 1][1] + (D[j][1] - D[j - 1][1]) * u]); }
+  out[n][0] = 0; return out;
+}
+// the spine's outlines: its top along the centreline (side view, closed by the hull's back) and its widest half-beam
+// (plan view); the bridge module's own plan outline (pod)
+(function () {
+  const G = SHIPGEO, S = G.spine, top = [], wide = [], r2 = (v) => Math.round(v * 100) / 100;
+  for (let m = 49.5; m <= 102.5; m += 0.5) { const ht = shipHull(m).t, R = shipSpineRing(m, ht, 16), d = R[16][1];
+    if (d < ht - 0.05) { top.push([m, r2(d)]); wide.push([m, r2(Math.max(...R.map(([x]) => x)))]); } }
+  G.spineTop = top; G.spinePlan = wide.map(([m, w]) => [m, -w]).concat(wide.slice().reverse().map(([m, w]) => [m, w]));
+  const bw = S.bridge.w; G.pod = bw.map(([m, w]) => [m, -w]).concat(bw.slice().reverse().map(([m, w]) => [m, w]));
+})();
 // the side and plan outlines, sampled along the ship (smooth curves through these points)
 (function () {
   const G = SHIPGEO, ms = []; for (let m = 0; m < 6; m += 0.5) ms.push(m); for (let m = 6; m < 196; m += 2) ms.push(m); for (let m = 196; m <= 200; m += 0.5) ms.push(m);
@@ -100,7 +138,7 @@ function shipNacelle(c, X, Y, k = 1) {
 }
 // side view: SVG path strings (also valid input for canvas Path2D)
 function shipSide(X, Y) {
-  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, P = G.wpod, up = [], dn = [];
+  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spineTop, P = G.wpod, up = [], dn = [];
   // the rollbar seen side-on: the band its sections sweep, from the feet up to the crown
   for (let i = 0; i <= 24; i++) { const r = shipRoll(1 - i / 24); up.push([r.m - r.chord * 0.5, r.d - r.thick]); dn.push([r.m + r.chord * 0.5, r.d + r.thick]); }
   const roll = up.concat([[shipRoll(0).m, shipRoll(0).d - shipRoll(0).thick]], dn.reverse());
@@ -119,7 +157,7 @@ function shipPlan(X, Z) {
   for (let i = 0; i <= 20; i++) { const q = i / 20, [w] = shipPodAt(q), m = P.m[0] + (P.m[1] - P.m[0]) * q; pu.push([m, -w]); pd.push([m, w]); }
   return {
     hull: 'M' + X(0) + ' ' + Z(0) + shipCurve(up, X, Z) + ' L' + X(dn[0][0]) + ' ' + Z(dn[0][1]) + shipCurve(dn, X, Z) + ' Z',
-    spine: shipRect([G.spinePlan[0], G.spinePlan[1], G.spinePlan[2], G.spinePlan[3]], X, Z), pod: shipPoly(G.pod, X, Z),
+    spine: shipPoly(G.spinePlan, X, Z), pod: shipPoly(G.pod, X, Z),
     nacs: [-1, 1].map((sd) => shipNacelle(sd * G.nacelle.z, X, Z, G.nacelle.w)), spars: [-1, 1].map((sd) => shipPoly(G.sparPlan.map(([m, z]) => [m, sd * z]), X, Z)),
     // the rollbar's two halves, foot to crown (stroke them)
     rails: [-1, 1].map((sd) => { const p = []; for (let i = 0; i <= 12; i++) { const r = shipRoll(sd * (1 - i / 12)); p.push([r.m, -r.out]); } return 'M' + X(p[0][0]).toFixed(1) + ' ' + Z(p[0][1]).toFixed(1) + shipCurve(p, X, Z); }),

@@ -59,6 +59,14 @@ CHECK_JS = r"""() => {
   { const A = new THREE.Box3(), F = new THREE.Box3(), hit = []; DECK2.updateMatrixWorld(true);
     D2.labels.forEach((l) => { A.setFromObject(l); DECK2.traverse((o) => { if (o.isMesh && o.material === MAT.gunDark && o.geometry.type !== 'PlaneGeometry') { F.setFromObject(o); if (A.intersectsBox(F)) hit.push(l.position.x.toFixed(1) + ',' + l.position.z.toFixed(1)); } }); });
     ok('no sign crosses a frame', hit.length === 0, [...new Set(hit)].join(' ')); }
+  // the exterior spine (SHIPGEO.spine) encloses every room of Decks 1 and 2, so from outside no room shows through
+  { liftSetDeck(1); LIFT.deck1.visible = DECK2.visible = true; scene.updateMatrixWorld(true); const v = new THREE.Vector3(), out = new Set();
+    [LIFT.deck1, DECK2].forEach((R) => R.traverse((o) => { if (!o.isMesh || !o.geometry.attributes.position || (o.material && o.material.type === 'ShaderMaterial')) return;
+      for (let p = o; p; p = p.parent) if (p === EXTSET || (p.userData && p.userData.keep)) return;
+      const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        if (Math.abs(v.x) > 18 || v.y > 9 || v.y < -4) continue; const m = v.z + 64; if (m < 40 || m > 105) continue;
+        if (shipSpineField(m)(v.x, 3.5 - v.y) >= 1) out.add(m.toFixed(0) + ':' + v.x.toFixed(0) + ',' + (3.5 - v.y).toFixed(0)); } }));
+    liftSetDeck(2); ok('every Deck 1-2 room inside the spine', out.size === 0, [...out].slice(0, 8).join(' ')); }
   // the lift car has its own doors, shut whenever the landing doors are
   ok('lift car doors', LIFT.carDoor && Math.abs(LIFT.carDoor.L.position.x - (LIFT_DX - 0.3 - LIFT.door * 0.56)) < 0.01, LIFT.carDoor ? 'ok' : 'missing');
   // the exterior model outside the windows: inside DECK2, no baked (standard) materials
@@ -66,7 +74,7 @@ CHECK_JS = r"""() => {
   if (ext) ext.traverse((o) => { if (o.isMesh) { if (o.material.isMeshStandardMaterial) std++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
   ok('set piece exists inside Deck 2', ext && (() => { for (let p = ext; p; p = p.parent) if (p === DECK2) return true; return false; })());
   ok('set piece has no baked materials', ext && std === 0, std);
-  ok('exterior model within budget (100k triangles desktop; phones build a lighter one)', ext && tris < 100000, Math.round(tris) + ' triangles');
+  ok('exterior model within budget (170k triangles desktop; phones build a lighter one)', ext && tris < 170000, Math.round(tris) + ' triangles');
   // every Deck 2 screen sits in front of its wall (walls are inset 6 cm from each room's outline)
   { const p = new THREE.Vector3(), hid = []; screens.forEach((sc) => { let d2 = false; for (let o = sc.mesh; o; o = o.parent) if (o === DECK2) d2 = true; if (!d2) return; sc.mesh.getWorldPosition(p); const x = p.x, z = p.z;
       if (!D2.rooms.some((r) => x > r.x0 + 0.061 && x < r.x1 - 0.061 && z > r.z0 + 0.061 && z < r.z1 - 0.061)) hid.push(sc.station + '@' + x.toFixed(2) + ',' + z.toFixed(2)); });

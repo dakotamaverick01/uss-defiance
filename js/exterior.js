@@ -53,7 +53,7 @@ function buildExterior(opts) {
   opts = opts || {};
   const lite = !!opts.lite, K = opts.atlasScale || (lite ? 0.5 : 1), G = SHIPGEO;
   const X = (planZ) => -planZ, Y = (d) => 7 - d, Z = (m) => m - 64;
-  const SP = shipFn(G.spine);
+  const SP = shipFn(G.spineTop); // the spine's top along the centreline
   const SAU = G.saucer, ROLL = G.rollbar, POD = G.wpod;
   const rnd = mulberry(4080);
 
@@ -120,7 +120,7 @@ function buildExterior(opts) {
   // Each station is the smooth union of two rounded sections about the saucer's mid-plane (depth SAU.dc): the saucer's
   // lens (thinning toward its rim and toward its fore and aft edges) and the engineering body's tall rounded section.
   // Where both are present their outlines merge with a soft fillet, so the saucer sweeps into the body with no neck.
-  const NJ = lite ? 30 : 52;
+  const NJ = lite ? 30 : 72;
   const hullSec = (m) => { const H = shipHull(m); H.r0 = H.dc - 0.8; H.r1 = H.dc + 0.8; return H; };
   // one side (starboard, x >= 0) from the top centreline to the bottom centreline: [x, d, arc]; angles packed near the rim
   function hullSide(S) {
@@ -134,7 +134,7 @@ function buildExterior(opts) {
   const HT = (m) => hullSec(m).t; // depth of the hull's top centreline
   const HM = (() => { // stations along the length, close together at the bow, the saucer's aft edge and the stern
     const s = new Set([0, 0.1, 0.3, 0.6, 1, 1.6, 2.4, 3.4, 4.6, 6, 200, 199.8, 199.4, 198.8, 198]);
-    const N = lite ? 64 : 104; for (let i = 0; i <= N; i++) { const q = i / N; s.add(+(7 + 190 * (0.72 * q + 0.28 * (0.5 - 0.5 * Math.cos(Math.PI * q)))).toFixed(3)); }
+    const N = lite ? 64 : 140; for (let i = 0; i <= N; i++) { const q = i / N; s.add(+(7 + 190 * (0.72 * q + 0.28 * (0.5 - 0.5 * Math.cos(Math.PI * q)))).toFixed(3)); }
     for (let m = 104; m <= 118; m += lite ? 1.5 : 0.75) s.add(m);
     return [...s].filter((m) => m <= 200).sort((a, b) => a - b);
   })();
@@ -167,54 +167,42 @@ function buildExterior(opts) {
   };
   const hullSidePt = (m, d, sd) => { const h = hullAtDepth(secFull(m), d); return h ? [sd * h.x, Y(d), Z(m)] : null; };
 
-  // ---------- the officers' spine (Decks 1-2) and the bridge pod ----------
-  // A faired superstructure: sides sloping in toward a rounded crown, a soft fillet into the saucer, the plan tapering at
-  // both ends. It encloses every Deck 1-2 room (they span x -7.2..6.2) and faces outward only, so from inside a room it
-  // is not drawn and every window looks straight out.
-  const SXC = -0.5, SX0 = -12.2, SX1 = 11.2; // centre line of the rooms; outer edges of the fillet (for paint)
+  // ---------- the officers' spine (Decks 1-2) and the bridge module ----------
+  // SHIPGEO.spine: a rounded body over Deck 2's rooms and a broad, low bridge module over Deck 1's, merged with a soft
+  // fillet (shipSpineRing gives the section), flaring out at the foot into the saucer. It encloses every Deck 1-2 room
+  // and faces outward only, so from inside a room it is not drawn and every window looks straight out.
   const SPM = (() => { const s = new Set(); const seg = (a, b, n) => { for (let i = 0; i <= n; i++) s.add(+(a + (b - a) * i / n).toFixed(3)); };
-    seg(50, 62, lite ? 10 : 18); seg(62, 77, 5); seg(77, 83, lite ? 5 : 8); seg(83, 94.5, 5); seg(94.5, 98, lite ? 6 : 10); return [...s].sort((a, b) => a - b); })();
-  const SPN = lite ? 6 : 9, SPS = lite ? 6 : 9; // points on each rounded crown corner and down each side
+    seg(49.3, 60, lite ? 12 : 26); seg(60, 75, lite ? 5 : 10); seg(75, 84, lite ? 9 : 18); seg(84, 95, lite ? 4 : 8); seg(95, 102.3, lite ? 9 : 20); return [...s].sort((a, b) => a - b); })();
+  const SPH = lite ? 12 : 24; // points up each half of the section
+  const ringCache = new Map();
   function spineRing(m) { // starboard foot, up the side, over the crown, down to the port foot: [x, d, arc]
-    const f = smooth01(49.5, 57.5, m) * 0.45 + 0.55 - smooth01(91, 98, m) * 0.18, yt = Y(SP(m)) + 0.6, yb = Y(HT(m)) - 1.0;
-    const wt = 7.8 * f, wb = 9.4 * f, rc = Math.max(0.05, Math.min(1.4, 0.3 * (yt - yb))), ys = yt - rc, out = [];
-    const sideX = (y) => { const k = Math.max(0, Math.min(1, (ys - y) / Math.max(0.01, ys - yb))), fl = Math.max(0, 1 - (y - yb) / 1.8); return wt - rc + rc + (wb - wt) * Math.pow(k, 1.6) + 2.0 * fl * fl; };
-    for (let k = 0; k <= SPS; k++) { const y = yb + (ys - yb) * k / SPS; out.push([SXC + sideX(y), 7 - y]); }
-    for (let k = 1; k <= SPN; k++) { const a = (Math.PI / 2) * k / SPN; out.push([SXC + wt - rc + rc * Math.cos(a), 7 - (ys + rc * Math.sin(a))]); }
-    for (let k = 0; k <= SPN - 1; k++) { const a = (Math.PI / 2) * (1 - k / SPN); out.push([SXC - (wt - rc + rc * Math.cos(a)), 7 - (ys + rc * Math.sin(a))]); }
-    for (let k = SPS; k >= 0; k--) { const y = yb + (ys - yb) * k / SPS; out.push([SXC - sideX(y), 7 - y]); }
-    let a = 0; out[0].push(0); for (let i = 1; i < out.length; i++) { a += Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]); out[i].push(a); }
-    return out;
+    const key = Math.round(m * 400) / 400; if (ringCache.has(key)) return ringCache.get(key);
+    const foot = HT(m) + 1.0, half = shipSpineRing(m, foot, SPH).map(([x, d]) => { const fl = Math.max(0, 1 - (foot - d) / 1.8); return [x + 2.0 * fl * fl, d]; });
+    const out = half.concat(half.slice(0, -1).reverse().map(([x, d]) => [-x, d]));
+    let a = 0; out[0] = out[0].concat(0); for (let i = 1; i < out.length; i++) { a += Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]); out[i] = out[i].concat(a); }
+    ringCache.set(key, out); return out;
   }
   const SR = SPM.map((m) => ({ m, r: spineRing(m) })), SVMAX = Math.max(...SR.map((s) => s.r[s.r.length - 1][2])) * 1.002;
   {
     parts.push(finish(grid(SR.length, SR[0].r.length, (i, j) => { const [x, d] = SR[i].r[j]; return [x, Y(d), Z(SR[i].m)]; },
-      (i, j) => ruv(R.spine, (SR[i].m - 50) / 48, SR[i].r[j][2] / SVMAX))));
+      (i, j) => ruv(R.spine, (SR[i].m - 49) / 54, SR[i].r[j][2] / SVMAX))));
     [SR[0], SR[SR.length - 1]].forEach((s, e) => parts.push(cap(s.r.map(([x, d]) => [x, Y(d), Z(s.m)]), cellUV(CELL.gun), [0, 0, e ? 1 : -1])));
   }
-  // the bridge pod: SHIPGEO.pod's chamfered outline, a low raised module on the spine's crown with a dark band, and a dome
-  {
-    const sh = new THREE.Shape(); G.pod.forEach(([m, z], i) => { const px = X(z), pz = -Z(m); i ? sh.lineTo(px, pz) : sh.moveTo(px, pz); }); sh.closePath();
-    const top = Y(-0.45) + 0.6, bot = Y(1.4) + 0.6, g = new THREE.ExtrudeGeometry(sh, { depth: top - bot - 0.3, steps: 6, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 2, curveSegments: 1 });
-    g.rotateX(-Math.PI / 2); g.translate(0, bot, 0);
-    const pg = stock(g, CELL.gun), p = pg.attributes.position;
-    for (let k = 0; k < p.count; k++) if (p.getY(k) < top - 0.5 && p.getY(k) > top - 1.0) pg.attributes.uv.setXY(k, ...cellUV(CELL.slate));
-    parts.push(pg);
-    const pm = (G.pod[0][0] + G.pod[4][0]) / 2;
-    parts.push(stock(new THREE.SphereGeometry(1.5, lite ? 12 : 20, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, top - 0.05, Z(pm) + 1, 0, 0, 0, [1, 0.45, 1])));
-  }
+  // the bridge module's sensor dome, on its crown over the bridge
+  { const pm = 66, top = Y(SP(pm));
+    parts.push(stock(new THREE.SphereGeometry(1.5, lite ? 12 : 20, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, top - 0.05, Z(pm), 0, 0, 0, [1, 0.45, 1]))); }
 
   // ---------- the rollbar and the weapons pod with its torpedo launchers ----------
   // A swept bar rising from the saucer's aft shoulders and arching over the engineering body (shipRoll), its crown
   // carrying a lozenge-shaped pod (shipPodAt) with two launchers firing forward and one aft.
   {
-    const RS = lite ? 36 : 64, RR = lite ? 14 : 20, P3 = (s) => { const r = shipRoll(s); return new THREE.Vector3(r.out, Y(r.d), Z(r.m)); };
+    const RS = lite ? 36 : 96, RR = lite ? 14 : 32, P3 = (s) => { const r = shipRoll(s); return new THREE.Vector3(r.out, Y(r.d), Z(r.m)); };
     [-1, 1].forEach((sd) => parts.push(finish(grid(RS + 1, RR + 1, (i, j) => {
       const s = sd * (i / RS) * 1.04, r = shipRoll(s), p = P3(s), tg = P3(s + 0.004 * sd).sub(P3(s - 0.004 * sd)).normalize();
       const fw = new THREE.Vector3(0, 0, -1).addScaledVector(tg, tg.z).normalize(), th = new THREE.Vector3().crossVectors(tg, fw).normalize(), a = (j % RR) / RR * Math.PI * 2;
       return p.addScaledVector(fw, r.chord * spow(Math.cos(a), 0.8)).addScaledVector(th, r.thick * spow(Math.sin(a), 0.7)).toArray();
     }, (i, j) => ruv(R.arch, 0.5 + 0.5 * i / RS, j / RR)), true)));
-    const PN = lite ? 26 : 48, PR = lite ? 18 : 30;
+    const PN = lite ? 26 : 64, PR = lite ? 18 : 44;
     parts.push(finish(grid(PN + 1, PR + 1, (i, j) => { const q = i / PN, [hw, hh] = shipPodAt(q), a = (j % PR) / PR * Math.PI * 2;
       return [(hw + 0.001) * spow(Math.cos(a), 2 / 2.8), Y(POD.d) + (hh + 0.001) * spow(Math.sin(a), 2 / 2.8), Z(POD.m[0] + (POD.m[1] - POD.m[0]) * q)]; }, (i, j) => ruv(R.spar, i / PN, j / PR)), true));
     // launchers: armoured housings, their muzzles (the face toward the firing direction) mapped to the launcher art
@@ -229,8 +217,8 @@ function buildExterior(opts) {
   // ---------- nacelles and their spars ----------
   // Big rounded-box nacelles from SHIPGEO.nacelle (profile = half-height, nacelle.w = width over height), with a raised
   // ridge along the top and a recessed channel down the inboard face that carries the grille.
-  const N = G.nacelle, NRF = shipFn(N.prof), NL0 = N.prof[N.prof.length - 1][0], NCY = Y(N.d), NRR = lite ? 32 : 46;
-  const NP = (() => { const s = new Set(); shipSpline(N.prof, lite ? 3 : 5).forEach(([p]) => s.add(+p.toFixed(3))); for (let p = 6; p < NL0 - 8; p += lite ? 5 : 2.5) s.add(p); return [...s].sort((a, b) => a - b); })();
+  const N = G.nacelle, NRF = shipFn(N.prof), NL0 = N.prof[N.prof.length - 1][0], NCY = Y(N.d), NRR = lite ? 32 : 64;
+  const NP = (() => { const s = new Set(); shipSpline(N.prof, lite ? 3 : 5).forEach(([p]) => s.add(+p.toFixed(3))); for (let p = 6; p < NL0 - 8; p += lite ? 5 : 2) s.add(p); return [...s].sort((a, b) => a - b); })();
   const nacLen = (p) => smooth01(4, 9, p) * (1 - smooth01(NL0 - 16, NL0 - 8, p));
   const nacPt = (sd, p, v, off) => { // v: 0 bottom, 0.25 inboard, 0.5 top, 0.75 outboard
     const r = NRF(p), a = v * Math.PI * 2 - Math.PI / 2, ex = spow(Math.cos(a), 2 / N.n), ey = spow(Math.sin(a), 2 / N.n), L = nacLen(p);
@@ -240,7 +228,7 @@ function buildExterior(opts) {
   };
   [-1, 1].forEach((sd) => parts.push(finish(grid(NP.length, NRR + 1, (i, j) => nacPt(sd, NP[i], (j % NRR) / NRR), (i, j) => ruv(R.nac, NP[i] / NL0, j / NRR)), true)));
   {
-    const NSP = lite ? 8 : 14, SRR = lite ? 14 : 22;
+    const NSP = lite ? 8 : 20, SRR = lite ? 14 : 32;
     [-1, 1].forEach((sd) => { // swept, nearly level pylons from the engineering body out to the nacelles
       const at = (A, B, PA, PB, s) => new THREE.Vector3(sd * (A[1] + (B[1] - A[1]) * s), Y(A[2] + (B[2] - A[2]) * s), Z(A[0] + (B[0] - A[0]) * s));
       const sp = G.spar, pl = G.sparPlan, L0 = [sp[0][0], pl[0][1], sp[0][1]], T0 = [sp[1][0], pl[1][1], sp[1][1]], T1 = [sp[2][0], pl[2][1], sp[2][1]], L1 = [sp[3][0], pl[3][1], sp[3][1]], PL0 = 0, PL1 = 0, PT0 = 0, PT1 = 0;
@@ -373,7 +361,7 @@ function buildExterior(opts) {
   // shading by place: the underside and the lower flanks a little darker; contact shadow where the spine, arch and spars meet the hull
   for (let m = 0; m < 200; m += 1) { const S = secAt(m + 0.5), a = hullAtDepth(S, S.r1); if (!a) continue; const y0 = hy(a.arc), y1 = hy(S.side[S.side.length - 1][2]);
     const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(6,9,10,0.28)'); g.fillStyle = gr; g.fillRect(hx(m), y0, HU + 0.5, y1 - y0); }
-  [SX0, SX1].forEach((sx) => { for (let m = 50; m < 98; m += 0.5) { const S = secAt(m), a = arcAtX(S, Math.abs(sx), true); if (a == null) continue; const gr = g.createLinearGradient(0, hy(a), 0, hy(a + 3.2)); gr.addColorStop(0, 'rgba(5,7,8,0.45)'); gr.addColorStop(1, 'rgba(5,7,8,0)'); g.fillStyle = gr; g.fillRect(hx(m), hy(a), 0.5 * HU + 0.5, 3.2 * HV); } });
+  [1, -1].forEach(() => { for (let m = 49.5; m < 102; m += 0.5) { const S = secAt(m), a = arcAtX(S, spineRing(m)[0][0] - 0.3, true); if (a == null) continue; const gr = g.createLinearGradient(0, hy(a), 0, hy(a + 3.2)); gr.addColorStop(0, 'rgba(5,7,8,0.45)'); gr.addColorStop(1, 'rgba(5,7,8,0)'); g.fillStyle = gr; g.fillRect(hx(m), hy(a), 0.5 * HU + 0.5, 3.2 * HV); } });
   // the window band at the widest line: near-black, edged with slate pinstripes and a bright lip above
   { const r0 = (m) => arcAtD(m, secAt(m).r0 - 0.05), r1 = (m) => arcAtD(m, secAt(m).r1 + 0.05);
     band(g, r0, r1, 0.5, 199.5, HULL_PAINT.band); band(h, r0, r1, 0.5, 199.5, 'rgb(130,130,130)');
@@ -405,21 +393,21 @@ function buildExterior(opts) {
   grainOver(R.hull, lite ? 0.18 : 0.25);
 
   // spine region: u = m - 50, v = arc from the starboard base over the top to the port base
-  const SU = R.spine[2] / 48, SV = R.spine[3] / SVMAX, sx = (m) => R.spine[0] + (m - 50) * SU, sy = (arc) => R.spine[1] + arc * SV;
+  const SU = R.spine[2] / 54, SV = R.spine[3] / SVMAX, sx = (m) => R.spine[0] + (m - 49) * SU, sy = (arc) => R.spine[1] + arc * SV;
   panels(R.spine, SU, SV, 10, 1.8, { red: 0.012 }); streaks(R.spine, SU, SV, 80);
   const spineArc = (m, test) => { const r = spineRing(m); for (let i = 1; i < r.length; i++) { const f = test(r[i - 1], r[i]); if (f != null) return r[i - 1][2] + f * (r[i][2] - r[i - 1][2]); } return null; };
-  const sideArc = (m, d, sd) => spineArc(m, (p, q) => (sd > 0 ? p[0] > 2 && q[0] > 2 : p[0] < -3 && q[0] < -3) && (d - p[1]) * (d - q[1]) <= 0 && p[1] !== q[1] ? (d - p[1]) / (q[1] - p[1]) : null);
+  const sideArc = (m, d, sd) => spineArc(m, (p, q) => (sd > 0 ? p[0] > 1.5 && q[0] > 1.5 && p[0] < 12 : p[0] < -1.5 && q[0] < -1.5 && p[0] > -12) && (d - p[1]) * (d - q[1]) <= 0 && p[1] !== q[1] ? (d - p[1]) / (q[1] - p[1]) : null);
   const topArc = (m, x) => spineArc(m, (p, q) => (x - p[0]) * (x - q[0]) <= 0 && p[0] !== q[0] ? (x - p[0]) / (q[0] - p[0]) : null);
   // pinstripes along the spine's top edges and a dark skirt at its foot
-  [0.25, 0.75].forEach((k) => { g.beginPath(); SR.forEach((s, i) => { const a = s.r[k < 0.5 ? 1 + Math.round(SPN / 2) : 2 + SPN + Math.round(SPN / 2)][2]; g[i ? 'lineTo' : 'moveTo'](sx(s.m), sy(a)); }); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 0.28 * SV; g.stroke(); });
+  [0.3, 0.7].forEach((k) => { g.beginPath(); SR.forEach((s, i) => { const a = s.r[Math.round((s.r.length - 1) * k)][2]; g[i ? 'lineTo' : 'moveTo'](sx(s.m), sy(a)); }); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 0.28 * SV; g.stroke(); });
   [1, -1].forEach((sd) => { g.beginPath(); let first = true; SR.forEach((s) => { const a = sideArc(s.m, HT(s.m) - 0.6, sd); if (a != null) { g[first ? 'moveTo' : 'lineTo'](sx(s.m), sy(a)); first = false; } }); g.strokeStyle = HULL_PAINT.band; g.lineWidth = 0.9 * SV; g.stroke(); });
   // the long-range sensor pallet on the spine's sloping front
-  { g.fillStyle = HULL_PAINT.band; g.fillRect(sx(51.2), R.spine[1], (55.8 - 51.2) * SU, R.spine[3]); ge.fillStyle = 'rgba(60,110,150,0.6)'; for (let m = 51.6; m < 55.6; m += 0.9) { g.fillStyle = HULL_PAINT.slate; g.fillRect(sx(m), R.spine[1], 0.12 * SU, R.spine[3]); ge.fillRect(sx(m + 0.4), R.spine[1], 0.08 * SU, R.spine[3]); } }
+  { g.fillStyle = HULL_PAINT.band; g.fillRect(sx(50.6), R.spine[1], (54.4 - 50.6) * SU, R.spine[3]); ge.fillStyle = 'rgba(60,110,150,0.6)'; for (let m = 51.0; m < 54.2; m += 0.9) { g.fillStyle = HULL_PAINT.slate; g.fillRect(sx(m), R.spine[1], 0.12 * SU, R.spine[3]); ge.fillRect(sx(m + 0.4), R.spine[1], 0.08 * SU, R.spine[3]); } }
   // Deck 2's real viewports, lit: first officer to port; senior officers' cabins and the wardroom to starboard; the lounge aft
   const spineWin = (m0, m1, d0, d1, sd) => { for (let m = m0; m < m1; m += 0.25) { const a = sideArc(m + 0.125, d0, sd), b = sideArc(m + 0.125, d1, sd); if (a == null || b == null) continue;
     const y = Math.min(a, b), hh = Math.abs(b - a); g.fillStyle = HULL_PAINT.glass; g.fillRect(sx(m), sy(y), 0.25 * SU + 0.5, hh * SV); ge.fillStyle = HULL_PAINT.window; ge.fillRect(sx(m), sy(y), 0.25 * SU + 0.5, hh * SV); } };
   spineWin(73.4, 75.8, 4.8, 6.1, -1); spineWin(69.3, 71.5, 4.8, 6.1, 1); spineWin(75.7, 77.9, 4.8, 6.1, 1); spineWin(82.55, 87.05, 4.75, 6.05, 1);
-  for (let m = 95.6; m < 97.4; m += 0.1) { const d = SP(m); if (d < 4.65 || d > 6.25) continue; const a = topArc(m, 5.2), b = topArc(m, -4.8); if (a == null || b == null) continue;
+  for (let m = 96; m < 102; m += 0.1) { const d = SP(m); if (d < 4.65 || d > 6.25) continue; const a = topArc(m, 5.0), b = topArc(m, -5.0); if (a == null || b == null) continue;
     g.fillStyle = HULL_PAINT.glass; g.fillRect(sx(m), sy(Math.min(a, b)), 0.1 * SU + 0.5, Math.abs(b - a) * SV); ge.fillStyle = HULL_PAINT.window; ge.fillRect(sx(m), sy(Math.min(a, b)), 0.1 * SU + 0.5, Math.abs(b - a) * SV); }
   grainOver(R.spine, 0.25);
 

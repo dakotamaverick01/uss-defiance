@@ -24,7 +24,7 @@ def at(pts, m):  # linear between the curve's points (the smooth curve passes th
   return None
 def inside(m, d, n):
   if n <= 2:  # Decks 1-2 ride in the spine; its outline is a hump closed by the hull's back
-    sp = G['spine']; return sp[0][0] <= m <= sp[-1][0] and at(sp, m) is not None and d >= at(sp, m)
+    sp = G['spineTop']; return sp[0][0] <= m <= sp[-1][0] and at(sp, m) is not None and d >= at(sp, m)
   t, b = at(G['top'], m), at(G['bottom'], m)
   return t is not None and b is not None and t <= d <= b
 bad, overlap = [], []
