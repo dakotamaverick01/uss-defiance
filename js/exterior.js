@@ -26,6 +26,16 @@ const HULL_PAINT = {
   window: '#E8B070', cool: '#A8C0D8', grille: '#3E86C4', cap: '#C84A22', impulse: '#D2503C', deflector: '#8CC8EE', flood: [1.0, 0.86, 0.66],
 };
 
+// the baked plating patch (textures/hull_detail*.jpg: red, green = surface relief, blue = ambient occlusion), loaded once;
+// until it arrives the hull shows a flat neutral patch
+const HULL_DETAIL = (() => {
+  const flat = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flat.needsUpdate = true;
+  const D = { ready: false, cb: [], t: null, tex: (lite) => { if (!D.t) {
+    D.t = new THREE.TextureLoader().load(lite ? 'textures/hull_detail_1k.jpg' : 'textures/hull_detail.jpg', (t) => { D.ready = true; D.cb.forEach((f) => f(t)); }, undefined, () => console.warn('hull detail texture unavailable'));
+    D.t.wrapS = D.t.wrapT = THREE.RepeatWrapping; D.t.colorSpace = THREE.NoColorSpace; D.t.anisotropy = 8; }
+    return D.ready ? D.t : flat; }, onReady: (f) => { if (D.ready) f(D.t); else D.cb.push(f); } };
+  return D;
+})();
 // ---------- SHIPGEO curves, sampled the way shipCurve draws them ----------
 function shipSpline(pts, n) {
   const P = (i) => pts[Math.max(0, Math.min(pts.length - 1, i))], out = [];
@@ -299,7 +309,9 @@ function buildExterior(opts) {
   const pickTone = () => { let r = rnd() * TW; for (const [c, w] of TONES) { if ((r -= w) <= 0) return c; } return TONES[0][0]; };
   const jit = (c, k) => { const f = 1 + (rnd() - 0.5) * k; return [c[0] * f, c[1] * f, c[2] * f]; };
   const lw = 1 / K; // one device pixel
-  // panel patchwork: large zones of one tone family split into smaller plates, each a touch lighter or darker
+  let podCount = 0; // escape pods painted (a side)
+  // tonal patchwork: large zones of one tone family split into smaller plates, each a touch lighter or darker (colour
+  // only: the seams, hatches and relief come from the baked plating patch the shader lays over everything)
   function panels(r, uPx, vPx, big, min, o) {
     o = o || {}; const [x0, y0, W, H] = r, Wm = W / uPx, Hm = H / vPx, leaves = [];
     const split = (x, y, w, hh, tone, depth) => {
@@ -316,18 +328,10 @@ function buildExterior(opts) {
       const px = x0 + x * uPx, py = y0 + y * vPx, pw = w * uPx, ph = hh * vPx, area = w * hh;
       const red = o.red && area < 10 && area > 2 && rnd() < o.red;
       g.fillStyle = css(red ? jit(hex(HULL_PAINT.oxide), 0.1) : tone); g.fillRect(px, py, pw, ph);
-      const hv = 180 + (rnd() - 0.5) * 50; h.fillStyle = css([hv, hv, hv]); h.fillRect(px, py, pw, ph);
+      h.fillStyle = 'rgb(180,180,180)'; h.fillRect(px, py, pw, ph); // flat: relief comes from the baked plating
       // a soft inner gradient gives each plate a little curvature in the light
       if (pw > 6 && ph > 6) { const gr = g.createLinearGradient(px, py, px, py + ph); gr.addColorStop(0, 'rgba(255,255,255,0.035)'); gr.addColorStop(1, 'rgba(0,0,0,0.05)'); g.fillStyle = gr; g.fillRect(px, py, pw, ph); }
-      // now and then a hatch or access panel inset in the plate
-      if (area > 6 && rnd() < 0.07) { const iw = Math.min(pw * 0.5, 1.6 * uPx), ih = Math.min(ph * 0.5, 1.2 * vPx), ix = px + (pw - iw) * rnd(), iy = py + (ph - ih) * rnd();
-        g.strokeStyle = 'rgba(14,18,20,0.55)'; g.lineWidth = lw; g.strokeRect(ix, iy, iw, ih); h.strokeStyle = 'rgb(120,120,120)'; h.lineWidth = 1.4 * lw; h.strokeRect(ix, iy, iw, ih); }
     });
-    // panel lines: dark grooves, with a faint lit lip on one side
-    leaves.forEach(([x, y, w, hh]) => { const px = x0 + x * uPx, py = y0 + y * vPx, pw = w * uPx, ph = hh * vPx;
-      g.strokeStyle = lite ? 'rgba(12,15,17,0.38)' : 'rgba(12,15,17,0.5)'; g.lineWidth = lw; g.strokeRect(px, py, pw, ph);
-      g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = lw; g.beginPath(); g.moveTo(px + 1.5 * lw, py + ph - 1.5 * lw); g.lineTo(px + 1.5 * lw, py + 1.5 * lw); g.lineTo(px + pw - 1.5 * lw, py + 1.5 * lw); g.stroke();
-      h.strokeStyle = 'rgb(70,70,70)'; h.lineWidth = 1.8 * lw; h.strokeRect(px, py, pw, ph); });
     g.restore(); h.restore();
   }
   // weathering: long faint streaks trailing aft (along u), a few darker, a few lighter
@@ -356,7 +360,7 @@ function buildExterior(opts) {
     ctx.closePath(); ctx.fillStyle = style; ctx.fill(); };
   const line = (ctx, f, m0, m1, w, style) => band(ctx, (m) => { const a = f(m); return a == null ? null : a - w / 2; }, (m) => { const a = f(m); return a == null ? null : a + w / 2; }, m0, m1, style);
 
-  panels(R.hull, HU, HV, 24, 2.8, { red: 0.004 });
+  panels(R.hull, HU, HV, 18, 1.6, { red: 0 }); // no oxide plates on the hull: the phaser arcs and pod rims carry the accents
   streaks(R.hull, HU, HV, lite ? 420 : 700);
   // shading by place: the underside and the lower flanks a little darker; contact shadow where the spine, arch and spars meet the hull
   for (let m = 0; m < 200; m += 1) { const S = secAt(m + 0.5), a = hullAtDepth(S, S.r1); if (!a) continue; const y0 = hy(a.arc), y1 = hy(S.side[S.side.length - 1][2]);
@@ -387,14 +391,30 @@ function buildExterior(opts) {
         if (rnd() < lit) { const c = rnd(); ge.fillStyle = c < 0.12 ? '#B89468' : c < 0.22 ? HULL_PAINT.cool : HULL_PAINT.window; ge.fillRect(x, y, w2, h2); g.fillStyle = 'rgba(255,200,140,0.3)'; g.fillRect(x, y, w2, h2); } });
     });
   });
-  // escape pod hatches (Deck 6, 104-124 m) with oxide-red rims; a deflector housing around the dish
-  for (let m = 105; m < 123; m += 3.0) { const a = arcAtD(m, 19.4); if (a == null) continue; const x = hx(m) - 0.8 * HU, y = hy(a) - 0.8 * HV;
-    g.fillStyle = HULL_PAINT.dark; g.fillRect(x, y, 1.6 * HU, 1.6 * HV); g.strokeStyle = HULL_PAINT.oxide; g.lineWidth = 2.5 * lw; g.strokeRect(x, y, 1.6 * HU, 1.6 * HV); h.fillStyle = 'rgb(140,140,140)'; h.fillRect(x, y, 1.6 * HU, 1.6 * HV); }
+  // phaser arcs: long continuous strips sweeping round the saucer's top and bottom (bow to aft shoulder, meeting across
+  // the bow), and a strip along each upper flank of the engineering body. Dark mount, copper emitter, segment ticks.
+  { const phaser = (f, m0, m1) => { line(g, f, m0, m1, 1.15, '#353C3F'); line(h, f, m0, m1, 1.15, 'rgb(205,205,205)');
+      line(g, f, m0, m1, 0.5, '#6A4232'); line(g, f, m0 + 0.2, m1, 0.12, 'rgba(255,190,140,0.28)');
+      for (let m = m0 + 0.75; m < m1; m += 1.5) { const a = f(m); if (a == null) continue; g.fillStyle = 'rgba(16,18,19,0.75)'; g.fillRect(hx(m), hy(a) - 0.3 * HV, 1.1 * lw + 0.08 * HU, 0.6 * HV); } };
+    const sauc = (k, upper) => (m) => { const S = secAt(m); return arcAtX(S, Math.min(S.w, SAU.W) * k, upper); };
+    phaser(sauc(0.7, true), 3, 104); phaser(sauc(0.7, false), 3, 104);
+    phaser((m) => { const S = secAt(m); return arcAtX(S, S.w * 0.72, true); }, 132, 184); }
+  // escape pods: 40 (140 crew, 3 to 4 a pod), 20 a side, in rows by deck beside the crew and officers' quarters:
+  // [deck's room from m, to m, depth of the row on the hull, pods a side]. Square hatches, dark frame, oxide-red rim.
+  { const PODS = [[30, 46, 10.0, 3], [84, 100, 10.0, 5], [140, 150, 12.8, 2], [34, 52, 11.0, 3], [72.5, 96, 17.0, 4], [72.5, 90, 20.5, 3]];
+    let n = 0; const sz = 1.5;
+    PODS.forEach(([a, b, d, k]) => { for (let i = 0; i < k; i++) { const m = a + 1.5 + (b - a - 3) * (k === 1 ? 0.5 : i / (k - 1)), arc = arcAtD(m, d); if (arc == null) continue; n++;
+      const x = hx(m) - sz / 2 * HU, y = hy(arc) - sz / 2 * HV, w = sz * HU, hh = sz * HV;
+      g.fillStyle = '#23292C'; g.fillRect(x - 0.12 * HU, y - 0.12 * HV, w + 0.24 * HU, hh + 0.24 * HV);
+      g.fillStyle = '#5A2C26'; g.fillRect(x, y, w, hh); g.fillStyle = '#868D90'; g.fillRect(x + 0.1 * HU, y + 0.1 * HV, w - 0.2 * HU, hh - 0.2 * HV);
+      g.fillStyle = '#2A3033'; g.fillRect(x + 0.45 * HU, y + 0.62 * HV, w - 0.9 * HU, 0.26 * HV);
+      h.fillStyle = 'rgb(205,205,205)'; h.fillRect(x, y, w, hh); h.fillStyle = 'rgb(150,150,150)'; h.fillRect(x - 0.12 * HU, y - 0.12 * HV, w + 0.24 * HU, 0.12 * HV); } });
+    podCount = n; }
   grainOver(R.hull, lite ? 0.18 : 0.25);
 
   // spine region: u = m - 50, v = arc from the starboard base over the top to the port base
   const SU = R.spine[2] / 54, SV = R.spine[3] / SVMAX, sx = (m) => R.spine[0] + (m - 49) * SU, sy = (arc) => R.spine[1] + arc * SV;
-  panels(R.spine, SU, SV, 10, 1.8, { red: 0.012 }); streaks(R.spine, SU, SV, 80);
+  panels(R.spine, SU, SV, 9, 1.4, { red: 0.008 }); streaks(R.spine, SU, SV, 80);
   const spineArc = (m, test) => { const r = spineRing(m); for (let i = 1; i < r.length; i++) { const f = test(r[i - 1], r[i]); if (f != null) return r[i - 1][2] + f * (r[i][2] - r[i - 1][2]); } return null; };
   const sideArc = (m, d, sd) => spineArc(m, (p, q) => (sd > 0 ? p[0] > 1.5 && q[0] > 1.5 && p[0] < 12 : p[0] < -1.5 && q[0] < -1.5 && p[0] > -12) && (d - p[1]) * (d - q[1]) <= 0 && p[1] !== q[1] ? (d - p[1]) / (q[1] - p[1]) : null);
   const topArc = (m, x) => spineArc(m, (p, q) => (x - p[0]) * (x - q[0]) <= 0 && p[0] !== q[0] ? (x - p[0]) / (q[0] - p[0]) : null);
@@ -539,15 +559,32 @@ function buildExterior(opts) {
     glow: { value: opts.glow || 2.6 }, bump: { value: lite ? 2.0 : 3.0 }, flood: { value: 1 },
     fPos: { value: FL.map(([p]) => new THREE.Vector3(...p)) }, fDir: { value: FL.map(([p, q]) => new THREE.Vector3(...q).sub(new THREE.Vector3(...p)).normalize()) },
     fCol: { value: new THREE.Color(...HULL_PAINT.flood).multiplyScalar(7) },
+    // the fine plating: an 8 m patch modelled and baked in Blender (tools/detail_tile_blender.py), repeated over the hull
+    detail: { value: HULL_DETAIL.tex(lite) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
   };
+  HULL_DETAIL.onReady((t) => { uniforms.detail.value = t; uniforms.detailOn.value = 1; });
   const paint = new THREE.ShaderMaterial({ uniforms, fog: false,
-    vertexShader: `uniform mat4 shadowMtx; varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS;
-void main() { vUv = uv; vP = position; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);
+    vertexShader: `uniform mat4 shadowMtx; varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS; varying vec3 vNo;
+void main() { vUv = uv; vP = position; vNo = normal; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);
   vS = shadowMtx * vec4(position + normal * 0.22, 1.0); gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: `uniform sampler2D map; uniform sampler2D emap; uniform sampler2D shadowMap; uniform float shadowOn; uniform float texel; uniform float sbias;
 uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 rimDir; uniform vec3 rimCol; uniform vec3 sky; uniform vec3 ground;
 uniform float glow; uniform float bump; uniform float flood; uniform vec3 fPos[6]; uniform vec3 fDir[6]; uniform vec3 fCol;
-varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS;
+uniform sampler2D detail; uniform float detailOn; uniform float detailScale; uniform float detailStr;
+varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS; varying vec3 vNo;
+// the baked plating patch, projected along the ship's three axes and blended by which way the surface faces
+// (a "triplanar" projection: no texture layout needed, the same scale everywhere); returns the bent normal, ao in w
+vec4 plating(vec3 N) {
+  vec3 w = pow(abs(normalize(vNo)), vec3(6.0)); w /= (w.x + w.y + w.z);
+  vec3 p = vP * detailScale, sg = sign(normalize(vNo));
+  vec3 tx = texture2D(detail, vec2(p.z * sg.x, p.y)).rgb, ty = texture2D(detail, vec2(p.x, p.z * sg.y)).rgb, tz = texture2D(detail, vec2(-p.x * sg.z, p.y)).rgb;
+  vec2 nx = (tx.rg * 2.0 - 1.0) * detailStr, ny = (ty.rg * 2.0 - 1.0) * detailStr, nz = (tz.rg * 2.0 - 1.0) * detailStr;
+  // each patch's across (u) and up (v) directions on the ship, so its relief tilts the right way (a whiteout blend)
+  vec3 bx = vec3(N.x, N.y + nx.y, N.z + nx.x * sg.x), by = vec3(N.x + ny.x, N.y, N.z + ny.y * sg.y), bz = vec3(N.x - nz.x * sg.z, N.y + nz.y, N.z);
+  vec3 Nd = normalize(bx * w.x + by * w.y + bz * w.z);
+  float ao = tx.b * w.x + ty.b * w.y + tz.b * w.z;
+  return vec4(mix(N, Nd, detailOn), mix(1.0, ao, detailOn));
+}
 float sunShadow() {
   vec3 c = vS.xyz / vS.w; if (shadowOn < 0.5 || c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0 || c.z > 1.0) return 1.0;
   float s = 0.0; for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) s += (c.z - sbias <= texture2D(shadowMap, c.xy + vec2(float(i), float(j)) * texel * 1.25).r) ? 1.0 : 0.0;
@@ -560,18 +597,22 @@ void main() {
   vec2 dx = dFdx(vUv), dy = dFdy(vUv); vec2 dH = vec2(texture2D(map, vUv + dx).a - t.a, texture2D(map, vUv + dy).a - t.a) * bump;
   vec3 sx = dFdx(vW), sy = dFdy(vW), r1 = cross(sy, N0), r2 = cross(N0, sx); float det = dot(sx, r1);
   vec3 N = normalize(abs(det) * N0 - sign(det) * (dH.x * r1 + dH.y * r2)); if (dot(N, N0) < 0.2) N = N0;
+  // the plating patch, eased off with distance so far-off seams don't crowd into dark lines
+  float far = mix(0.4, 1.0, smoothstep(320.0, 90.0, length(cameraPosition - vW)));
+  vec4 pl = plating(N); N = normalize(mix(N, pl.xyz, far)); if (dot(N, N0) < 0.2) N = N0;
+  float ao = mix(1.0, pl.w, far), seam = smoothstep(0.35, 0.85, ao); base *= mix(0.7, 1.0, seam);
   vec3 V = normalize(cameraPosition - vW);
   float nl = dot(N, sunDir), sh = sunShadow() * smoothstep(-0.05, 0.12, dot(N0, sunDir));
   // panels: lighter plates a touch glossier
   float lum = dot(base, vec3(0.3, 0.55, 0.15)), rough = clamp(0.55 - (lum - 0.2) * 0.9, 0.3, 0.7), a2 = rough * rough * rough * rough;
   vec3 H = normalize(sunDir + V); float nh = max(dot(N, H), 0.0), dd = nh * nh * (a2 - 1.0) + 1.0, D = a2 / (3.14159 * dd * dd);
   float fr = pow(1.0 - max(dot(N, V), 0.0), 5.0); vec3 F0 = mix(vec3(0.05), base, 0.3), F = F0 + (1.0 - F0) * fr;
-  vec3 col = base * (sunCol * max(nl, 0.0) * sh + rimCol * max(dot(N, rimDir), 0.0) + mix(ground, sky, N.y * 0.5 + 0.5));
-  col += sunCol * D * F * max(nl, 0.0) * sh * 0.22;
-  vec3 R = reflect(-V, N); col += mix(ground, sky * 2.5, smoothstep(-0.3, 0.9, R.y)) * F * 0.6 + rimCol * F * pow(max(dot(R, rimDir), 0.0), 8.0) * 0.6;
+  vec3 col = base * (sunCol * max(nl, 0.0) * sh + (rimCol * max(dot(N, rimDir), 0.0) + mix(ground, sky, N.y * 0.5 + 0.5)) * ao);
+  col += sunCol * D * F * max(nl, 0.0) * sh * 0.22 * seam;
+  vec3 R = reflect(-V, N); col += (mix(ground, sky * 2.5, smoothstep(-0.3, 0.9, R.y)) * F * 0.6 + rimCol * F * pow(max(dot(R, rimDir), 0.0), 8.0) * 0.6) * ao;
   for (int i = 0; i < 6; i++) { vec3 L = fPos[i] - vP; float dist = length(L); L /= dist;
     float cone = smoothstep(0.7, 0.95, dot(-L, fDir[i])), att = 1.0 / (1.0 + dist * dist * 0.018);
-    col += base * fCol * max(dot(N, L), 0.0) * cone * att * flood; }
+    col += base * fCol * max(dot(N, L), 0.0) * cone * att * flood * ao; }
   col += texture2D(emap, vUv).rgb * glow;
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
@@ -596,6 +637,6 @@ void main() {
     }); }
   root.traverse((o) => { o.userData.noPick = true; });
   root.userData.triangles = (ship.geometry.index.count + lettering.geometry.index.count) / 3;
-  root.userData.paint = paint; root.userData.shadow = !!shadow;
+  root.userData.paint = paint; root.userData.shadow = !!shadow; root.userData.escapePods = podCount * 2;
   return root;
 }
