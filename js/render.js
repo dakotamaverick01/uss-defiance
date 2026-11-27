@@ -41,6 +41,7 @@ shafts[shafts.length - 1].material.uniforms.k.value = 0.035;
 // load, three.js's own bloom is used as before; if that fails too, a plain render.
 let composer = null, bloom = null, aoPass = null;
 const POST = { kind: 'none' };
+const PERF_OPT = { screens: isMobile ? 2 : 4 }; // display redraws per frame; perf.js can raise it
 function flagXR(t) { if (t) { t.isXRRenderTarget = true; t.texture.colorSpace = THREE.LinearSRGBColorSpace; } }
 try {
   if (THREE.PP) {
@@ -259,7 +260,7 @@ function frame() {
 
   // screens: every frame, redraw a few of the visible ones, the nearest and longest-waiting first, so they all keep moving
   { _scrPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _scrFr.setFromProjectionMatrix(_scrPM);
-    const budget = isMobile ? 2 : 4, pick = [];
+    const budget = PERF_OPT.screens, pick = [];
     for (const sc of screens) {
       if (!sc.wp) { sc.wp = new THREE.Vector3(); sc.mesh.getWorldPosition(sc.wp); }
       const d2 = sc.wp.distanceToSquared(camera.position); if (d2 > 110) continue;
