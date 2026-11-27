@@ -39,6 +39,6 @@ for i, rooms in enumerate(G['rooms']):
       if a1 < b0 - 0.01: overlap.append(f'D{n} {n0} / {n1}')
 ok('every compartment inside the hull', not bad, '; '.join(sorted(set(bad))))
 ok('no overlapping compartments', not overlap, '; '.join(sorted(set(overlap))))
-ok('12 decks', len(G['rooms']) == 12)
+ok('10 decks', len(G['rooms']) == 10)
 print('ALL OK' if not fails else f'{len(fails)} FAILED')
 sys.exit(1 if fails else 0)

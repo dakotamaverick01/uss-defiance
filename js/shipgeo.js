@@ -7,34 +7,42 @@
 // SHIPGEO-BEGIN (shared verbatim with js/shipgeo.js; tools/check_plan.py keeps the two copies identical)
 // The ship in metres: m = metres from the bow (0) to the stern (200), equal to the 3D z + 64; d = depth below the top of
 // Deck 1 (Deck n spans 3.5(n-1) to 3.5n, negative is above); z = across the beam in the plan view, starboard negative.
+// The form is a swept saucer: a lens-shaped saucer forward flowing into a slim engineering body aft, nacelles just above
+// the saucer on swept pylons, and a rollbar over the back carrying the weapons pod. The hull's side and plan outlines
+// (top, bottom, halfBeam) are worked out from the saucer and engineering parameters below, after the object.
 const SHIPGEO = {
-  top: [[0, 20], [5, 16.8], [14, 13.2], [30, 10.4], [46, 8.6], [60, 7.7], [150, 7.7], [166, 8.9], [182, 11.2], [193, 13.6], [199.5, 16.5]],
-  bottom: [[199.5, 32], [196, 36.5], [188, 42], [124, 42], [114, 37.5], [100, 34.5], [80, 32.5], [50, 30], [24, 27], [8, 24], [2, 22], [0, 20]],
+  // the saucer: a lens centred mc m from the bow (half-length L, half-beam W) with its mid-plane at depth dc; up and dn
+  // are its half-thickness above and below at the centre; pn shapes the plan, n the cross-section
+  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15 },
+  // the engineering body: half-beam, top depth and bottom depth along the ship (smooth curves); n shapes its section
+  eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.8], [200, 7]], t: [[90, 15], [100, 10.5], [112, 8.6], [150, 8.6], [200, 15.5]],
+    b: [[90, 15], [94.5, 23.5], [100.5, 29.5], [112, 33.2], [182, 34.5], [200, 25]], n: 2.4 },
   spine: [[50, 7.8], [53.5, 5.6], [56, 3.8], [57.5, 1.8], [59.5, 0.5], [62, 0.1], [77, 0.1], [79.5, 1], [81, 2.8], [82.5, 3.4], [94.5, 3.4], [96.5, 5.3], [98, 7.7]],
-  archOuter: [[109.5, 8.5], [113, 3.5], [118, -0.3], [123, -3], [129, -4.6], [137, -4.6], [143, -3], [148, -0.3], [153, 3.5], [156.5, 8.5]],
-  archInner: [[113, 8.5], [116, 4.4], [120, 1.2], [124.5, -1.5], [129, -3.4], [137, -3.4], [141.5, -1.5], [146, 1.2], [150, 4.4], [153, 8.5]],
-  turretDeck: [128.5, 137.5, -5.0, -4.1], turret: [[129.9, -4.55], [129.9, -5.05], [130.3, -6.05], [131.4, -6.75], [133, -6.95], [134.6, -6.75], [135.7, -6.05], [136.1, -5.05], [136.1, -4.55]],
-  barrels: [126.2, 132.6, -6.15, -5.55],
-  nacelle: { m0: 110, d: 46.5, z: 50, w: 0.74, prof: [[0, 0], [0.4, 2.3], [1.6, 3.7], [4, 4.35], [9, 4.6], [70, 4.6], [79, 4.25], [85.5, 3.1], [89.3, 1.5], [90, 0]] },
-  spar: [[127, 30], [140, 30], [177, 44.5], [165, 44.5]], sparPlan: [[127, 14], [140, 14], [177, 47.8], [165, 47.8]],
-  halfBeam: [[0, 0], [3, 14], [8, 25], [20, 34], [34, 40], [56, 45], [78, 46], [98, 44], [112, 40], [126, 30], [140, 20], [170, 16.5], [196, 14], [200, 9]],
   spinePlan: [52, 96, -6.2, 7.2], pod: [[58, -3.55], [58, 3.55], [61.1, 6.4], [66.9, 6.4], [70.2, 4.0], [70.2, -4.0], [66.9, -6.4], [61.1, -6.4]],
-  lifts: [[70.2, 72.5, 1, 6, 'LIFT 1'], [124, 129, 3, 12, 'LIFT 2']], core: [140, 152, 6, 11],
+  // the rollbar: feet on the saucer's back at m foot[0], foot[1] m out to each side; it arches up and back to its crown
+  // over m crown at depth top. The weapons pod rides the crown (m from, to; centre depth d; half-width w, half-height h),
+  // with torpedo launchers [from m, to m, out, d, half-width, half-height]: two firing forward, one aft
+  rollbar: { foot: [108, 20], crown: 128, top: -0.6 },
+  wpod: { m: [114, 152], d: -3.4, w: 6.0, h: 3.0 },
+  launchers: [[112.6, 119.4, -2.45, -3.3, 1.5, 1.05], [112.6, 119.4, 2.45, -3.3, 1.5, 1.05], [147.6, 153.6, 0, -3.3, 1.7, 1.1]],
+  // nacelles just above the saucer: profile = [metres from the front, half-height]; w = width over height
+  nacelle: { m0: 110, d: 10.2, z: 40, w: 0.88, n: 2.2, prof: [[0, 0], [0.5, 1.2], [2.5, 2.4], [8, 3.15], [18, 3.6], [60, 3.6], [72, 3.25], [82, 2.3], [88, 1.0], [90, 0]] },
+  // the swept pylons out to the nacelles: side view [m, d] and plan [m, out], leading root, trailing root, trailing tip, leading tip
+  spar: [[134, 16.4], [160, 17.4], [172, 10.6], [148, 10.6]], sparPlan: [[134, 11], [160, 11], [172, 38.2], [148, 38.2]],
+  lifts: [[70.2, 72.5, 1, 6, 'LIFT 1'], [124, 129, 3, 10, 'LIFT 2']], core: [140, 152, 6, 10],
   // rooms[deck-1] = [from m, to m, name, status (w walkable, n next, p planned), kind (w command, l living, s systems,
   // x weapons, e engineering), side ('' full, 's' starboard, 'p' port), note]
   rooms: [
     [[58, 70.2, 'Main bridge', 'w', 'w', '', 'Command chair, flight, ops, tactical, science, engineering and comms stations, the situation table and the viewscreen.'], [70.2, 72.5, 'Turbolift 1', 'w', 's', '', 'Forward lift. Runs Decks 1 to 6.'], [72.5, 77, 'Conference room', 'w', 'w', '', 'Senior staff briefings and battle honors, aft of the bridge.'], [77, 80, 'Ready room and head', 'w', 'w', '', 'The captain’s office off the bridge’s starboard aft corner; the head is to port.']],
-    [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Turret capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the dorsal turret.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Officers dine and meet here.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The aft end of the spine: a 10 m window looking back over the ship’s back to the turret on its arch (the nacelles ride low, out of sight).']],
-    [[46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 12.'], [129, 140, 'Arch feeds and turret magazine', 'p', 'x', '', 'Power and focusing crystals go up the arch rails to the turret from here.'], [140, 162, 'Crew quarters', 'p', 'l', '', '']],
-    [[20, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge inside the armored prow.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 106, 'Crew quarters', 'p', 'l', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 186, 'Life support and environmental', 'p', 's', '', '']],
-    [[8, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin forward launchers in the armored prow.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes, 12 per bay.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo transporter and stores', 'p', 's', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
-    [[2, 16, 'Navigational deflector', 'p', 's', '', 'Clears debris ahead of the ship.'], [16, 28, 'Lower sensor array', 'p', 's', '', ''], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Cargo bay 1', 'p', 's', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 104, 'Crew quarters', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
-    [[6, 48, 'Crew quarters', 'p', 'l', '', ''], [48, 100, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [100, 124, 'Combat information center', 'p', 'x', '', 'Deep in the armored hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Engineering workshops and spares', 'p', 'e', '', '']],
-    [[22, 70, 'Crew quarters', 'p', 'l', '', ''], [70, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 176, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [176, 199, 'Shuttle maintenance', 'p', 's', '', '']],
-    [[50, 96, 'Cargo bay 2', 'p', 's', '', ''], [96, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Flight operations', 'p', 's', '', 'Pilots’ ready room and bay control.'], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 199, 'Shuttlebay', 'p', 's', '', 'Three shuttles. The launch doors open aft.']],
-    [[90, 124, 'Environmental and water reclamation', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Air scrubbers and waste', 'p', 's', '', ''], [140, 152, 'Warp core, lower', 'p', 'e', '', ''], [152, 196, 'Lower hangar and shuttle storage', 'p', 's', '', '']],
-    [[112, 124, 'Fuel transfer', 'p', 'e', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Reactor base', 'p', 'e', '', ''], [152, 192, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods.']],
-    [[124, 129, 'Lift 2', 'p', 's', '', ''], [129, 146, 'Tractor beam and keel sensors', 'p', 's', '', ''], [146, 164, 'Antimatter pod ejection', 'p', 'e', '', 'Last-resort jettison of the fuel pods.'], [164, 188, 'Structural keel and waste', 'p', 's', '', '']],
+    [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Pod capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the weapons pod.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Officers dine and meet here.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The aft end of the spine: a 10 m window looking back over the ship’s back to the rollbar and its weapons pod, with a nacelle out to either side.']],
+    [[30, 46, 'Officers’ quarters', 'p', 'l', '', ''], [46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 10.'], [129, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140, 150, 'Crew quarters', 'p', 'l', '', '']],
+    [[10, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge in the saucer’s forward edge.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 106, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 176, 'Life support, air and water', 'p', 's', '', 'Environmental plant and water reclamation.']],
+    [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo transporter and stores', 'p', 's', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
+    [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Cargo bay 1', 'p', 's', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
+    [[102, 112, 'Navigational deflector', 'p', 's', '', 'The dish on the engineering hull’s nose, under the saucer.'], [112, 124, 'Combat information center', 'p', 'x', '', 'Deep in the engineering hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Shuttlebay', 'p', 's', '', 'Three shuttles. The launch doors open aft through the stern.']],
+    [[106, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 176, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [176, 194, 'Shuttle maintenance', 'p', 's', '', 'Under the shuttlebay, with a lift up to it.']],
+    [[112, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 190, 'Engineering workshops and spares', 'p', 'e', '', '']],
+    [[118, 124, 'Fuel transfer', 'p', 'e', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Lowest stop.'], [129, 140, 'Tractor beam and keel sensors', 'p', 's', '', ''], [140, 152, 'Warp core base', 'p', 'e', '', 'Where the antimatter feed enters the core.'], [152, 182, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods, with the ejection system beneath.']]
   ],
 };
 // a smooth curve through points (Catmull-Rom as cubic Béziers), as SVG path commands after a starting point
@@ -44,6 +52,45 @@ function shipCurve(pts, X, Y) {
     s += ' C' + f(b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6) + ' ' + f(c[0] - (d[0] - b[0]) / 6, c[1] - (d[1] - b[1]) / 6) + ' ' + f(c[0], c[1]); }
   return s;
 }
+// the value of such a curve at m (points in increasing m), as shipCurve draws it
+function shipAt(pts, m) {
+  const n = pts.length, P = (i) => pts[Math.max(0, Math.min(n - 1, i))]; if (m <= pts[0][0]) return pts[0][1]; if (m >= pts[n - 1][0]) return pts[n - 1][1];
+  let i = 0; while (i < n - 2 && m > pts[i + 1][0]) i++;
+  const a = P(i - 1), b = P(i), c = P(i + 1), d = P(i + 2), x1 = b[0] + (c[0] - a[0]) / 6, x2 = c[0] - (d[0] - b[0]) / 6, y1 = b[1] + (c[1] - a[1]) / 6, y2 = c[1] - (d[1] - b[1]) / 6;
+  let lo = 0, hi = 1; for (let k = 0; k < 26; k++) { const t = (lo + hi) / 2, u = 1 - t; if (u * u * u * b[0] + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * c[0] < m) lo = t; else hi = t; }
+  const t = (lo + hi) / 2, u = 1 - t; return u * u * u * b[1] + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * c[1];
+}
+// the hull's cross-section at m: the smooth union of the saucer's lens and the engineering body's rounded section, both
+// about the saucer's mid-plane. r(a) = distance from (0, dc) to the outline at angle a (0 to starboard, positive down);
+// t, b = top and bottom depths on the centreline; w = half-beam.
+function shipHull(m) {
+  const G = SHIPGEO, S = G.saucer, E = G.eng, q = Math.min(1, Math.abs(m - S.mc) / S.L), f = Math.pow(Math.max(0, 1 - Math.pow(q, S.pn)), 1 / S.pn), gq = Math.pow(Math.max(0, 1 - q * q), 0.45);
+  const sa = [S.W * f, S.up * gq + 0.4 * f, S.dn * gq + 0.4 * f], ew = Math.max(0, shipAt(E.w, m)), eb = [ew, ew > 0.01 ? Math.max(0.01, S.dc - shipAt(E.t, m)) : 0, ew > 0.01 ? Math.max(0.01, shipAt(E.b, m) - S.dc) : 0];
+  const se = (a, h, n, c, s) => (a < 1e-4 || h < 1e-4) ? 0 : 1 / Math.pow(Math.pow(Math.abs(c) / a, n) + Math.pow(Math.abs(s) / h, n), 1 / n);
+  const r = (an) => { const c = Math.cos(an), s = Math.sin(an), k = s < 0 ? 1 : 2; return Math.pow(Math.pow(se(sa[0], sa[k], S.n, c, s), 10) + Math.pow(se(eb[0], eb[k], E.n, c, s), 10), 0.1); };
+  let w = 0; for (let k = -8; k <= 8; k++) { const an = k * 0.05; w = Math.max(w, r(an) * Math.cos(an)); }
+  return { m, r, t: S.dc - r(-Math.PI / 2), b: S.dc + r(Math.PI / 2), w, dc: S.dc };
+}
+// the depth of the hull's top surface at m, x metres out from the centreline
+function shipTopAt(m, x) {
+  const H = shipHull(m); let lo = -Math.PI / 2, hi = 0;
+  for (let k = 0; k < 30; k++) { const a = (lo + hi) / 2; if (H.r(a) * Math.cos(a) < x) lo = a; else hi = a; }
+  return H.dc + H.r(lo) * Math.sin(lo);
+}
+// the side and plan outlines, sampled along the ship (smooth curves through these points)
+(function () {
+  const G = SHIPGEO, ms = []; for (let m = 0; m < 6; m += 0.5) ms.push(m); for (let m = 6; m < 196; m += 2) ms.push(m); for (let m = 196; m <= 200; m += 0.5) ms.push(m);
+  const H = ms.map(shipHull), r2 = (v) => Math.round(v * 100) / 100;
+  G.top = ms.map((m, i) => [m, r2(H[i].t)]); G.bottom = ms.map((m, i) => [m, r2(H[i].b)]).reverse(); G.halfBeam = ms.map((m, i) => [m, r2(H[i].w)]);
+})();
+// the rollbar's centreline, s from -1 (port foot) through 0 (crown) to 1 (starboard foot): [m, out (starboard +), d],
+// with its chord (fore and aft) and thickness at s
+function shipRoll(s) {
+  const R = SHIPGEO.rollbar, a = Math.min(1, Math.abs(s)), footD = shipTopAt(R.foot[0], R.foot[1]) + 1.4, e = Math.pow(a, 2.5);
+  return { m: R.crown - (R.crown - R.foot[0]) * Math.pow(a, 1.3), out: s * R.foot[1], d: R.top + (footD - R.top) * Math.pow(a, 2.6), chord: 4.4 + 2.2 * e, thick: 1.35 + 0.9 * e };
+}
+// the weapons pod's half-width and half-height at q (0 at its nose, 1 at its tail)
+function shipPodAt(q) { const P = SHIPGEO.wpod, s = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, Math.max(0, q)))), 0.32); return [P.w * s * (1 - 0.16 * q), P.h * s]; }
 const shipPoly = (pts, X, Y) => 'M' + pts.map(([a, b]) => X(a).toFixed(1) + ' ' + Y(b).toFixed(1)).join(' L') + ' Z';
 const shipRect = ([a, b, c, d], X, Y) => shipPoly([[a, c], [b, c], [b, d], [a, d]], X, Y);
 // a nacelle seen side-on (centre c on the cross axis), from its profile; k scales the profile (plan views pass nacelle.w)
@@ -53,23 +100,30 @@ function shipNacelle(c, X, Y, k = 1) {
 }
 // side view: SVG path strings (also valid input for canvas Path2D)
 function shipSide(X, Y) {
-  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, O = G.archOuter, I = G.archInner.slice().reverse();
+  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, P = G.wpod, up = [], dn = [];
+  // the rollbar seen side-on: the band its sections sweep, from the feet up to the crown
+  for (let i = 0; i <= 24; i++) { const r = shipRoll(1 - i / 24); up.push([r.m - r.chord * 0.5, r.d - r.thick]); dn.push([r.m + r.chord * 0.5, r.d + r.thick]); }
+  const roll = up.concat([[shipRoll(0).m, shipRoll(0).d - shipRoll(0).thick]], dn.reverse());
+  const pu = [], pd = []; for (let i = 0; i <= 20; i++) { const q = i / 20, [, h] = shipPodAt(q), m = P.m[0] + (P.m[1] - P.m[0]) * q; pu.push([m, P.d - h]); pd.push([m, P.d + h]); }
   return {
     hull: 'M' + X(T[0][0]) + ' ' + Y(T[0][1]) + shipCurve(T, X, Y) + ' L' + X(B[0][0]) + ' ' + Y(B[0][1]) + shipCurve(B, X, Y) + ' Z',
     spine: 'M' + X(S[0][0]) + ' ' + Y(S[0][1]) + shipCurve(S, X, Y) + ' Z',
-    arch: 'M' + X(O[0][0]) + ' ' + Y(O[0][1]) + shipCurve(O, X, Y) + ' L' + X(I[0][0]) + ' ' + Y(I[0][1]) + shipCurve(I, X, Y) + ' Z',
-    turretDeck: shipRect(G.turretDeck, X, Y), turret: 'M' + X(G.turret[0][0]) + ' ' + Y(G.turret[0][1]) + shipCurve(G.turret, X, Y) + ' Z', barrels: shipRect(G.barrels, X, Y),
+    arch: shipPoly(roll, X, Y), pod: 'M' + X(pu[0][0]) + ' ' + Y(pu[0][1]) + shipCurve(pu, X, Y) + shipCurve(pd.reverse(), X, Y) + ' Z',
+    launchers: G.launchers.map(([a, b, , d, , h]) => shipRect([a, b, d - h, d + h], X, Y)).join(' '),
     nacelle: shipNacelle(G.nacelle.d, X, Y), spar: shipPoly(G.spar, X, Y),
   };
 }
 // plan view, bow left, starboard up (Z takes the cross-beam metres, starboard negative)
 function shipPlan(X, Z) {
-  const G = SHIPGEO, H = G.halfBeam, up = H.map(([m, b]) => [m, -b]), dn = H.map(([m, b]) => [m, b]).reverse();
+  const G = SHIPGEO, H = G.halfBeam, up = H.map(([m, b]) => [m, -b]), dn = H.map(([m, b]) => [m, b]).reverse(), P = G.wpod, pu = [], pd = [];
+  for (let i = 0; i <= 20; i++) { const q = i / 20, [w] = shipPodAt(q), m = P.m[0] + (P.m[1] - P.m[0]) * q; pu.push([m, -w]); pd.push([m, w]); }
   return {
     hull: 'M' + X(0) + ' ' + Z(0) + shipCurve(up, X, Z) + ' L' + X(dn[0][0]) + ' ' + Z(dn[0][1]) + shipCurve(dn, X, Z) + ' Z',
     spine: shipRect([G.spinePlan[0], G.spinePlan[1], G.spinePlan[2], G.spinePlan[3]], X, Z), pod: shipPoly(G.pod, X, Z),
     nacs: [-1, 1].map((sd) => shipNacelle(sd * G.nacelle.z, X, Z, G.nacelle.w)), spars: [-1, 1].map((sd) => shipPoly(G.sparPlan.map(([m, z]) => [m, sd * z]), X, Z)),
-    rails: [-1, 1].map((sd) => 'M' + X(111) + ' ' + Z(sd * 7.5) + ' Q' + X(133) + ' ' + Z(sd * 3.4) + ' ' + X(155) + ' ' + Z(sd * 7.5)),
+    // the rollbar's two halves, foot to crown (stroke them)
+    rails: [-1, 1].map((sd) => { const p = []; for (let i = 0; i <= 12; i++) { const r = shipRoll(sd * (1 - i / 12)); p.push([r.m, -r.out]); } return 'M' + X(p[0][0]).toFixed(1) + ' ' + Z(p[0][1]).toFixed(1) + shipCurve(p, X, Z); }),
+    wpod: 'M' + X(pu[0][0]) + ' ' + Z(pu[0][1]) + shipCurve(pu, X, Z) + shipCurve(pd.reverse(), X, Z) + ' Z',
   };
 }
 // SHIPGEO-END

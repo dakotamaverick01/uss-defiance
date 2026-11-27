@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `66f71f1`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `1aed16f`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -41,8 +41,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 | **First officer's quarters** | The captain's quarters, smaller: a sofa facing the port viewport, a touch-display desk with the duty roster, a galley niche, and a sleeping cabin behind a partition. |
 | **Senior officers' cabins** | Two mirror-image cabins for department heads: bed, starboard viewport, desk, armchair, galley niche. |
 | **Officers' wardroom** | A table for ten, a sideboard, the ship's crest, the mess board, and a starboard viewport. |
-| **Officers' passage** | From the corridor's end, to port and aft along the wardroom, past the sealed turret capacitor bank. |
-| **Observation lounge** | Across the stern of the spine: a wide window looking aft over the ship's back to the dorsal turret on its twin-rail arch, a window ledge with swivel chairs, small tables, and a bar. The nacelles ride low under the keel, out of sight from up here. |
+| **Officers' passage** | From the corridor's end, to port and aft along the wardroom, past the sealed pod capacitor bank. |
+| **Observation lounge** | Across the stern of the spine: a wide window looking aft over the saucer's back to the rollbar arching over the ship with the weapons pod on its crown and a nacelle out to either side, a window ledge with swivel chairs, small tables, and a bar. |
 
 ## Controls
 
@@ -58,7 +58,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | File | What it covers |
   | --- | --- |
   | `core.js` | Constants, renderer, shared helpers, display palette, scene state |
-  | `shipgeo.js` | The ship's shape in metres (`SHIPGEO`): hull profile and plan, spine, arch, turret, nacelles, spars, every deck's compartments. An identical copy lives in the deck-plan page |
+  | `shipgeo.js` | The ship's shape in metres (`SHIPGEO`): the saucer and engineering body (`shipHull` works out the hull's cross-sections and outlines from them), spine, rollbar and weapons pod with its launchers, nacelles, pylons, every deck's compartments. An identical copy lives in the deck-plan page |
   | `exterior.js` | The exterior model, built from `SHIPGEO`, with its painted atlas and its own light |
   | `sim.js` | The ship model: power, shields by arc, weapons, eight damage zones, repair teams, combat drill. Runs on a fixed 10-per-second tick |
   | `surfaces.js` | Surface detail: texture loading, world-mapped detail, wear, screen pixel grid and smudged glass |
@@ -81,8 +81,8 @@ Everything here is original: the ship, its layout, the interface language, the i
 - **Decks and the lift:** decks sit at their real heights, 3.5 m apart, and the lift car really travels between them. Only the deck you are on is shown, which keeps phones fast as the ship grows. Deck 1 and Deck 2 are lit together in one bake (the export shows every deck while it runs). The lift car and the sealed lobbies for unbuilt decks are not part of the bake: their light is painted into small light maps in `lift.js`, and `bake.js` skips their materials.
 - **Interface:** every screen is drawn from one kit of solid blocks on black: elbow frames, pill buttons, solid bars and number columns, in one palette (peach frames, tan and butterscotch readouts, lilac as the second colour, rose and plum accents; green, amber and red only for status). Text uses Antonio, a condensed face. At Yellow alert the peach pulses toward butterscotch; at Red it turns red, the lilac dims and the room lights drop to about a third and redden.
 - **Screen density:** around each screen's readable widgets sit banks of numbered pill buttons and slowly ticking number columns (a side rail on wide screens, a bottom deck on tall ones), so every display reads as a busy working console. They carry no information of their own.
-- **Master systems display** (aft bridge wall, 2048 x 820): a side cutaway of the Defiance (a long swept primary hull with the officers' spine and bridge pod on its back, a twin-rail arch aft carrying the dorsal turret, a keel under engineering, nacelles slung low and aft on swept spars), every deck and compartment from the deck plan (both draw from the shared `SHIPGEO` block, kept identical in `docs/master-systems-display.html` and `js/shipgeo.js`), callouts, a pulsing warp core and live damage tints; a plan view with live shield arcs and the warp field; the deck index and readouts. The static layers are cached and redrawn only when the alert or damage state changes.
-- **Exterior:** `exterior.js` builds the outside of the ship from `SHIPGEO`, so it always matches the deck plan: the hull lofted from the side profile and plan half-beam with rounded sections (flat on top, a short window band at the widest line, sharpening into a keel aft), the spine and bridge pod, the twin-rail arch with the turret deck and turret, and big rounded-box nacelles (90 m long, a raised ridge on top, a recessed grille channel down the inboard face) slung low under the keel on thick swept spars, plus thruster blocks, sensor domes and the deflector dish. Paint: a dark gunmetal grey with a green cast, in layered panel patchwork (large zones of one tone built from smaller plates a touch lighter or darker, a few cooler, warmer or darker), panel lines, weathering streaks trailing aft, black window bands, slate pinstripes and a few oxide-red accents (thrusters, hatch rims, arch and turret details); name and registry in Antonio on the hull top, underside, engineering flanks and nacelles. One canvas atlas carries the colour, with each panel's relief in its alpha channel, plus a glow map for windows, the blue grilles, red-orange caps, red impulse vents and the deflector. Its own small shader lights it (the baked interior is untouched): a low raking key light with real shadows from a shadow map rendered once at load, a cool rim light, dim fill, glossier and duller panels, surface relief from the height channel, and warm floodlights on the registry, the arch, the turret and the flank lettering, which go dark at red alert. About 57k triangles on desktop and 28k on phones (lighter atlas and shadow map too). For now it is seen through Deck 2's windows.
+- **Master systems display** (aft bridge wall, 2048 x 820): a side cutaway of the Defiance (a lens-shaped saucer with the officers' spine and bridge pod on its back, flowing into a slim engineering body, a rollbar over the back carrying the weapons pod and its torpedo launchers, long nacelles just above the saucer on swept pylons), every deck and compartment from the deck plan (both draw from the shared `SHIPGEO` block, kept identical in `docs/master-systems-display.html` and `js/shipgeo.js`), callouts, a pulsing warp core and live damage tints; a plan view with live shield arcs and the warp field; the deck index and readouts. The static layers are cached and redrawn only when the alert or damage state changes.
+- **Exterior:** `exterior.js` builds the outside of the ship from `SHIPGEO`, so it always matches the deck plan. The form is a swept saucer: each station along the ship is the smooth union of the saucer's lens (thinning toward its rounded rim) and the engineering body's rounded section, so the saucer flows into the body on a soft fillet with no neck (`shipHull`, shared with the deck plan). On top: the faired officers' spine and bridge pod. Over the back: a swept rollbar rising from the saucer's aft shoulders (`shipRoll`) to a lozenge-shaped weapons pod (`shipPodAt`) with two torpedo launchers firing forward and one aft. Long, round, tapered nacelles sit just above the saucer on swept pylons; the deflector dish glows on the engineering body's nose under the saucer; thruster blocks, sensor domes and impulse vents complete it. Paint: a dark gunmetal grey with a green cast, in layered panel patchwork, panel lines, weathering streaks trailing aft, black window bands (windows placed from the deck plan's rooms), slate pinstripes and a few oxide-red accents; name and registry in Antonio on the saucer top and underside, the engineering flanks and the nacelles. One canvas atlas carries the colour, with each panel's relief in its alpha channel, plus a glow map. Its own small shader lights it (the baked interior is untouched): a low raking key light with real shadows from a shadow map rendered once at load, a cool rim light, dim fill, glossier and duller panels, surface relief from the height channel, and warm floodlights on the registry, the rollbar, the launchers and the flank lettering, which go dark at red alert. About 88k triangles on desktop and 34k on phones (lighter atlas and shadow map too). For now it is seen through Deck 2's windows.
 - **Stations:** the screens are the furniture. Each wall position is a deep sloped desk whose whole top is one display (big colour pads, a segmented ring gauge, the station's own readouts) under a thick light bezel with a padded navy lip, a small hooded viewer at the back, a ribbed louver band on the wall behind, and the upper displays set deep into a thick framed panel. Below each desk, a recessed apron of padded navy panels. The helm and operations pods and the dais desks use the same desk display.
 - **Layered screens:** every display has a still, dim back layer (deep navy trays laid out under each section, a faint grid, a faint schematic and tiny reference codes) drawn once and cached, with the crisp readouts on top. About four fifths of each screen is still; a few pieces move slowly and continuously (a filling bar, a scope trace, a slow scroll) and single values change on their own independent timings, never in sync.
 - **Surfaces:** every main material has colour, bump detail (a normal map, an image that fakes small bumps and grooves), roughness and contact shading. Floors use photographed sets from [ambientCG](https://ambientcg.com) (free, CC0): Carpet012 on the bridge, Carpet016 recoloured for the ready and conference rooms, Wood018 for the furniture, DiamondPlate008C for the deck edges and head, and a leather grain. Brushed steel, painted-metal detail and screen fingerprints are generated by `tools/make_textures.py`, which also shrinks everything to about 4 MB in `textures/`. Hard surfaces are textured by world position rather than their own layout, so nothing stretches. Wear follows use: polished edges on consoles and desks, scuffed walkways on the bridge floor, grime near the deck, fingerprints on screens. Screens show a fine pixel grid when you lean in.
@@ -875,34 +875,42 @@ const pal = () => {
 // SHIPGEO-BEGIN (shared verbatim with js/shipgeo.js; tools/check_plan.py keeps the two copies identical)
 // The ship in metres: m = metres from the bow (0) to the stern (200), equal to the 3D z + 64; d = depth below the top of
 // Deck 1 (Deck n spans 3.5(n-1) to 3.5n, negative is above); z = across the beam in the plan view, starboard negative.
+// The form is a swept saucer: a lens-shaped saucer forward flowing into a slim engineering body aft, nacelles just above
+// the saucer on swept pylons, and a rollbar over the back carrying the weapons pod. The hull's side and plan outlines
+// (top, bottom, halfBeam) are worked out from the saucer and engineering parameters below, after the object.
 const SHIPGEO = {
-  top: [[0, 20], [5, 16.8], [14, 13.2], [30, 10.4], [46, 8.6], [60, 7.7], [150, 7.7], [166, 8.9], [182, 11.2], [193, 13.6], [199.5, 16.5]],
-  bottom: [[199.5, 32], [196, 36.5], [188, 42], [124, 42], [114, 37.5], [100, 34.5], [80, 32.5], [50, 30], [24, 27], [8, 24], [2, 22], [0, 20]],
+  // the saucer: a lens centred mc m from the bow (half-length L, half-beam W) with its mid-plane at depth dc; up and dn
+  // are its half-thickness above and below at the centre; pn shapes the plan, n the cross-section
+  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15 },
+  // the engineering body: half-beam, top depth and bottom depth along the ship (smooth curves); n shapes its section
+  eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.8], [200, 7]], t: [[90, 15], [100, 10.5], [112, 8.6], [150, 8.6], [200, 15.5]],
+    b: [[90, 15], [94.5, 23.5], [100.5, 29.5], [112, 33.2], [182, 34.5], [200, 25]], n: 2.4 },
   spine: [[50, 7.8], [53.5, 5.6], [56, 3.8], [57.5, 1.8], [59.5, 0.5], [62, 0.1], [77, 0.1], [79.5, 1], [81, 2.8], [82.5, 3.4], [94.5, 3.4], [96.5, 5.3], [98, 7.7]],
-  archOuter: [[109.5, 8.5], [113, 3.5], [118, -0.3], [123, -3], [129, -4.6], [137, -4.6], [143, -3], [148, -0.3], [153, 3.5], [156.5, 8.5]],
-  archInner: [[113, 8.5], [116, 4.4], [120, 1.2], [124.5, -1.5], [129, -3.4], [137, -3.4], [141.5, -1.5], [146, 1.2], [150, 4.4], [153, 8.5]],
-  turretDeck: [128.5, 137.5, -5.0, -4.1], turret: [[129.9, -4.55], [129.9, -5.05], [130.3, -6.05], [131.4, -6.75], [133, -6.95], [134.6, -6.75], [135.7, -6.05], [136.1, -5.05], [136.1, -4.55]],
-  barrels: [126.2, 132.6, -6.15, -5.55],
-  nacelle: { m0: 110, d: 46.5, z: 50, w: 0.74, prof: [[0, 0], [0.4, 2.3], [1.6, 3.7], [4, 4.35], [9, 4.6], [70, 4.6], [79, 4.25], [85.5, 3.1], [89.3, 1.5], [90, 0]] },
-  spar: [[127, 30], [140, 30], [177, 44.5], [165, 44.5]], sparPlan: [[127, 14], [140, 14], [177, 47.8], [165, 47.8]],
-  halfBeam: [[0, 0], [3, 14], [8, 25], [20, 34], [34, 40], [56, 45], [78, 46], [98, 44], [112, 40], [126, 30], [140, 20], [170, 16.5], [196, 14], [200, 9]],
   spinePlan: [52, 96, -6.2, 7.2], pod: [[58, -3.55], [58, 3.55], [61.1, 6.4], [66.9, 6.4], [70.2, 4.0], [70.2, -4.0], [66.9, -6.4], [61.1, -6.4]],
-  lifts: [[70.2, 72.5, 1, 6, 'LIFT 1'], [124, 129, 3, 12, 'LIFT 2']], core: [140, 152, 6, 11],
+  // the rollbar: feet on the saucer's back at m foot[0], foot[1] m out to each side; it arches up and back to its crown
+  // over m crown at depth top. The weapons pod rides the crown (m from, to; centre depth d; half-width w, half-height h),
+  // with torpedo launchers [from m, to m, out, d, half-width, half-height]: two firing forward, one aft
+  rollbar: { foot: [108, 20], crown: 128, top: -0.6 },
+  wpod: { m: [114, 152], d: -3.4, w: 6.0, h: 3.0 },
+  launchers: [[112.6, 119.4, -2.45, -3.3, 1.5, 1.05], [112.6, 119.4, 2.45, -3.3, 1.5, 1.05], [147.6, 153.6, 0, -3.3, 1.7, 1.1]],
+  // nacelles just above the saucer: profile = [metres from the front, half-height]; w = width over height
+  nacelle: { m0: 110, d: 10.2, z: 40, w: 0.88, n: 2.2, prof: [[0, 0], [0.5, 1.2], [2.5, 2.4], [8, 3.15], [18, 3.6], [60, 3.6], [72, 3.25], [82, 2.3], [88, 1.0], [90, 0]] },
+  // the swept pylons out to the nacelles: side view [m, d] and plan [m, out], leading root, trailing root, trailing tip, leading tip
+  spar: [[134, 16.4], [160, 17.4], [172, 10.6], [148, 10.6]], sparPlan: [[134, 11], [160, 11], [172, 38.2], [148, 38.2]],
+  lifts: [[70.2, 72.5, 1, 6, 'LIFT 1'], [124, 129, 3, 10, 'LIFT 2']], core: [140, 152, 6, 10],
   // rooms[deck-1] = [from m, to m, name, status (w walkable, n next, p planned), kind (w command, l living, s systems,
   // x weapons, e engineering), side ('' full, 's' starboard, 'p' port), note]
   rooms: [
     [[58, 70.2, 'Main bridge', 'w', 'w', '', 'Command chair, flight, ops, tactical, science, engineering and comms stations, the situation table and the viewscreen.'], [70.2, 72.5, 'Turbolift 1', 'w', 's', '', 'Forward lift. Runs Decks 1 to 6.'], [72.5, 77, 'Conference room', 'w', 'w', '', 'Senior staff briefings and battle honors, aft of the bridge.'], [77, 80, 'Ready room and head', 'w', 'w', '', 'The captain’s office off the bridge’s starboard aft corner; the head is to port.']],
-    [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Turret capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the dorsal turret.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Officers dine and meet here.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The aft end of the spine: a 10 m window looking back over the ship’s back to the turret on its arch (the nacelles ride low, out of sight).']],
-    [[46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 12.'], [129, 140, 'Arch feeds and turret magazine', 'p', 'x', '', 'Power and focusing crystals go up the arch rails to the turret from here.'], [140, 162, 'Crew quarters', 'p', 'l', '', '']],
-    [[20, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge inside the armored prow.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 106, 'Crew quarters', 'p', 'l', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 186, 'Life support and environmental', 'p', 's', '', '']],
-    [[8, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin forward launchers in the armored prow.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes, 12 per bay.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo transporter and stores', 'p', 's', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
-    [[2, 16, 'Navigational deflector', 'p', 's', '', 'Clears debris ahead of the ship.'], [16, 28, 'Lower sensor array', 'p', 's', '', ''], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Cargo bay 1', 'p', 's', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 104, 'Crew quarters', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
-    [[6, 48, 'Crew quarters', 'p', 'l', '', ''], [48, 100, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [100, 124, 'Combat information center', 'p', 'x', '', 'Deep in the armored hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Engineering workshops and spares', 'p', 'e', '', '']],
-    [[22, 70, 'Crew quarters', 'p', 'l', '', ''], [70, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 176, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [176, 199, 'Shuttle maintenance', 'p', 's', '', '']],
-    [[50, 96, 'Cargo bay 2', 'p', 's', '', ''], [96, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Flight operations', 'p', 's', '', 'Pilots’ ready room and bay control.'], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 199, 'Shuttlebay', 'p', 's', '', 'Three shuttles. The launch doors open aft.']],
-    [[90, 124, 'Environmental and water reclamation', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Air scrubbers and waste', 'p', 's', '', ''], [140, 152, 'Warp core, lower', 'p', 'e', '', ''], [152, 196, 'Lower hangar and shuttle storage', 'p', 's', '', '']],
-    [[112, 124, 'Fuel transfer', 'p', 'e', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Reactor base', 'p', 'e', '', ''], [152, 192, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods.']],
-    [[124, 129, 'Lift 2', 'p', 's', '', ''], [129, 146, 'Tractor beam and keel sensors', 'p', 's', '', ''], [146, 164, 'Antimatter pod ejection', 'p', 'e', '', 'Last-resort jettison of the fuel pods.'], [164, 188, 'Structural keel and waste', 'p', 's', '', '']],
+    [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Pod capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the weapons pod.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Officers dine and meet here.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The aft end of the spine: a 10 m window looking back over the ship’s back to the rollbar and its weapons pod, with a nacelle out to either side.']],
+    [[30, 46, 'Officers’ quarters', 'p', 'l', '', ''], [46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 10.'], [129, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140, 150, 'Crew quarters', 'p', 'l', '', '']],
+    [[10, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge in the saucer’s forward edge.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 106, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 176, 'Life support, air and water', 'p', 's', '', 'Environmental plant and water reclamation.']],
+    [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo transporter and stores', 'p', 's', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
+    [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Cargo bay 1', 'p', 's', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
+    [[102, 112, 'Navigational deflector', 'p', 's', '', 'The dish on the engineering hull’s nose, under the saucer.'], [112, 124, 'Combat information center', 'p', 'x', '', 'Deep in the engineering hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Shuttlebay', 'p', 's', '', 'Three shuttles. The launch doors open aft through the stern.']],
+    [[106, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 176, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [176, 194, 'Shuttle maintenance', 'p', 's', '', 'Under the shuttlebay, with a lift up to it.']],
+    [[112, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 190, 'Engineering workshops and spares', 'p', 'e', '', '']],
+    [[118, 124, 'Fuel transfer', 'p', 'e', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Lowest stop.'], [129, 140, 'Tractor beam and keel sensors', 'p', 's', '', ''], [140, 152, 'Warp core base', 'p', 'e', '', 'Where the antimatter feed enters the core.'], [152, 182, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods, with the ejection system beneath.']]
   ],
 };
 // a smooth curve through points (Catmull-Rom as cubic Béziers), as SVG path commands after a starting point
@@ -912,6 +920,45 @@ function shipCurve(pts, X, Y) {
     s += ' C' + f(b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6) + ' ' + f(c[0] - (d[0] - b[0]) / 6, c[1] - (d[1] - b[1]) / 6) + ' ' + f(c[0], c[1]); }
   return s;
 }
+// the value of such a curve at m (points in increasing m), as shipCurve draws it
+function shipAt(pts, m) {
+  const n = pts.length, P = (i) => pts[Math.max(0, Math.min(n - 1, i))]; if (m <= pts[0][0]) return pts[0][1]; if (m >= pts[n - 1][0]) return pts[n - 1][1];
+  let i = 0; while (i < n - 2 && m > pts[i + 1][0]) i++;
+  const a = P(i - 1), b = P(i), c = P(i + 1), d = P(i + 2), x1 = b[0] + (c[0] - a[0]) / 6, x2 = c[0] - (d[0] - b[0]) / 6, y1 = b[1] + (c[1] - a[1]) / 6, y2 = c[1] - (d[1] - b[1]) / 6;
+  let lo = 0, hi = 1; for (let k = 0; k < 26; k++) { const t = (lo + hi) / 2, u = 1 - t; if (u * u * u * b[0] + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * c[0] < m) lo = t; else hi = t; }
+  const t = (lo + hi) / 2, u = 1 - t; return u * u * u * b[1] + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * c[1];
+}
+// the hull's cross-section at m: the smooth union of the saucer's lens and the engineering body's rounded section, both
+// about the saucer's mid-plane. r(a) = distance from (0, dc) to the outline at angle a (0 to starboard, positive down);
+// t, b = top and bottom depths on the centreline; w = half-beam.
+function shipHull(m) {
+  const G = SHIPGEO, S = G.saucer, E = G.eng, q = Math.min(1, Math.abs(m - S.mc) / S.L), f = Math.pow(Math.max(0, 1 - Math.pow(q, S.pn)), 1 / S.pn), gq = Math.pow(Math.max(0, 1 - q * q), 0.45);
+  const sa = [S.W * f, S.up * gq + 0.4 * f, S.dn * gq + 0.4 * f], ew = Math.max(0, shipAt(E.w, m)), eb = [ew, ew > 0.01 ? Math.max(0.01, S.dc - shipAt(E.t, m)) : 0, ew > 0.01 ? Math.max(0.01, shipAt(E.b, m) - S.dc) : 0];
+  const se = (a, h, n, c, s) => (a < 1e-4 || h < 1e-4) ? 0 : 1 / Math.pow(Math.pow(Math.abs(c) / a, n) + Math.pow(Math.abs(s) / h, n), 1 / n);
+  const r = (an) => { const c = Math.cos(an), s = Math.sin(an), k = s < 0 ? 1 : 2; return Math.pow(Math.pow(se(sa[0], sa[k], S.n, c, s), 10) + Math.pow(se(eb[0], eb[k], E.n, c, s), 10), 0.1); };
+  let w = 0; for (let k = -8; k <= 8; k++) { const an = k * 0.05; w = Math.max(w, r(an) * Math.cos(an)); }
+  return { m, r, t: S.dc - r(-Math.PI / 2), b: S.dc + r(Math.PI / 2), w, dc: S.dc };
+}
+// the depth of the hull's top surface at m, x metres out from the centreline
+function shipTopAt(m, x) {
+  const H = shipHull(m); let lo = -Math.PI / 2, hi = 0;
+  for (let k = 0; k < 30; k++) { const a = (lo + hi) / 2; if (H.r(a) * Math.cos(a) < x) lo = a; else hi = a; }
+  return H.dc + H.r(lo) * Math.sin(lo);
+}
+// the side and plan outlines, sampled along the ship (smooth curves through these points)
+(function () {
+  const G = SHIPGEO, ms = []; for (let m = 0; m < 6; m += 0.5) ms.push(m); for (let m = 6; m < 196; m += 2) ms.push(m); for (let m = 196; m <= 200; m += 0.5) ms.push(m);
+  const H = ms.map(shipHull), r2 = (v) => Math.round(v * 100) / 100;
+  G.top = ms.map((m, i) => [m, r2(H[i].t)]); G.bottom = ms.map((m, i) => [m, r2(H[i].b)]).reverse(); G.halfBeam = ms.map((m, i) => [m, r2(H[i].w)]);
+})();
+// the rollbar's centreline, s from -1 (port foot) through 0 (crown) to 1 (starboard foot): [m, out (starboard +), d],
+// with its chord (fore and aft) and thickness at s
+function shipRoll(s) {
+  const R = SHIPGEO.rollbar, a = Math.min(1, Math.abs(s)), footD = shipTopAt(R.foot[0], R.foot[1]) + 1.4, e = Math.pow(a, 2.5);
+  return { m: R.crown - (R.crown - R.foot[0]) * Math.pow(a, 1.3), out: s * R.foot[1], d: R.top + (footD - R.top) * Math.pow(a, 2.6), chord: 4.4 + 2.2 * e, thick: 1.35 + 0.9 * e };
+}
+// the weapons pod's half-width and half-height at q (0 at its nose, 1 at its tail)
+function shipPodAt(q) { const P = SHIPGEO.wpod, s = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, Math.max(0, q)))), 0.32); return [P.w * s * (1 - 0.16 * q), P.h * s]; }
 const shipPoly = (pts, X, Y) => 'M' + pts.map(([a, b]) => X(a).toFixed(1) + ' ' + Y(b).toFixed(1)).join(' L') + ' Z';
 const shipRect = ([a, b, c, d], X, Y) => shipPoly([[a, c], [b, c], [b, d], [a, d]], X, Y);
 // a nacelle seen side-on (centre c on the cross axis), from its profile; k scales the profile (plan views pass nacelle.w)
@@ -921,23 +968,30 @@ function shipNacelle(c, X, Y, k = 1) {
 }
 // side view: SVG path strings (also valid input for canvas Path2D)
 function shipSide(X, Y) {
-  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, O = G.archOuter, I = G.archInner.slice().reverse();
+  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, P = G.wpod, up = [], dn = [];
+  // the rollbar seen side-on: the band its sections sweep, from the feet up to the crown
+  for (let i = 0; i <= 24; i++) { const r = shipRoll(1 - i / 24); up.push([r.m - r.chord * 0.5, r.d - r.thick]); dn.push([r.m + r.chord * 0.5, r.d + r.thick]); }
+  const roll = up.concat([[shipRoll(0).m, shipRoll(0).d - shipRoll(0).thick]], dn.reverse());
+  const pu = [], pd = []; for (let i = 0; i <= 20; i++) { const q = i / 20, [, h] = shipPodAt(q), m = P.m[0] + (P.m[1] - P.m[0]) * q; pu.push([m, P.d - h]); pd.push([m, P.d + h]); }
   return {
     hull: 'M' + X(T[0][0]) + ' ' + Y(T[0][1]) + shipCurve(T, X, Y) + ' L' + X(B[0][0]) + ' ' + Y(B[0][1]) + shipCurve(B, X, Y) + ' Z',
     spine: 'M' + X(S[0][0]) + ' ' + Y(S[0][1]) + shipCurve(S, X, Y) + ' Z',
-    arch: 'M' + X(O[0][0]) + ' ' + Y(O[0][1]) + shipCurve(O, X, Y) + ' L' + X(I[0][0]) + ' ' + Y(I[0][1]) + shipCurve(I, X, Y) + ' Z',
-    turretDeck: shipRect(G.turretDeck, X, Y), turret: 'M' + X(G.turret[0][0]) + ' ' + Y(G.turret[0][1]) + shipCurve(G.turret, X, Y) + ' Z', barrels: shipRect(G.barrels, X, Y),
+    arch: shipPoly(roll, X, Y), pod: 'M' + X(pu[0][0]) + ' ' + Y(pu[0][1]) + shipCurve(pu, X, Y) + shipCurve(pd.reverse(), X, Y) + ' Z',
+    launchers: G.launchers.map(([a, b, , d, , h]) => shipRect([a, b, d - h, d + h], X, Y)).join(' '),
     nacelle: shipNacelle(G.nacelle.d, X, Y), spar: shipPoly(G.spar, X, Y),
   };
 }
 // plan view, bow left, starboard up (Z takes the cross-beam metres, starboard negative)
 function shipPlan(X, Z) {
-  const G = SHIPGEO, H = G.halfBeam, up = H.map(([m, b]) => [m, -b]), dn = H.map(([m, b]) => [m, b]).reverse();
+  const G = SHIPGEO, H = G.halfBeam, up = H.map(([m, b]) => [m, -b]), dn = H.map(([m, b]) => [m, b]).reverse(), P = G.wpod, pu = [], pd = [];
+  for (let i = 0; i <= 20; i++) { const q = i / 20, [w] = shipPodAt(q), m = P.m[0] + (P.m[1] - P.m[0]) * q; pu.push([m, -w]); pd.push([m, w]); }
   return {
     hull: 'M' + X(0) + ' ' + Z(0) + shipCurve(up, X, Z) + ' L' + X(dn[0][0]) + ' ' + Z(dn[0][1]) + shipCurve(dn, X, Z) + ' Z',
     spine: shipRect([G.spinePlan[0], G.spinePlan[1], G.spinePlan[2], G.spinePlan[3]], X, Z), pod: shipPoly(G.pod, X, Z),
     nacs: [-1, 1].map((sd) => shipNacelle(sd * G.nacelle.z, X, Z, G.nacelle.w)), spars: [-1, 1].map((sd) => shipPoly(G.sparPlan.map(([m, z]) => [m, sd * z]), X, Z)),
-    rails: [-1, 1].map((sd) => 'M' + X(111) + ' ' + Z(sd * 7.5) + ' Q' + X(133) + ' ' + Z(sd * 3.4) + ' ' + X(155) + ' ' + Z(sd * 7.5)),
+    // the rollbar's two halves, foot to crown (stroke them)
+    rails: [-1, 1].map((sd) => { const p = []; for (let i = 0; i <= 12; i++) { const r = shipRoll(sd * (1 - i / 12)); p.push([r.m, -r.out]); } return 'M' + X(p[0][0]).toFixed(1) + ' ' + Z(p[0][1]).toFixed(1) + shipCurve(p, X, Z); }),
+    wpod: 'M' + X(pu[0][0]) + ' ' + Z(pu[0][1]) + shipCurve(pu, X, Z) + shipCurve(pd.reverse(), X, Z) + ' Z',
   };
 }
 // SHIPGEO-END
@@ -953,15 +1007,16 @@ function shipPlan(X, Z) {
 // The ship seen from outside, built in code from SHIPGEO (shipgeo.js) so it always matches the deck plan and the
 // bridge's systems display. buildExterior(opts) returns a group in Deck 2's frame (x starboard, y up from the Deck 2
 // floor, -z forward): the hull lofted from the side profile and the plan half-beam, the officers' spine and bridge pod,
-// the twin-rail arch with the turret deck and turret, the big nacelles slung low on swept spars, the deflector dish,
-// thruster blocks, sensor domes, impulse vents, lettering and running lights.
+// the rollbar carrying the weapons pod and its torpedo launchers, long round nacelles just above the saucer on swept
+// pylons, the deflector dish on the engineering body's nose, thruster blocks, sensor domes, impulse vents, lettering and
+// running lights. The form itself (saucer, engineering body, rollbar, pod) comes from shipHull, shipRoll and shipPodAt.
 // Paint: a dark gunmetal grey-green in layered panel patchwork (large zones built from smaller plates in close
 // tones, a few warmer, cooler or oxide-red), panel lines, weathering streaks, black window bands and slate pinstripes.
 // One canvas atlas holds the colour, with the panels' relief (height) in its alpha channel, plus a glow map for lit
 // windows, grilles, caps, impulse and deflector.
 // Light: the hull's own shader (so the baked interior is untouched): a low raking key "sun" with real shadows from a
 // shadow map rendered once at build time, a cool rim light, dim fill, glossier and duller panels, relief from the
-// height channel, and warm floodlights on the registry, the arch, the turret and the flank lettering (off at red alert).
+// height channel, and warm floodlights on the registry, the rollbar, the pod's launchers and the flank lettering (off at red alert).
 // Strictly original: name and registry only, no emblems or borrowed markings.
 // Files share one global scope and load in order (see index.html).
 'use strict';
@@ -1003,7 +1058,8 @@ function buildExterior(opts) {
   opts = opts || {};
   const lite = !!opts.lite, K = opts.atlasScale || (lite ? 0.5 : 1), G = SHIPGEO;
   const X = (planZ) => -planZ, Y = (d) => 7 - d, Z = (m) => m - 64;
-  const HT = shipFn(G.top), HB = shipFn(G.bottom), HW = shipFn(G.halfBeam), SP = shipFn(G.spine);
+  const SP = shipFn(G.spine);
+  const SAU = G.saucer, ROLL = G.rollbar, POD = G.wpod;
   const rnd = mulberry(4080);
 
   // ---------- atlas layout (pixels at full size) ----------
@@ -1012,7 +1068,7 @@ function buildExterior(opts) {
     hull: [0, 0, 4096, 2048], nac: [0, 2048, 1536, 384], spine: [1536, 2048, 768, 512], arch: [2304, 2048, 1024, 256],
     spar: [3328, 2048, 512, 256], turret: [3840, 2048, 256, 256], stern: [2304, 2304, 512, 256],
     name: [2816, 2304, 768, 128], reg: [2816, 2432, 512, 128], rcs: [3328, 2432, 256, 128], defl: [3584, 2304, 256, 256],
-    cells: [3840, 2304, 256, 256], spare: [0, 2432, 1536, 128],
+    cells: [3840, 2304, 256, 256], launch: [0, 2432, 256, 128],
   };
   // uv in a region: (a, b) in 0..1 across the region (b = 0 at the region's top row in the canvas)
   const ruv = (r, a, b) => [(r[0] + a * r[2]) / AW, 1 - (r[1] + b * r[3]) / AH];
@@ -1065,48 +1121,50 @@ function buildExterior(opts) {
     return g;
   }
 
-  // ---------- the hull: side profile x plan half-beam, rounded cross-sections ----------
-  // Each section: a flat-topped upper cap down to the widest line, a short vertical band there (the window band), and a
-  // lower cap that sharpens into a keel aft. Its top stays on the profile's top line (y -0.7 under Deck 2's windows).
-  function hullSec(m) {
-    const t = HT(m), b = Math.max(HB(m), t + 0.02), w = Math.max(HW(m), 0.002), D = b - t;
-    const rim = t + Math.min(0.4 * D, 10.0), band = Math.min(1.5, 0.08 * D), keel = smooth01(104, 128, m) * (1 - smooth01(188, 199.5, m));
-    return { m, t, b, w, r0: rim - band, r1: rim + band, nu: 2.7, nl: 2.25 - 0.55 * keel };
-  }
-  const NU = lite ? 14 : 22, NB = 2, NL = lite ? 14 : 22;
-  // one side (starboard, x >= 0) from the top centreline to the bottom centreline: [x, d, arc]
+  // ---------- the hull: a lens-shaped saucer forward flowing into a slim engineering body aft ----------
+  // Each station is the smooth union of two rounded sections about the saucer's mid-plane (depth SAU.dc): the saucer's
+  // lens (thinning toward its rim and toward its fore and aft edges) and the engineering body's tall rounded section.
+  // Where both are present their outlines merge with a soft fillet, so the saucer sweeps into the body with no neck.
+  const NJ = lite ? 30 : 52;
+  const hullSec = (m) => { const H = shipHull(m); H.r0 = H.dc - 0.8; H.r1 = H.dc + 0.8; return H; };
+  // one side (starboard, x >= 0) from the top centreline to the bottom centreline: [x, d, arc]; angles packed near the rim
   function hullSide(S) {
     const out = [];
-    for (let i = 0; i <= NU; i++) { const f = (Math.PI / 2) * i / NU; out.push([S.w * Math.pow(Math.sin(f), 2 / S.nu), S.r0 - (S.r0 - S.t) * Math.pow(Math.cos(f), 2 / S.nu)]); }
-    for (let i = 1; i <= NB; i++) out.push([S.w, S.r0 + (S.r1 - S.r0) * i / NB]);
-    for (let i = 1; i <= NL; i++) { const f = (Math.PI / 2) * i / NL; out.push([S.w * Math.pow(Math.cos(f), 2 / S.nl), S.r1 + (S.b - S.r1) * Math.pow(Math.sin(f), 2 / S.nl)]); }
+    for (let j = 0; j <= 2 * NJ; j++) { const u = j / NJ - 1, th = (Math.PI / 2) * spow(u, 1.35), rr = S.r(th); out.push([Math.max(0, rr * Math.cos(th)), S.dc + rr * Math.sin(th)]); }
+    out[0][0] = 0; out[out.length - 1][0] = 0;
     let a = 0; out[0].push(0); for (let i = 1; i < out.length; i++) { a += Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]); out[i].push(a); }
     return out;
   }
   const secFull = (m) => { const S = hullSec(m); S.side = hullSide(S); return S; };
-  const HM = (() => { // stations along the length, close together at the bow and stern
-    const s = new Set([0, 0.12, 0.3, 0.55, 0.9, 1.35, 1.9, 2.6, 3.4, 4.4, 5.6, 7, 199.5, 199.2, 198.7, 198]);
-    const N = lite ? 70 : 118; for (let i = 0; i <= N; i++) { const q = i / N; s.add(+(8 + 190 * (0.72 * q + 0.28 * (0.5 - 0.5 * Math.cos(Math.PI * q)))).toFixed(3)); }
-    return [...s].filter((m) => m <= 199.5).sort((a, b) => a - b);
+  const HT = (m) => hullSec(m).t; // depth of the hull's top centreline
+  const HM = (() => { // stations along the length, close together at the bow, the saucer's aft edge and the stern
+    const s = new Set([0, 0.1, 0.3, 0.6, 1, 1.6, 2.4, 3.4, 4.6, 6, 200, 199.8, 199.4, 198.8, 198]);
+    const N = lite ? 64 : 104; for (let i = 0; i <= N; i++) { const q = i / N; s.add(+(7 + 190 * (0.72 * q + 0.28 * (0.5 - 0.5 * Math.cos(Math.PI * q)))).toFixed(3)); }
+    for (let m = 104; m <= 118; m += lite ? 1.5 : 0.75) s.add(m);
+    return [...s].filter((m) => m <= 200).sort((a, b) => a - b);
   })();
   const HS = HM.map(secFull);
   HS.forEach((S) => { S.arc = S.side[S.side.length - 1][2]; });
   const VMAX = Math.max(...HS.map((S) => S.arc)) * 1.002;
-  const RING = 2 * (NU + NB + NL); // closed ring: top, starboard side to the keel, port side back up
+  const RING = 4 * NJ; // closed ring: top, starboard side to the keel, port side back up
   const ringPt = (S, j) => { const k = S.side.length - 1; return j <= k ? [S.side[j][0], S.side[j][1], S.side[j][2]] : [-S.side[2 * k - j][0], S.side[2 * k - j][1], S.side[2 * k - j][2]]; };
   {
     parts.push(finish(grid(HS.length, RING, (i, j) => { const S = HS[i], [x, d] = ringPt(S, j); return [x, Y(d), Z(S.m)]; },
       (i, j) => ruv(R.hull, HS[i].m / 200, ringPt(HS[i], j)[2] / VMAX), true)));
-    // the stern: a flat transom closing the last section
-    const S = HS[HS.length - 1], pos = [0, Y((S.t + S.b) / 2), Z(S.m)], uvs = [...ruv(R.stern, 0.5, ((S.t + S.b) / 2 - 15) / 18)], idx = [];
+    // the stern: a rounded transom closing the last section
+    const S = HS[HS.length - 1], pos = [0, Y((S.t + S.b) / 2), Z(S.m) + 0.6], uvs = [...ruv(R.stern, 0.5, ((S.t + S.b) / 2 - 15) / 18)], idx = [];
     for (let j = 0; j < RING; j++) { const [x, d] = ringPt(S, j); pos.push(x, Y(d), Z(S.m)); uvs.push(...ruv(R.stern, 0.5 + x / 24, (d - 15) / 18)); idx.push(0, 1 + j, 1 + (j + 1) % RING); }
     const t = new THREE.BufferGeometry(); t.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); t.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); t.setIndex(idx);
     t.computeVertexNormals(); if (t.attributes.normal.getZ(0) < 0) { flip(t); t.computeVertexNormals(); }
     parts.push(t);
   }
-  // a point on the hull: on the upper cap at lateral x, on the lower cap at lateral x, or on a side at depth d
-  const hullTop = (m, x) => { const S = hullSec(m), q = Math.min(0.999, Math.abs(x) / S.w), f = Math.asin(Math.pow(q, S.nu / 2)); return [x, Y(S.r0 - (S.r0 - S.t) * Math.pow(Math.cos(f), 2 / S.nu)), Z(m)]; };
-  const hullBot = (m, x) => { const S = hullSec(m), q = Math.min(0.999, Math.abs(x) / S.w), f = Math.acos(Math.pow(q, S.nl / 2)); return [x, Y(S.r1 + (S.b - S.r1) * Math.pow(Math.sin(f), 2 / S.nl)), Z(m)]; };
+  // a point on the hull: on the upper surface at lateral x, on the underside at lateral x, or on a side at depth d
+  const onSide = (S, x, upper) => { const s = S.side, ax = Math.abs(x);
+    if (upper) { for (let i = 1; i < s.length; i++) if (s[i][0] >= ax) { const f = (ax - s[i - 1][0]) / Math.max(1e-6, s[i][0] - s[i - 1][0]); return s[i - 1][1] + f * (s[i][1] - s[i - 1][1]); } }
+    else { for (let i = s.length - 2; i >= 0; i--) if (s[i][0] >= ax) { const f = (ax - s[i + 1][0]) / Math.max(1e-6, s[i][0] - s[i + 1][0]); return s[i + 1][1] + f * (s[i][1] - s[i + 1][1]); } }
+    return S.side[Math.round(s.length / 2)][1]; };
+  const hullTop = (m, x) => [x, Y(onSide(secFull(m), x, true)), Z(m)];
+  const hullBot = (m, x) => [x, Y(onSide(secFull(m), x, false)), Z(m)];
   const hullAtDepth = (S, d) => { // starboard x and arc length where the section reaches depth d (null if it doesn't)
     const s = S.side; if (d < s[0][1] || d > s[s.length - 1][1]) return null;
     for (let i = 1; i < s.length; i++) if (d <= s[i][1] && s[i][1] > s[i - 1][1]) { const f = (d - s[i - 1][1]) / (s[i][1] - s[i - 1][1]); return { x: s[i - 1][0] + f * (s[i][0] - s[i - 1][0]), arc: s[i - 1][2] + f * (s[i][2] - s[i - 1][2]), ny: (s[i][0] - s[i - 1][0]) / Math.hypot(s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]) }; }
@@ -1115,18 +1173,21 @@ function buildExterior(opts) {
   const hullSidePt = (m, d, sd) => { const h = hullAtDepth(secFull(m), d); return h ? [sd * h.x, Y(d), Z(m)] : null; };
 
   // ---------- the officers' spine (Decks 1-2) and the bridge pod ----------
-  // Plan extents from SHIPGEO.spinePlan, pushed out 0.2 m so the shell clears the rooms' outer walls; seen from inside a
-  // room it faces away and is not drawn, so every window looks straight out.
-  const SX0 = X(G.spinePlan[3]) - 0.2, SX1 = X(G.spinePlan[2]) + 0.2;
+  // A faired superstructure: sides sloping in toward a rounded crown, a soft fillet into the saucer, the plan tapering at
+  // both ends. It encloses every Deck 1-2 room (they span x -7.2..6.2) and faces outward only, so from inside a room it
+  // is not drawn and every window looks straight out.
+  const SXC = -0.5, SX0 = -12.2, SX1 = 11.2; // centre line of the rooms; outer edges of the fillet (for paint)
   const SPM = (() => { const s = new Set(); const seg = (a, b, n) => { for (let i = 0; i <= n; i++) s.add(+(a + (b - a) * i / n).toFixed(3)); };
-    seg(50, 62, lite ? 10 : 18); seg(62, 77, 4); seg(77, 83, lite ? 5 : 8); seg(83, 94.5, 4); seg(94.5, 98, lite ? 6 : 10); return [...s].sort((a, b) => a - b); })();
-  const SPN = lite ? 6 : 9; // points on each rounded top corner
-  function spineRing(m) { // starboard base, up, over the top, down to the port base: [x, d, arc]
-    const dT = SP(m), dB = HT(m) + 1.0, rc = Math.max(0.05, Math.min(1.3, 0.45 * (HT(m) - dT))), out = [];
-    out.push([SX1, dB]);
-    for (let k = 0; k <= SPN; k++) { const a = (Math.PI / 2) * k / SPN; out.push([SX1 - rc + rc * Math.cos(a), dT + rc - rc * Math.sin(a)]); }
-    for (let k = 0; k <= SPN; k++) { const a = (Math.PI / 2) * k / SPN; out.push([SX0 + rc - rc * Math.sin(a), dT + rc - rc * Math.cos(a)]); }
-    out.push([SX0, dB]);
+    seg(50, 62, lite ? 10 : 18); seg(62, 77, 5); seg(77, 83, lite ? 5 : 8); seg(83, 94.5, 5); seg(94.5, 98, lite ? 6 : 10); return [...s].sort((a, b) => a - b); })();
+  const SPN = lite ? 6 : 9, SPS = lite ? 6 : 9; // points on each rounded crown corner and down each side
+  function spineRing(m) { // starboard foot, up the side, over the crown, down to the port foot: [x, d, arc]
+    const f = smooth01(49.5, 57.5, m) * 0.45 + 0.55 - smooth01(91, 98, m) * 0.18, yt = Y(SP(m)) + 0.6, yb = Y(HT(m)) - 1.0;
+    const wt = 7.8 * f, wb = 9.4 * f, rc = Math.max(0.05, Math.min(1.4, 0.3 * (yt - yb))), ys = yt - rc, out = [];
+    const sideX = (y) => { const k = Math.max(0, Math.min(1, (ys - y) / Math.max(0.01, ys - yb))), fl = Math.max(0, 1 - (y - yb) / 1.8); return wt - rc + rc + (wb - wt) * Math.pow(k, 1.6) + 2.0 * fl * fl; };
+    for (let k = 0; k <= SPS; k++) { const y = yb + (ys - yb) * k / SPS; out.push([SXC + sideX(y), 7 - y]); }
+    for (let k = 1; k <= SPN; k++) { const a = (Math.PI / 2) * k / SPN; out.push([SXC + wt - rc + rc * Math.cos(a), 7 - (ys + rc * Math.sin(a))]); }
+    for (let k = 0; k <= SPN - 1; k++) { const a = (Math.PI / 2) * (1 - k / SPN); out.push([SXC - (wt - rc + rc * Math.cos(a)), 7 - (ys + rc * Math.sin(a))]); }
+    for (let k = SPS; k >= 0; k--) { const y = yb + (ys - yb) * k / SPS; out.push([SXC - sideX(y), 7 - y]); }
     let a = 0; out[0].push(0); for (let i = 1; i < out.length; i++) { a += Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]); out[i].push(a); }
     return out;
   }
@@ -1139,7 +1200,7 @@ function buildExterior(opts) {
   // the bridge pod: SHIPGEO.pod's chamfered outline, a low raised module on the spine's crown with a dark band, and a dome
   {
     const sh = new THREE.Shape(); G.pod.forEach(([m, z], i) => { const px = X(z), pz = -Z(m); i ? sh.lineTo(px, pz) : sh.moveTo(px, pz); }); sh.closePath();
-    const top = Y(-0.45), bot = Y(1.4), g = new THREE.ExtrudeGeometry(sh, { depth: top - bot - 0.3, steps: 6, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 2, curveSegments: 1 });
+    const top = Y(-0.45) + 0.6, bot = Y(1.4) + 0.6, g = new THREE.ExtrudeGeometry(sh, { depth: top - bot - 0.3, steps: 6, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 2, curveSegments: 1 });
     g.rotateX(-Math.PI / 2); g.translate(0, bot, 0);
     const pg = stock(g, CELL.gun), p = pg.attributes.position;
     for (let k = 0; k < p.count; k++) if (p.getY(k) < top - 0.5 && p.getY(k) > top - 1.0) pg.attributes.uv.setXY(k, ...cellUV(CELL.slate));
@@ -1148,28 +1209,26 @@ function buildExterior(opts) {
     parts.push(stock(new THREE.SphereGeometry(1.5, lite ? 12 : 20, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, top - 0.05, Z(pm) + 1, 0, 0, 0, [1, 0.45, 1])));
   }
 
-  // ---------- the twin-rail arch, the turret deck and the dorsal turret ----------
+  // ---------- the rollbar and the weapons pod with its torpedo launchers ----------
+  // A swept bar rising from the saucer's aft shoulders and arching over the engineering body (shipRoll), its crown
+  // carrying a lozenge-shaped pod (shipPodAt) with two launchers firing forward and one aft.
   {
-    const O = shipSpline(G.archOuter, 12), I = shipSpline(G.archInner, 12), NS = O.length, RR = lite ? 14 : 20;
-    const railX = (m) => { const t = Math.max(0, Math.min(1, (m - 111) / 44)); return 7.5 - 8.2 * t * (1 - t); };
-    [-1, 1].forEach((sd) => {
-      parts.push(finish(grid(NS, RR + 1, (i, j) => {
-        const e = Math.abs(i / (NS - 1) * 2 - 1), hw = 0.9 + Math.pow(e, 3) * 1.5, mc = (O[i][0] + I[i][0]) / 2, dc = (O[i][1] + I[i][1]) / 2;
-        const ax = (O[i][0] - I[i][0]) / 2, ad = (O[i][1] - I[i][1]) / 2, a = (j % RR) / RR * Math.PI * 2, ex = spow(Math.cos(a), 0.5), ey = spow(Math.sin(a), 0.5);
-        return [sd * (railX(mc) + hw * ex), Y(dc + ad * ey), Z(mc + ax * ey)];
-      }, (i, j) => ruv(R.arch, i / (NS - 1), j / RR)), true));
+    const RS = lite ? 36 : 64, RR = lite ? 14 : 20, P3 = (s) => { const r = shipRoll(s); return new THREE.Vector3(r.out, Y(r.d), Z(r.m)); };
+    [-1, 1].forEach((sd) => parts.push(finish(grid(RS + 1, RR + 1, (i, j) => {
+      const s = sd * (i / RS) * 1.04, r = shipRoll(s), p = P3(s), tg = P3(s + 0.004 * sd).sub(P3(s - 0.004 * sd)).normalize();
+      const fw = new THREE.Vector3(0, 0, -1).addScaledVector(tg, tg.z).normalize(), th = new THREE.Vector3().crossVectors(tg, fw).normalize(), a = (j % RR) / RR * Math.PI * 2;
+      return p.addScaledVector(fw, r.chord * spow(Math.cos(a), 0.8)).addScaledVector(th, r.thick * spow(Math.sin(a), 0.7)).toArray();
+    }, (i, j) => ruv(R.arch, 0.5 + 0.5 * i / RS, j / RR)), true)));
+    const PN = lite ? 26 : 48, PR = lite ? 18 : 30;
+    parts.push(finish(grid(PN + 1, PR + 1, (i, j) => { const q = i / PN, [hw, hh] = shipPodAt(q), a = (j % PR) / PR * Math.PI * 2;
+      return [(hw + 0.001) * spow(Math.cos(a), 2 / 2.8), Y(POD.d) + (hh + 0.001) * spow(Math.sin(a), 2 / 2.8), Z(POD.m[0] + (POD.m[1] - POD.m[0]) * q)]; }, (i, j) => ruv(R.spar, i / PN, j / PR)), true));
+    // launchers: armoured housings, their muzzles (the face toward the firing direction) mapped to the launcher art
+    G.launchers.forEach(([a, b, o, d, hw, hh]) => {
+      const aft = (a + b) / 2 > (POD.m[0] + POD.m[1]) / 2, bx = new THREE.BoxGeometry(2 * hw, 2 * hh, b - a, 1, 1, 1), n = bx.attributes.normal, uv = bx.attributes.uv;
+      for (let k = 0; k < uv.count; k++) { const muzzle = aft ? n.getZ(k) > 0.9 : n.getZ(k) < -0.9; const c = muzzle ? ruv(R.launch, aft ? 1 - uv.getX(k) : uv.getX(k), 1 - uv.getY(k)) : cellUV(CELL.gun); uv.setXY(k, c[0], c[1]); }
+      bx.applyMatrix4(M4(o, Y(d), Z((a + b) / 2))); parts.push(bx);
+      parts.push(stock(new THREE.BoxGeometry(2 * hw + 0.5, 2 * hh + 0.4, 1.0), CELL.dark, M4(o, Y(d), Z(aft ? a + 1.4 : b - 1.4)))); // the housing's collar where it enters the pod
     });
-    // turret deck joining the rails at the crown (SHIPGEO.turretDeck), the turret on it, twin barrels forward
-    const [m0, m1, dTop, dBot] = G.turretDeck, cz = Z((m0 + m1) / 2), cy = (Y(dTop) + Y(dBot)) / 2;
-    parts.push(stock(RBOX(13.2, Math.abs(Y(dTop) - Y(dBot)), m1 - m0, 0.3), CELL.gun, M4(0, cy, cz)));
-    parts.push(stock(RBOX(10.6, 0.14, 0.4, 0.05), CELL.oxide, M4(0, cy - 0.2, Z(m0) - 0.12)));
-    const tp = shipSpline(G.turret, 8).filter(([m]) => m <= 133.001).map(([m, d]) => new THREE.Vector2(Math.max(0, 133 - m), Y(d)));
-    tp.sort((a, b) => a.y - b.y);
-    const tg = new THREE.LatheGeometry(tp, lite ? 24 : 40); tg.translate(0, 0, cz);
-    parts.push(finish(stock(tg, (u, v) => ruv(R.turret, u, 1 - v)), true));
-    const [b0, b1, bd0, bd1] = G.barrels, by = (Y(bd0) + Y(bd1)) / 2, br = Math.abs(Y(bd0) - Y(bd1)) / 2;
-    [-0.7, 0.7].forEach((x) => { parts.push(stock(new THREE.CylinderGeometry(br * 0.85, br, b1 - b0, 12), CELL.barrel, M4(x, by, Z((b0 + b1) / 2), Math.PI / 2, 0, 0)));
-      parts.push(stock(new THREE.CylinderGeometry(br * 1.15, br * 1.15, 0.5, 12), CELL.ring, M4(x, by, Z(b0) + 1.6, Math.PI / 2, 0, 0))); });
   }
 
   // ---------- nacelles and their spars ----------
@@ -1179,30 +1238,31 @@ function buildExterior(opts) {
   const NP = (() => { const s = new Set(); shipSpline(N.prof, lite ? 3 : 5).forEach(([p]) => s.add(+p.toFixed(3))); for (let p = 6; p < NL0 - 8; p += lite ? 5 : 2.5) s.add(p); return [...s].sort((a, b) => a - b); })();
   const nacLen = (p) => smooth01(4, 9, p) * (1 - smooth01(NL0 - 16, NL0 - 8, p));
   const nacPt = (sd, p, v, off) => { // v: 0 bottom, 0.25 inboard, 0.5 top, 0.75 outboard
-    const r = NRF(p), a = v * Math.PI * 2 - Math.PI / 2, ex = spow(Math.cos(a), 2 / 3.2), ey = spow(Math.sin(a), 2 / 3.2), L = nacLen(p);
+    const r = NRF(p), a = v * Math.PI * 2 - Math.PI / 2, ex = spow(Math.cos(a), 2 / N.n), ey = spow(Math.sin(a), 2 / N.n), L = nacLen(p);
     const dv = (x, c, w) => { const q = (x - c) / w; return Math.exp(-q * q); };
-    const k = 1 + 0.06 * L * dv(v, 0.5, 0.035) - 0.08 * L * dv(v, 0.25, 0.06) + (off || 0) / Math.max(r, 0.1);
+    const k = 1 + 0.045 * L * dv(v, 0.5, 0.035) - 0.06 * L * dv(v, 0.25, 0.06) + (off || 0) / Math.max(r, 0.1);
     return [sd * N.z - sd * r * N.w * ex * k, NCY + r * ey * k, Z(N.m0 + p)];
   };
   [-1, 1].forEach((sd) => parts.push(finish(grid(NP.length, NRR + 1, (i, j) => nacPt(sd, NP[i], (j % NRR) / NRR), (i, j) => ruv(R.nac, NP[i] / NL0, j / NRR)), true)));
   {
-    const [L0, T0, T1, L1] = G.spar, [PL0, PT0, PT1, PL1] = G.sparPlan, NSP = lite ? 8 : 14, SRR = lite ? 14 : 22;
-    [-1, 1].forEach((sd) => {
-      const at = (A, B, PA, PB, s) => new THREE.Vector3(sd * (PA[1] + (PB[1] - PA[1]) * s), Y(A[1] + (B[1] - A[1]) * s), Z(A[0] + (B[0] - A[0]) * s));
+    const NSP = lite ? 8 : 14, SRR = lite ? 14 : 22;
+    [-1, 1].forEach((sd) => { // swept, nearly level pylons from the engineering body out to the nacelles
+      const at = (A, B, PA, PB, s) => new THREE.Vector3(sd * (A[1] + (B[1] - A[1]) * s), Y(A[2] + (B[2] - A[2]) * s), Z(A[0] + (B[0] - A[0]) * s));
+      const sp = G.spar, pl = G.sparPlan, L0 = [sp[0][0], pl[0][1], sp[0][1]], T0 = [sp[1][0], pl[1][1], sp[1][1]], T1 = [sp[2][0], pl[2][1], sp[2][1]], L1 = [sp[3][0], pl[3][1], sp[3][1]], PL0 = 0, PL1 = 0, PT0 = 0, PT1 = 0;
       parts.push(finish(grid(NSP + 1, SRR + 1, (i, j) => {
         const s = -0.12 + 1.19 * i / NSP, le = at(L0, L1, PL0, PL1, s), te = at(T0, T1, PT0, PT1, s), mid = le.clone().add(te).multiplyScalar(0.5);
         const ch = te.clone().sub(le), c = ch.length() / 2; ch.normalize();
         const span = at(L0, L1, PL0, PL1, 1).sub(at(L0, L1, PL0, PL1, 0)).normalize(), th = new THREE.Vector3().crossVectors(ch, span).normalize();
-        const a = (j % SRR) / SRR * Math.PI * 2, t = 1.45 - 0.45 * Math.max(0, Math.min(1, s)), ex = spow(Math.cos(a), 0.8), ey = spow(Math.sin(a), 0.6);
+        const a = (j % SRR) / SRR * Math.PI * 2, t = 1.0 - 0.35 * Math.max(0, Math.min(1, s)), ex = spow(Math.cos(a), 0.8), ey = spow(Math.sin(a), 0.6);
         return mid.addScaledVector(ch, c * ex).addScaledVector(th, t * ey).toArray();
-      }, (i, j) => ruv(R.spar, i / NSP, j / SRR)), true));
+      }, (i, j) => ruv(R.turret, i / NSP, j / SRR)), true));
     });
   }
 
   // ---------- small parts: thruster blocks, sensor domes ----------
   {
     const rcs = (x, y, z, ry, s) => parts.push(stock(new THREE.BoxGeometry(2.6, 1.5, 0.9).translate(0, 0, 0.45), (u, v) => ruv(R.rcs, 0.04 + u * 0.92, 0.08 + (1 - v) * 0.84), M4(x, y, z, 0, ry, 0, s || 1)));
-    [22, 98, 184].forEach((m) => { const S = secFull(m), dw = (HW(m + 0.5) - HW(m - 0.5)), yaw = Math.atan(dw); [-1, 1].forEach((sd) => rcs(sd * (S.w - 0.25), Y((S.r0 + S.r1) / 2), Z(m), sd * (Math.PI / 2 + yaw), 1)); });
+    [22, 98, 184].forEach((m) => { const S = secFull(m), dw = (hullSec(m + 0.5).w - hullSec(m - 0.5).w), yaw = Math.atan(dw); [-1, 1].forEach((sd) => rcs(sd * (hullAtDepth(S, SAU.dc).x - 0.25), Y(SAU.dc), Z(m), sd * (Math.PI / 2 + yaw), 1)); });
     [-1, 1].forEach((sd) => { const p = NL0 - 14, q = nacPt(sd, p, 0.75); rcs(q[0] - sd * 0.25, q[1], q[2], sd * Math.PI / 2, 0.8); });
     const bot = hullBot(64, 0.01); parts.push(stock(new THREE.SphereGeometry(3.0, lite ? 14 : 24, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, bot[1] + 0.5, bot[2], Math.PI, 0, 0, [1, 0.5, 1.3])));
     const bot2 = hullBot(150, 0.01); parts.push(stock(new THREE.SphereGeometry(1.6, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, bot2[1] + 0.3, bot2[2], Math.PI, 0, 0, [1, 0.6, 1])));
@@ -1238,8 +1298,12 @@ function buildExterior(opts) {
     { const h = 1.7, len = h * REG_AR, p0 = 66, per = 2 * Math.PI * NRF(p0) * (1 + N.w) / 2;
       decal((a, b) => { const p = sd < 0 ? p0 + a * len : p0 + len - a * len; return nacPt(sd, p, 0.75 + (b - 0.5) * h / per); }, R.reg, 12, 2); }
   });
-  // the navigational deflector: a glowing oval dish on the lower prow
-  decal((a, b) => hullBot(6.6 - 3.6 + b * 7.2, (0.5 - a) * 10.4), R.defl, 16, 12, 0.08);
+  // the navigational deflector: a glowing oval dish on the engineering body's nose, under the saucer
+  { const front = (d) => { let m = 92; while (m < 125 && shipHull(m).b < d) m += 0.1; return m; }, dd = 24.2, m0 = front(dd), tilt = Math.atan2(front(dd + 1.5) - front(dd - 1.5), 3);
+    const out = 0.9, py = Y(dd) - Math.sin(tilt) * out, pz = Z(m0) - Math.cos(tilt) * out; // stand the dish proud of the curved nose, along its normal
+    const dish = new THREE.CircleGeometry(1, lite ? 24 : 40), du = dish.attributes.uv; for (let k = 0; k < du.count; k++) du.setXY(k, ...ruv(R.defl, du.getX(k), 1 - du.getY(k))); dish.applyMatrix4(M4(0, py, pz, -tilt, Math.PI, 0, [3.2, 2.3, 1])); decals.push(dish);
+    parts.push(stock(new THREE.TorusGeometry(1, 0.12, 8, lite ? 24 : 40), CELL.dark, M4(0, py + Math.sin(tilt) * 0.05, pz + Math.cos(tilt) * 0.05, -tilt, Math.PI, 0, [3.3, 2.4, 3])));
+    parts.push(stock(new THREE.CylinderGeometry(1, 1.15, out + 0.6, lite ? 16 : 28, 1, true), CELL.dark, M4(0, (py + Y(dd)) / 2 + Math.sin(tilt) * 0.3, (pz + Z(m0)) / 2 + Math.cos(tilt) * 0.3, Math.PI / 2 - tilt, 0, 0, [3.3, 1, 2.4]))); }
 
   // ---------- paint ----------
   const cw = Math.round(AW * K), chh = Math.round(AH * K), ek = K * 0.5;
@@ -1343,14 +1407,13 @@ function buildExterior(opts) {
   // escape pod hatches (Deck 6, 104-124 m) with oxide-red rims; a deflector housing around the dish
   for (let m = 105; m < 123; m += 3.0) { const a = arcAtD(m, 19.4); if (a == null) continue; const x = hx(m) - 0.8 * HU, y = hy(a) - 0.8 * HV;
     g.fillStyle = HULL_PAINT.dark; g.fillRect(x, y, 1.6 * HU, 1.6 * HV); g.strokeStyle = HULL_PAINT.oxide; g.lineWidth = 2.5 * lw; g.strokeRect(x, y, 1.6 * HU, 1.6 * HV); h.fillStyle = 'rgb(140,140,140)'; h.fillRect(x, y, 1.6 * HU, 1.6 * HV); }
-  { g.beginPath(); for (let k = 0; k <= 48; k++) { const t = k / 48 * Math.PI * 2, m = 6.6 + Math.cos(t) * 4.4, x = Math.abs(Math.sin(t)) * 6.4, a = arcAtX(secAt(m), Math.max(0.01, x), false); if (a != null) g[k ? 'lineTo' : 'moveTo'](hx(m), hy(a)); } g.closePath(); g.fillStyle = HULL_PAINT.band; g.fill(); }
   grainOver(R.hull, lite ? 0.18 : 0.25);
 
   // spine region: u = m - 50, v = arc from the starboard base over the top to the port base
   const SU = R.spine[2] / 48, SV = R.spine[3] / SVMAX, sx = (m) => R.spine[0] + (m - 50) * SU, sy = (arc) => R.spine[1] + arc * SV;
   panels(R.spine, SU, SV, 10, 1.8, { red: 0.012 }); streaks(R.spine, SU, SV, 80);
   const spineArc = (m, test) => { const r = spineRing(m); for (let i = 1; i < r.length; i++) { const f = test(r[i - 1], r[i]); if (f != null) return r[i - 1][2] + f * (r[i][2] - r[i - 1][2]); } return null; };
-  const sideArc = (m, d, sd) => spineArc(m, (p, q) => (sd > 0 ? p[0] > 0 && q[0] > 0 : p[0] < 0 && q[0] < 0) && Math.abs(p[0] - q[0]) < 0.01 && (d - p[1]) * (d - q[1]) <= 0 && p[1] !== q[1] ? (d - p[1]) / (q[1] - p[1]) : null);
+  const sideArc = (m, d, sd) => spineArc(m, (p, q) => (sd > 0 ? p[0] > 2 && q[0] > 2 : p[0] < -3 && q[0] < -3) && (d - p[1]) * (d - q[1]) <= 0 && p[1] !== q[1] ? (d - p[1]) / (q[1] - p[1]) : null);
   const topArc = (m, x) => spineArc(m, (p, q) => (x - p[0]) * (x - q[0]) <= 0 && p[0] !== q[0] ? (x - p[0]) / (q[0] - p[0]) : null);
   // pinstripes along the spine's top edges and a dark skirt at its foot
   [0.25, 0.75].forEach((k) => { g.beginPath(); SR.forEach((s, i) => { const a = s.r[k < 0.5 ? 1 + Math.round(SPN / 2) : 2 + SPN + Math.round(SPN / 2)][2]; g[i ? 'lineTo' : 'moveTo'](sx(s.m), sy(a)); }); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 0.28 * SV; g.stroke(); });
@@ -1366,7 +1429,7 @@ function buildExterior(opts) {
   grainOver(R.spine, 0.25);
 
   // nacelle region: u = metres from the cap, v = round the nacelle from the bottom (0.25 inboard, 0.5 top, 0.75 outboard)
-  { const r = R.nac, U = r[2] / NL0, V = r[3], per = 2 * Math.PI * 4.6 * (1 + N.w) / 2, nx = (p) => r[0] + p * U, ny = (v) => r[1] + v * V;
+  { const r = R.nac, U = r[2] / NL0, V = r[3], per = 2 * Math.PI * 3.6 * (1 + N.w) / 2, nx = (p) => r[0] + p * U, ny = (v) => r[1] + v * V;
     panels(r, U, V / per, 12, 2.0, { red: 0.006 }); streaks(r, U, V / per, 120);
     // the cap: a ribbed red-orange collector behind a dark collar
     g.fillStyle = '#6A2A1A'; g.fillRect(nx(0), r[1], 5.2 * U, V); { const gr = ge.createLinearGradient(nx(0), 0, nx(5), 0); gr.addColorStop(0, '#E8743A'); gr.addColorStop(0.6, '#B83C18'); gr.addColorStop(1, '#5A1808'); ge.fillStyle = gr; ge.fillRect(nx(0), r[1], 5 * U, V); } 
@@ -1393,10 +1456,26 @@ function buildExterior(opts) {
     ge.fillStyle = 'rgba(70,120,160,0.55)'; ge.fillRect(r[0] + r[2] * 0.1, r[1] + 0.497 * r[3], r[2] * 0.8, 0.008 * r[3]);
     g.fillStyle = HULL_PAINT.slate; g.fillRect(r[0], r[1] + 0.24 * r[3], r[2], 0.02 * r[3]); g.fillStyle = HULL_PAINT.oxide; g.fillRect(r[0] + r[2] * 0.47, r[1] + 0.2 * r[3], r[2] * 0.06, 0.1 * r[3]);
     grainOver(r, 0.25); }
-  { const r = R.spar; panels(r, r[2] / 40, r[3] / 12, 8, 1.8); g.fillStyle = HULL_PAINT.slate; g.fillRect(r[0], r[1] + 0.495 * r[3], r[2], 0.012 * r[3]); g.fillRect(r[0], r[1], r[2], 0.012 * r[3]);
-    g.fillStyle = HULL_PAINT.dark; g.fillRect(r[0] + r[2] * 0.9, r[1], r[2] * 0.1, r[3]); g.fillStyle = HULL_PAINT.band; g.fillRect(r[0], r[1] + 0.7 * r[3], r[2] * 0.9, 0.05 * r[3]); grainOver(r, 0.25); }
-  { const r = R.turret; panels(r, r[2] / 20, r[3] / 6, 3, 0.8); g.fillStyle = HULL_PAINT.band; g.fillRect(r[0], r[1] + r[3] * 0.8, r[2], r[3] * 0.2); g.fillStyle = HULL_PAINT.slate; g.fillRect(r[0], r[1] + r[3] * 0.78, r[2], r[3] * 0.025);
-    g.fillStyle = HULL_PAINT.oxide; for (let k = 0; k < 4; k++) g.fillRect(r[0] + r[2] * (k / 4 + 0.1), r[1] + r[3] * 0.82, r[2] * 0.04, r[3] * 0.12); }
+  // the weapons pod: u nose to tail, v round it (0 starboard, 0.25 top, 0.5 port, 0.75 underside): a dark dorsal strip,
+  // glowing targeting strips along both flanks, magazine hatches on top, darker underside
+  { const r = R.spar, px = (q) => r[0] + q * r[2], py = (v) => r[1] + v * r[3];
+    panels(r, r[2] / 38, r[3] / 30, 6, 1.3, { red: 0.02 }); streaks(r, r[2] / 38, r[3] / 30, 50);
+    g.fillStyle = HULL_PAINT.dark; g.fillRect(px(0.08), py(0.23), r[2] * 0.84, 0.04 * r[3]); g.fillStyle = HULL_PAINT.slate; g.fillRect(px(0.08), py(0.249), r[2] * 0.84, 0.004 * r[3]);
+    g.fillStyle = HULL_PAINT.band; g.fillRect(px(0), py(0.62), r[2], 0.26 * r[3]);
+    [0, 0.5].forEach((v) => { g.fillStyle = HULL_PAINT.band; g.fillRect(px(0.14), py(v ? v - 0.012 : 0.988), r[2] * 0.72, 0.024 * r[3]); g.fillRect(px(0.14), py(v), r[2] * 0.72, 0.012 * r[3]);
+      ge.fillStyle = 'rgba(90,160,220,0.85)'; ge.fillRect(px(0.15), py(v ? v - 0.005 : 0.995), r[2] * 0.7, 0.01 * r[3]); ge.fillRect(px(0.15), py(v), r[2] * 0.7, 0.005 * r[3]); });
+    for (let k = 0; k < 6; k++) { const x = px(0.22 + k * 0.1), y = py(0.235); g.fillStyle = HULL_PAINT.slate; g.fillRect(x, y - 0.03 * r[3], 0.06 * r[2], 0.03 * r[3]); g.fillStyle = HULL_PAINT.oxide; g.fillRect(x, y - 0.034 * r[3], 0.06 * r[2], 0.004 * r[3]); h.fillStyle = 'rgb(130,130,130)'; h.fillRect(x, y - 0.03 * r[3], 0.06 * r[2], 0.03 * r[3]); }
+    grainOver(r, 0.25); }
+  // the nacelle pylons: u root to tip, v round them
+  { const r = R.turret; panels(r, r[2] / 30, r[3] / 8, 6, 1.4); g.fillStyle = HULL_PAINT.slate; g.fillRect(r[0], r[1] + 0.495 * r[3], r[2], 0.012 * r[3]); g.fillRect(r[0], r[1], r[2], 0.012 * r[3]);
+    g.fillStyle = HULL_PAINT.dark; g.fillRect(r[0] + r[2] * 0.88, r[1], r[2] * 0.12, r[3]); g.fillStyle = HULL_PAINT.band; g.fillRect(r[0], r[1] + 0.72 * r[3], r[2] * 0.88, 0.05 * r[3]); grainOver(r, 0.25); }
+  // launcher muzzles: an armoured frame round a recessed tube glowing red-orange
+  { const r = R.launch, cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2;
+    g.fillStyle = HULL_PAINT.dark; g.fillRect(...r); g.fillStyle = HULL_PAINT.band; g.fillRect(r[0] + r[2] * 0.1, r[1] + r[3] * 0.14, r[2] * 0.8, r[3] * 0.72);
+    g.fillStyle = '#4A1A10'; g.fillRect(r[0] + r[2] * 0.2, r[1] + r[3] * 0.3, r[2] * 0.6, r[3] * 0.4); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 3; g.strokeRect(r[0] + r[2] * 0.1, r[1] + r[3] * 0.14, r[2] * 0.8, r[3] * 0.72);
+    const gr = ge.createRadialGradient(cx, cy, 0, cx, cy, r[2] * 0.34); gr.addColorStop(0, '#FFD0A0'); gr.addColorStop(0.35, '#F06A2C'); gr.addColorStop(1, '#5A1206');
+    ge.fillStyle = gr; ge.fillRect(r[0] + r[2] * 0.2, r[1] + r[3] * 0.3, r[2] * 0.6, r[3] * 0.4);
+    h.fillStyle = 'rgb(60,60,60)'; h.fillRect(r[0] + r[2] * 0.2, r[1] + r[3] * 0.3, r[2] * 0.6, r[3] * 0.4); }
   // the stern: shuttlebay doors low, impulse vents high
   { const r = R.stern, sx2 = (x) => r[0] + (0.5 + x / 24) * r[2], sy2 = (d) => r[1] + (d - 15) / 18 * r[3];
     panels(r, r[2] / 24, r[3] / 18, 5, 1.4);
@@ -1464,8 +1543,8 @@ function buildExterior(opts) {
   // warm floodlights on the hull (Deck 2 frame): position, aim point
   const FL = [
     [[0, Y(HT(50)) + 1.2, Z(51)], [0, Y(HT(37)), Z(37)]],                      // the registry on the forward hull, from the spine's front
-    [[-10, Y(HT(106)) + 0.4, Z(106)], [-6.8, 7, Z(125)]], [[10, Y(HT(106)) + 0.4, Z(106)], [6.8, 7, Z(125)]], // the arch, from its feet
-    [[0, 12.3, Z(127.6)], [0, 13.4, Z(133)]],                                  // the turret, from the front of its deck
+    [[-10, Y(HT(100)) + 0.6, Z(100)], [-9, 6.5, Z(123)]], [[10, Y(HT(100)) + 0.6, Z(100)], [9, 6.5, Z(123)]], // the rollbar, from the saucer's back
+    [[0, Y(HT(108)) + 0.8, Z(108)], [0, Y(POD.d), Z(116)]],                    // the pod's launchers, from the saucer's back
     [[-26, Y(19), Z(138)], [-15, Y(24.5), Z(164)]], [[26, Y(19), Z(138)], [15, Y(24.5), Z(164)]], // the flank lettering, from the rim
   ];
   const uniforms = {
@@ -1525,9 +1604,9 @@ void main() {
   // running lights: red to port and green to starboard at the widest beam and on each nacelle's outboard side
   { const halo = (() => { const c = cnv(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return tex(c); })();
     const lights = new THREE.Group(); lights.name = 'Running lights'; root.add(lights); root.userData.runningLights = lights;
-    const S = secAt(78);
+    const S = secAt(58);
     [[-1, 0xff4636], [1, 0x48ff74]].forEach(([sd, col]) => {
-      [[sd * (S.w + 0.15), Y((S.r0 + S.r1) / 2), Z(78)], nacPt(sd, 10, 0.75, 0.15)].forEach((p) => {
+      [[sd * (S.w + 0.15), Y(SAU.dc), Z(58)], nacPt(sd, 10, 0.75, 0.15)].forEach((p) => {
         const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }));
         s.position.set(...p); s.scale.setScalar(2.6); lights.add(s);
         const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshBasicMaterial({ color: col, toneMapped: false, fog: false })); b.position.set(...p); lights.add(b); });
@@ -3945,7 +4024,7 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
 
 // ---------- officers' passage and observation lounge ----------
 // From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
-// sealed turret capacitor bank, to the observation lounge across the stern of the spine.
+// sealed pod capacitor bank, to the observation lounge across the stern of the spine.
 function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
   const cx = (x0 + x1) / 2;
   for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
@@ -3966,7 +4045,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   d2frames(P.ax0, P.ax1, P.z1, P.az1, H);
   { const r = mesh(CYL(0.022, 0.022, P.az1 - P.z1 - 0.6, 10), MAT.steel, P.ax1 - 0.06, 0.95, (P.z1 + P.az1) / 2, DECK2); r.rotation.x = Math.PI / 2; }
   d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.08, 2.0, 16.0, Math.PI / 2, 1.2);
-  doorAt(P.ax0, P.cap, Math.PI / 2, 'TURRET CAPACITORS', 'capbank', false, true, DECK2, 2);
+  doorAt(P.ax0, P.cap, Math.PI / 2, 'POD CAPACITORS', 'capbank', false, true, DECK2, 2);
   doorAt(D2_LNG.door, P.az1, Math.PI, 'OBSERVATION LOUNGE', 'lngdoor', true, true, DECK2, 2);
 }
 {
@@ -4009,9 +4088,8 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
 }
 
 // ---------- outside: the ship herself, seen through Deck 2's windows ----------
-// The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the hull back under the spine (its top
-// below every window sill), the arch and turret aft of the lounge, the nacelles slung low under the keel (out of sight
-// from up here). It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
+// The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the saucer's back under the spine (its top
+// below every window sill), the rollbar and weapons pod aft of the lounge, a nacelle out to either side. It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
 // lighter build.
 const EXTSET = buildExterior({ lite: isMobile }); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
 DECK2.updateMatrixWorld(true);
@@ -4476,7 +4554,7 @@ function weaponRows(P) {
   const red = state.alert === 'red', b = sim.beams, bay = sim.bays;
   const beam = (v, id) => zoneFactor(id) === 0 ? ['OFFLINE', P.red] : red ? (v >= 1 ? ['CHARGED', P.acc] : [Math.round(v * 100) + '% CHARGE', P.txt]) : ['SAFE', P.dim];
   const tube = (t) => t.torps <= 0 ? ['EMPTY', P.red] : red ? (t.ready ? ['LOADED · ' + t.torps, P.acc] : ['LOADING · ' + t.torps, P.yel]) : [t.torps + ' / ' + SIM.torp.perBay, P.txt];
-  return [['DORSAL TURRET', ...beam(b.dorsal, 'dorsal')], ['VENTRAL ARRAY', ...beam(b.ventral, 'ventral')], ['TORP BAY 1', ...tube(bay[0])], ['TORP BAY 2', ...tube(bay[1])], ['TARGET LOCK', 'NONE', P.dim]];
+  return [['WEAPONS POD', ...beam(b.dorsal, 'dorsal')], ['VENTRAL ARRAY', ...beam(b.ventral, 'ventral')], ['TORP BAY 1', ...tube(bay[0])], ['TORP BAY 2', ...tube(bay[1])], ['TARGET LOCK', 'NONE', P.dim]];
 }
 function shieldW(g, r, P) {
   const cx = r.x + r.w / 2, cy = r.y + r.h / 2, s = Math.min(r.w * 0.36, r.h * 0.32);
@@ -4667,7 +4745,7 @@ const DRAW = {
     [[0.585, 0.26], [0.45, 0.6]].forEach(([u, v]) => { g.fillStyle = state.alert === 'red' ? P.acc : P.dim; g.fillRect(X(u) - 6, Y(v) - 3, 12, 6); });
     const lab = (px, py, lx, ly, t, c) => { g.strokeStyle = P.tan; g.lineWidth = 3; g.beginPath(); g.moveTo(X(px), Y(py)); g.lineTo(X(lx), Y(ly)); g.stroke(); g.fillStyle = c || P.txt; g.font = `500 ${h * 0.055 | 0}px ${MONO}`; g.textAlign = lx < px ? 'right' : 'left'; g.textBaseline = 'middle'; g.fillText(t, X(lx) + (lx < px ? -6 : 6), Y(ly)); };
     lab(0.365, 0.24, 0.3, 0.06, 'BRIDGE', P.acc);
-    lab(0.585, 0.26, 0.66, 0.06, 'DORSAL TURRET', zoneStatus('dorsal') === 'ok' ? P.txt : zcol(P, 'dorsal'));
+    lab(0.585, 0.26, 0.66, 0.06, 'WEAPONS POD', zoneStatus('dorsal') === 'ok' ? P.txt : zcol(P, 'dorsal'));
     lab(0.45, 0.6, 0.34, 0.9, 'VENTRAL ARRAY', zoneStatus('ventral') === 'ok' ? P.txt : zcol(P, 'ventral'));
     lab(0.06, 0.5, 0.06, 0.86, 'TWIN TORPEDO BAYS', zoneStatus('prow') === 'ok' ? P.txt : zcol(P, 'prow'));
     lab(0.57, 0.48, 0.58, 0.9, 'WARP CORE', zoneStatus('engines') === 'ok' ? P.acc : zcol(P, 'engines'));
@@ -4693,7 +4771,7 @@ DRAW.nav = DRAW.helm;
 LOGS.intel = ['TRACK 0412 CLASSIFIED FREIGHTER', 'TRACK 0413 CLASSIFIED FREIGHTER', 'TRACK 0414 BEACON · NAV HAZARD', 'TRACK 0415 COMET · INERT', 'TRACK 0416 SURVEY PROBE · OURS', 'TRACK 0417 UNRESOLVED · WATCHING', 'PATROL ROUTE 7 · NO ACTIVITY', 'COMINT · NO NEW INTERCEPTS'];
 DRAW.wpn = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, red = state.alert === 'red', rows = weaponRows(P);
-  const ch = [['DORSAL TURRET', sim.beams.dorsal, P.acc], ['VENTRAL ARRAY', sim.beams.ventral, P.acc], ['BAY 1 LOAD', sim.bays[0].reload, P.ice], ['BAY 2 LOAD', sim.bays[1].reload, P.ice]];
+  const ch = [['WEAPONS POD', sim.beams.dorsal, P.acc], ['VENTRAL ARRAY', sim.beams.ventral, P.acc], ['BAY 1 LOAD', sim.bays[0].reload, P.ice], ['BAY 2 LOAD', sim.bays[1].reload, P.ice]];
   const fc = [['SAFETIES', red ? 'warn' : 'ok'], ['FIRE CONTROL', red ? 'act' : 'ok'], ['WEAPONS POWER', eff('weapons') >= 1 ? 'ok' : 'warn'], ['MAGAZINE', torpsLeft() > 0 ? 'ok' : 'alert']];
   if (h < 170) { const [a, b, c] = split(R, [0.6, 1.3, 1], false, w * 0.03); reticleW(g, sub(g, a, 'TARGET', P.acc, P), P); table(g, sub(g, b, 'WEAPONS', P.acc, P), rows.slice(0, 4), P); bars(g, sub(g, c, 'CHARGE', P.acc, P), [['DORSAL', ch[0][1], P.acc], ['VENTRAL', ch[1][1], P.acc], ['TUBES', (ch[2][1] + ch[3][1]) / 2, P.ice]], P); return; }
   const [top, bot] = split(R, [1.2, 1], true, h * 0.05); const [a, b] = split(top, [0.9, 1.3], false, w * 0.03);
@@ -4876,8 +4954,8 @@ DRAW.cabin = function (g, x, y, w, h, P, s) {
 // the observation lounge board: what you are looking at out of the aft window
 DRAW.lounge = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), red = state.alert === 'red', warp = state.speed === 'warp';
-  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['DORSAL TURRET', red ? 'MANNED' : 'STOWED', red ? P.red : P.txt], ['TURRET ARCH', red ? 'FLOODS OFF' : 'FLOODLIT'], ['TURRET RANGE', '38 M'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
-  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ARCH FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
+  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['WEAPONS POD', red ? 'ARMED' : 'SAFE', red ? P.red : P.txt], ['ROLLBAR', red ? 'FLOODS OFF' : 'FLOODLIT'], ['POD RANGE', '38 M'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
+  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ROLLBAR FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
 };
 DRAW.mess = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
@@ -4893,9 +4971,9 @@ DRAW.aux = function (g, x, y, w, h, P, s) {
   spark(g, sub(g, c, 'TRACE', P.acc, P), P.ice, s.seed, 1.2, P);
 };
 // ---------- master systems display (aft bridge wall) ----------
-// A cutaway of the Defiance: a long swept primary hull flowing into the engineering section, a raised arch over the
-// back carrying the dorsal turret, and slim nacelles slung low and aft on swept spars. Original design, in the spirit of
-// the sleek late-century cruisers. Left panel: side cutaway with every deck and compartment, callouts and live damage.
+// A cutaway of the Defiance: a lens-shaped saucer flowing into a slim engineering body, a rollbar over the back carrying
+// the weapons pod and its torpedo launchers, and long nacelles just above the saucer on swept pylons. Original design,
+// in the spirit of the sleek late-century cruisers. Left panel: side cutaway with every deck and compartment, callouts and live damage.
 // Right panel: plan view with live shield arcs and the warp field, deck index and readouts.
 // The hull and compartments are drawn once into a cached layer per alert/damage state; live parts are drawn on top.
 // The ship geometry (SHIPGEO and its path helpers) lives in shipgeo.js, loaded before this file.
@@ -4904,9 +4982,9 @@ const MSD_ROOMS = SHIPGEO.rooms.flatMap((rs, i) => rs.map(([a, b, , st, k, side]
 const msdTopAt = (m) => { const T = SHIPGEO.top; for (let i = 1; i < T.length; i++) if (m <= T[i][0]) { const [a, x] = T[i - 1], [b, y] = T[i]; return x + (y - x) * (m - a) / (b - a); } return T[T.length - 1][1]; };
 // a point a fraction f of the way along a polyline [[m, d]...]
 const msdAlong = (pts, f) => { const L = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); L.push(l); tot += l; } let r = f * tot; for (let i = 0; i < L.length; i++) { if (r <= L[i]) { const k = r / L[i]; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k]; } r -= L[i]; } return pts[pts.length - 1]; };
-const MSD_FEED = [[113, 19.2], [113, 8.5], [118, 0.5], [124, -2.4], [129, -3.9]]; // power up the arch's forward rail to the turret
+const MSD_FEED = [[110, 19.2], [108, 13.6], [114, 8.6], [120, 4.4], [126, 0.8], [130, -2.6]]; // power and torpedoes up the rollbar to the weapons pod
 function msdPaths(X, Y) {
-  const S = shipSide(X, Y), turret = new Path2D(S.turret); turret.addPath(new Path2D(S.turretDeck)); turret.addPath(new Path2D(S.barrels));
+  const S = shipSide(X, Y), turret = new Path2D(S.pod); turret.addPath(new Path2D(S.launchers));
   return { hull: new Path2D(S.hull), bridge: new Path2D(S.spine), arch: new Path2D(S.arch), turret, spar: new Path2D(S.spar), nac: new Path2D(S.nacelle) };
 }
 function msdPlan(X, Z) { const P = shipPlan(X, Z); return { hull: new Path2D(P.hull), nacs: P.nacs.map((d) => new Path2D(d)), spars: P.spars.map((d) => new Path2D(d)) }; }
@@ -4916,7 +4994,7 @@ function msdUnion(g, paths, fill, line, lw) { g.lineJoin = 'round'; g.strokeStyl
 // right panel = the side cutaway with stacked callout lists at its four corners, title top right.
 const MSD_LISTS = {
   tl: [['SICKBAY', 64, 8.9], ['SENSOR PALLET', 56.5, 5.2], ['FORWARD SHIELD GENERATOR', 50, 8.9], ['CAPTAIN’S QUARTERS', 62, 5.2], ['BRIDGE', 64, 1.8], ['LIFT 1', 71.3, 12.3], ['SENIOR OFFICERS’ CABINS', 75, 4.4], ['WARDROOM', 85, 4.4]],
-  tr: [['TURRET CAPACITORS', 86.5, 6.2], ['OBSERVATION LOUNGE', 92, 5.2], ['COMPUTER CORE', 115, 14], ['DORSAL TURRET', 133, -6.4], ['SHIELD GENERATORS', 140, 12.3], ['LIFE SUPPORT', 170, 12.3], ['IMPULSE ENGINES', 198, 19]],
+  tr: [['POD CAPACITORS', 86.5, 6.2], ['OBSERVATION LOUNGE', 92, 5.2], ['COMPUTER CORE', 115, 14], ['WEAPONS POD', 133, -6.4], ['SHIELD GENERATORS', 140, 12.3], ['LIFE SUPPORT', 170, 12.3], ['IMPULSE ENGINES', 198, 19]],
   bl: [['DEFLECTOR', 9, 21.4], ['TORPEDO BAYS', 13, 16.1], ['TORPEDO MAGAZINE', 28, 15.7], ['ARMORY', 41, 15.7], ['CARGO BAY 1', 58, 19.2], ['MESS HALL', 60, 12.3]],
   br: [['CIC', 112, 22.7], ['VENTRAL ARRAY', 114, 26.2], ['LIFT 2', 126.5, 36], ['WARP CORE', 146, 30], ['MAIN ENGINEERING', 150, 19.2], ['NACELLE FIELD COILS', 164, 26.2], ['ANTIMATTER PODS', 172, 36.7], ['SHUTTLEBAY', 186, 29.7]],
 };
@@ -4974,11 +5052,11 @@ function msdBase(W, H, P) {
     g.fillStyle = P.butter; [158, 169, 180].forEach((m) => { rrect(g, X(m), Y(29), 8 * S, 2.2 * S, 1.4 * u); g.fill(); });
   };
   clipDraw(p.hull, rooms); clipDraw(p.bridge, rooms);
-  // the power feed up the arch's forward rail, and the near-side spar as a ghost over the decks behind it
+  // the power feed up the rollbar, and the near-side nacelle pylon as a ghost over the decks behind it
   g.strokeStyle = P.butter; g.lineWidth = 0.55 * S; g.beginPath(); MSD_FEED.forEach(([m, d], i) => (i ? g.lineTo(X(m), Y(d)) : g.moveTo(X(m), Y(d)))); g.stroke();
   g.save(); g.globalAlpha = 0.28; g.fillStyle = P.plum; g.fill(p.spar); g.restore(); g.save(); g.setLineDash([6 * u, 4 * u]); g.strokeStyle = P.ice; g.lineWidth = 1.6 * u; g.stroke(p.spar); g.restore();
-  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(108), Y(-6), 50 * S, 16 * S); g.fillStyle = P.ice; for (let i = 0; i < 12; i++) g.fillRect(X(112 + i * 3.7), Y(-6), 1.8 * S, 15 * S); g.fillStyle = P.butter; g.fillRect(X(108), Y(-3.9), 50 * S, 0.5 * S); });
-  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(125), Y(-7.5), 14 * S, 4 * S); g.fillStyle = P.butter; g.fillRect(X(129.5), Y(-5.7), 7 * S, 0.6 * S); g.fillStyle = P.txt; g.fillRect(X(126), Y(-6.1), 2.4 * S, 0.5 * S); });
+  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(102), Y(-4), 34 * S, 22 * S); g.fillStyle = P.ice; for (let i = 0; i < 9; i++) g.fillRect(X(104 + i * 3.4), Y(-4), 1.6 * S, 22 * S); });
+  clipDraw(p.turret, () => { const W = SHIPGEO.wpod; g.fillStyle = P.ice; g.fillRect(X(W.m[0]), Y(W.d - W.h), (W.m[1] - W.m[0]) * S, 2 * W.h * S); g.fillStyle = P.rose; SHIPGEO.launchers.forEach(([a, b, , d, , h]) => g.fillRect(X(a), Y(d - h), (b - a) * S, 2 * h * S)); g.fillStyle = P.butter; for (let i = 0; i < 6; i++) g.fillRect(X(W.m[0] + 7 + i * 4.2), Y(W.d - 0.3), 2 * S, 0.6 * S); });
     clipDraw(p.nac, () => { const N = SHIPGEO.nacelle; g.fillStyle = P.ice; g.fillRect(X(N.m0 - 2), Y(N.d - 5), 94 * S, 10 * S); g.fillStyle = P.plum; g.fillRect(X(N.m0 - 2), Y(N.d + 1.6), 94 * S, 3.4 * S); g.fillStyle = P.butter; for (let i = 0; i < 15; i++) g.fillRect(X(N.m0 + 10 + i * 4.9), Y(N.d - 2.4), 2.4 * S, 3.4 * S); g.fillStyle = P.rose; g.fillRect(X(N.m0 - 2), Y(N.d - 5), 6 * S, 10 * S); g.fillStyle = P.txt; g.fillRect(X(N.m0 + 8), Y(N.d + 1.1), 74 * S, 0.4 * S); });
   g.fillStyle = P.butter; for (let m = 26; m < 186; m += 3.2) { if (m > 50 && m < 98) continue; g.fillRect(X(m), Y(msdTopAt(m) + 0.9), 0.7 * S, 0.45 * S); }
   g.fillStyle = P.red; g.fillRect(X(196.8), Y(17), 2.6 * S, Y(21) - Y(17)); g.fillStyle = P.butter; g.beginPath(); g.ellipse(X(9), Y(21.4), 4.5 * S, 1.4 * S, -0.25, 0, 7); g.fill();
@@ -5005,7 +5083,7 @@ function msdBase(W, H, P) {
     g.fillStyle = P.tan; g.textAlign = side < 0 ? 'left' : 'right'; g.fillText(t, side < 0 ? x0 + 2 * u : x0 - 3 * u, ly + 1);
   });
   g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${54 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 22 * u, R.y + barH + 56 * u);
-  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
+  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 10 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
   hexTab(g, R.x + R.w - colW - 300 * u, R.y + R.h - barH - 34 * u, 280 * u, 24 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = '#000'; g.font = `600 ${16 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('INTERIOR SYSTEMS OVERVIEW', R.x + R.w - colW - 160 * u, R.y + R.h - barH - 16 * u);
   // ---- left panel: plan view, and the warp field geometry inset ----
   const pl = msdPlan(PX, PZ);
@@ -5032,15 +5110,15 @@ function drawMSD(s) {
   g.drawImage(MSD.base, 0, 0);
   const t = elapsed, warp = smooth(30, 300, cur.speed);
   // warp core pulses; plasma rises through it
-  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143.5), Y(17.5), 5 * S, Y(38.5) - Y(17.5)); g.globalAlpha = 1;
-  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.5 + ((t * (1.2 + warp * 5) + i * 4.2) % 21); g.fillRect(X(143.5), Y(yy), 5 * S, 0.5 * S); }
-  // power running forward along the EPS trunk and up into the turret
+  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143.5), Y(17.5), 5 * S, Y(35) - Y(17.5)); g.globalAlpha = 1;
+  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.5 + ((t * (1.2 + warp * 5) + i * 3.5) % 17.5); g.fillRect(X(143.5), Y(yy), 5 * S, 0.5 * S); }
+  // power running forward along the EPS trunk and up the rollbar into the weapons pod
   g.fillStyle = P.txt; for (let i = 0; i < 9; i++) { const f = ((t * 0.18 + i / 9) % 1); g.fillRect(X(143 - f * 123), Y(19.1), 2.2 * S, 0.75 * S); }
   for (let i = 0; i < 3; i++) { const [m, d] = msdAlong(MSD_FEED, (t * 0.3 + i / 3) % 1); g.fillRect(X(m) - 0.5 * S, Y(d) - 0.6 * S, 1.1 * S, 1.2 * S); }
   // nacelle coils fire in sequence
   for (let i = 0; i < 15; i++) { if (((t * (4 + warp * 10) - i) % 15 + 15) % 15 < 2) { g.fillStyle = P.txt; g.fillRect(X(SHIPGEO.nacelle.m0 + 10 + i * 4.9), Y(SHIPGEO.nacelle.d - 2.4), 2.4 * S, 3.4 * S); } }
   // damage tints, and a scan bar crossing the cutaway
-  const ZR = { prow: [0, 10, 26, 26], dorsal: [50, -8, 160, 9], ventral: [40, 29, 190, 43], engines: [124, 12, 200, 34] };
+  const ZR = { prow: [0, 9, 26, 21], dorsal: [50, -8, 160, 9], ventral: [96, 24, 190, 34], engines: [124, 12, 200, 34] };
   Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
   ['portNac', 'stbdNac'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.35; { const N = SHIPGEO.nacelle; g.fillRect(X(N.m0), Y(N.d - 4.6 + i * 4.6), 90 * S, 4.6 * S); } g.globalAlpha = 1; });
   const sx = X(((t * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.3; g.fillRect(sx, Y(-8), 4 * u, Y(50) - Y(-8)); g.globalAlpha = 1;
@@ -5104,19 +5182,19 @@ function drawTable(s) {
   g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
   pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); for (let i = 0; i < 13; i++) { const on = ((t * 6 - i) % 13 + 13) % 13 < 3; g.fillStyle = on ? P.txt : P.butter; g.fillRect(PX(138 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); } g.restore(); });
   pl.spars.forEach((sp) => { g.save(); g.clip(sp); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
-  // power conduits: blocks running from the core to the nacelles, the turret and the shield generators
+  // power conduits: blocks running from the core to the nacelles, the weapons pod and the shield generators
   const core = [146, 0], routes = [[[146, 0], [150, -18], [160, -46]], [[146, 0], [150, 18], [160, 46]], [[146, 0], [133, 0], [64, 0]], [[146, 0], [140, -26]], [[146, 0], [140, 26]]];
   routes.forEach((rt, ri) => { for (let i = 0; i + 1 < rt.length; i++) { const [a, b] = [rt[i], rt[i + 1]], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(2, Math.round(L2 / 3)); for (let k = 0; k < n; k++) { const f = ((k / n) + t * (0.35 + ri * 0.04)) % 1, x = a[0] + (b[0] - a[0]) * f, z = a[1] + (b[1] - a[1]) * f, on = ((k + Math.floor(t * 9)) % 4) === 0; g.fillStyle = on ? P.txt : ri < 2 ? P.butter : ri === 2 ? P.acc : P.ice; rrect(g, PX(x) - 3.2 * u, PZ(z) - 3.2 * u, 6.4 * u, 6.4 * u, 1.5 * u); g.fill(); } } });
   { const k = 0.6 + 0.4 * Math.sin(t * (2 + smooth(30, 300, cur.speed) * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + 0.5 * k; g.beginPath(); g.arc(PX(core[0]), PZ(core[1]), 11 * u, 0, 7); g.fill(); g.globalAlpha = 1; }
   // zone damage over the plan
-  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [60, -18, 80, 36], port: [30, -44, 110, 22], stbd: [30, 22, 110, 22], engines: [150, -16, 50, 32], portNac: [110, -54, 90, 8], stbdNac: [110, 46, 90, 8] };
+  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [96, -13, 94, 26], port: [30, -44, 110, 22], stbd: [30, 22, 110, 22], engines: [150, -16, 50, 32], portNac: [110, -44, 90, 8], stbdNac: [110, 36, 90, 8] };
   Object.entries(ZP).forEach(([id, [a, z, w, d]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.3 + 0.2 * Math.sin(t * 5); g.fillRect(PX(a), PZ(z), w * PS, d * PS); g.globalAlpha = 1; });
   // callouts round the plan
   g.font = `500 ${15 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
-  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -50, -1, 0], ['STBD NACELLE', 186, 50, 1, 0], ['DORSAL TURRET', 133, -4, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
+  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -40, -1, 0], ['STBD NACELLE', 186, 40, 1, 0], ['WEAPONS POD', 133, -4, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
   // under the plan: deck status, numbers, a trace and buttons
   const by = PZ(0) + 270 * u, bw = cwid;
-  for (let d = 1; d <= 12; d++) { const x = cx0 + (d - 1) * bw / 12, w = bw / 12 - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === 12); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
+  const ND = SHIPGEO.rooms.length; for (let d = 1; d <= ND; d++) { const x = cx0 + (d - 1) * bw / ND, w = bw / ND - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === ND); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
   const lo = { x: cx0, y: by + 40 * u, w: cwid, h: Y1 - by - 40 * u }, [l1, l2, l3] = split(lo, [1, 1.1, 1], false, 16 * u);
   numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }
@@ -6050,9 +6128,9 @@ function galleyStation(key, role, note, menu) {
 Object.assign(STATIONS, {
   capq: { title: 'Captain’s quarters', role: 'Deck 2 · forward', panel: () => ({ read: [['Inside', 'Day cabin, dining table, desk, galley, sleeping cabin'], ['Viewport', 'Forward, armored, shuttered at Red Alert']], note: 'Walk up to the door to go in.', acts: [] }) },
   wardoor: { title: 'Officers’ wardroom', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Table for ten, sideboard, the ship’s crest'], ['Viewport', 'Starboard']], note: 'Walk up to the door to go in.', acts: [] }) },
-  capbank: { title: 'Turret capacitor bank', role: 'Deck 2 · restricted', panel: () => ({ read: [['Access', 'Engineering only'], ['Charge', state.alert === 'red' ? 'Full, feeding the turret' : 'Held at 40%']], note: 'Power banks that feed the dorsal beam turret above. Sealed to everyone but engineering.', acts: [] }) },
-  lngdoor: { title: 'Observation lounge', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Window over the stern, tables, the bar'], ['View', 'The dorsal turret on its arch']], note: 'Walk up to the door to go in.', acts: [] }) },
-  lounge: { title: 'Observation lounge', role: 'View aft', panel: () => ({ read: [['Dorsal turret', state.alert === 'red' ? 'Manned' : 'Stowed'], ['Turret arch', state.alert === 'red' ? 'Floods off' : 'Floodlit'], ['Shutters', state.alert === 'red' ? 'Closed for Red Alert' : 'Open']], note: 'The crew’s favourite window: the turret on its arch, 38 m aft over the ship’s back. The nacelles ride low under the keel, out of sight from up here.', acts: [] }) },
+  capbank: { title: 'Pod capacitor bank', role: 'Deck 2 · restricted', panel: () => ({ read: [['Access', 'Engineering only'], ['Charge', state.alert === 'red' ? 'Full, feeding the pod' : 'Held at 40%']], note: 'Power banks that feed the weapons pod and its torpedo launchers, up on the rollbar. Sealed to everyone but engineering.', acts: [] }) },
+  lngdoor: { title: 'Observation lounge', role: 'Deck 2 · aft', panel: () => ({ read: [['Inside', 'Window over the stern, tables, the bar'], ['View', 'The rollbar and its weapons pod']], note: 'Walk up to the door to go in.', acts: [] }) },
+  lounge: { title: 'Observation lounge', role: 'View aft', panel: () => ({ read: [['Weapons pod', state.alert === 'red' ? 'Armed' : 'Safe'], ['Rollbar', state.alert === 'red' ? 'Floods off' : 'Floodlit'], ['Shutters', state.alert === 'red' ? 'Closed for Red Alert' : 'Open']], note: 'The crew’s favourite window: the rollbar arching over the ship’s back with the weapons pod on its crown, 38 m aft, and a nacelle out to either side.', acts: [] }) },
   lgalley: galleyStation('lcup', 'Observation lounge', 'The lounge bar’s synthesizer.', ['Coffee', 'Iced tea', 'Ginger ale', 'Hot toddy (synthehol)']),
   qdesk: { title: 'Captain’s desk', role: 'Personal log', panel: () => ({ read: [['Entry', LOG[state.logIdx].d], ['Reports', state.reports ? state.reports + ' to sign' : 'All signed']], note: LOG[state.logIdx].t,
     acts: [{ label: 'Next entry', fn: () => { state.logIdx = (state.logIdx + 1) % LOG.length; redrawStation('qdesk'); redrawStation('desk'); renderPanel(); } }, { label: 'Sign a report', disabled: !state.reports, fn: () => { state.reports = Math.max(0, state.reports - 1); toast('Report signed.', 'Yeoman'); renderPanel(); } }] }) },

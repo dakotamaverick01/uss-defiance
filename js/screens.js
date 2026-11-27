@@ -196,7 +196,7 @@ function weaponRows(P) {
   const red = state.alert === 'red', b = sim.beams, bay = sim.bays;
   const beam = (v, id) => zoneFactor(id) === 0 ? ['OFFLINE', P.red] : red ? (v >= 1 ? ['CHARGED', P.acc] : [Math.round(v * 100) + '% CHARGE', P.txt]) : ['SAFE', P.dim];
   const tube = (t) => t.torps <= 0 ? ['EMPTY', P.red] : red ? (t.ready ? ['LOADED · ' + t.torps, P.acc] : ['LOADING · ' + t.torps, P.yel]) : [t.torps + ' / ' + SIM.torp.perBay, P.txt];
-  return [['DORSAL TURRET', ...beam(b.dorsal, 'dorsal')], ['VENTRAL ARRAY', ...beam(b.ventral, 'ventral')], ['TORP BAY 1', ...tube(bay[0])], ['TORP BAY 2', ...tube(bay[1])], ['TARGET LOCK', 'NONE', P.dim]];
+  return [['WEAPONS POD', ...beam(b.dorsal, 'dorsal')], ['VENTRAL ARRAY', ...beam(b.ventral, 'ventral')], ['TORP BAY 1', ...tube(bay[0])], ['TORP BAY 2', ...tube(bay[1])], ['TARGET LOCK', 'NONE', P.dim]];
 }
 function shieldW(g, r, P) {
   const cx = r.x + r.w / 2, cy = r.y + r.h / 2, s = Math.min(r.w * 0.36, r.h * 0.32);
@@ -387,7 +387,7 @@ const DRAW = {
     [[0.585, 0.26], [0.45, 0.6]].forEach(([u, v]) => { g.fillStyle = state.alert === 'red' ? P.acc : P.dim; g.fillRect(X(u) - 6, Y(v) - 3, 12, 6); });
     const lab = (px, py, lx, ly, t, c) => { g.strokeStyle = P.tan; g.lineWidth = 3; g.beginPath(); g.moveTo(X(px), Y(py)); g.lineTo(X(lx), Y(ly)); g.stroke(); g.fillStyle = c || P.txt; g.font = `500 ${h * 0.055 | 0}px ${MONO}`; g.textAlign = lx < px ? 'right' : 'left'; g.textBaseline = 'middle'; g.fillText(t, X(lx) + (lx < px ? -6 : 6), Y(ly)); };
     lab(0.365, 0.24, 0.3, 0.06, 'BRIDGE', P.acc);
-    lab(0.585, 0.26, 0.66, 0.06, 'DORSAL TURRET', zoneStatus('dorsal') === 'ok' ? P.txt : zcol(P, 'dorsal'));
+    lab(0.585, 0.26, 0.66, 0.06, 'WEAPONS POD', zoneStatus('dorsal') === 'ok' ? P.txt : zcol(P, 'dorsal'));
     lab(0.45, 0.6, 0.34, 0.9, 'VENTRAL ARRAY', zoneStatus('ventral') === 'ok' ? P.txt : zcol(P, 'ventral'));
     lab(0.06, 0.5, 0.06, 0.86, 'TWIN TORPEDO BAYS', zoneStatus('prow') === 'ok' ? P.txt : zcol(P, 'prow'));
     lab(0.57, 0.48, 0.58, 0.9, 'WARP CORE', zoneStatus('engines') === 'ok' ? P.acc : zcol(P, 'engines'));
@@ -413,7 +413,7 @@ DRAW.nav = DRAW.helm;
 LOGS.intel = ['TRACK 0412 CLASSIFIED FREIGHTER', 'TRACK 0413 CLASSIFIED FREIGHTER', 'TRACK 0414 BEACON · NAV HAZARD', 'TRACK 0415 COMET · INERT', 'TRACK 0416 SURVEY PROBE · OURS', 'TRACK 0417 UNRESOLVED · WATCHING', 'PATROL ROUTE 7 · NO ACTIVITY', 'COMINT · NO NEW INTERCEPTS'];
 DRAW.wpn = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, red = state.alert === 'red', rows = weaponRows(P);
-  const ch = [['DORSAL TURRET', sim.beams.dorsal, P.acc], ['VENTRAL ARRAY', sim.beams.ventral, P.acc], ['BAY 1 LOAD', sim.bays[0].reload, P.ice], ['BAY 2 LOAD', sim.bays[1].reload, P.ice]];
+  const ch = [['WEAPONS POD', sim.beams.dorsal, P.acc], ['VENTRAL ARRAY', sim.beams.ventral, P.acc], ['BAY 1 LOAD', sim.bays[0].reload, P.ice], ['BAY 2 LOAD', sim.bays[1].reload, P.ice]];
   const fc = [['SAFETIES', red ? 'warn' : 'ok'], ['FIRE CONTROL', red ? 'act' : 'ok'], ['WEAPONS POWER', eff('weapons') >= 1 ? 'ok' : 'warn'], ['MAGAZINE', torpsLeft() > 0 ? 'ok' : 'alert']];
   if (h < 170) { const [a, b, c] = split(R, [0.6, 1.3, 1], false, w * 0.03); reticleW(g, sub(g, a, 'TARGET', P.acc, P), P); table(g, sub(g, b, 'WEAPONS', P.acc, P), rows.slice(0, 4), P); bars(g, sub(g, c, 'CHARGE', P.acc, P), [['DORSAL', ch[0][1], P.acc], ['VENTRAL', ch[1][1], P.acc], ['TUBES', (ch[2][1] + ch[3][1]) / 2, P.ice]], P); return; }
   const [top, bot] = split(R, [1.2, 1], true, h * 0.05); const [a, b] = split(top, [0.9, 1.3], false, w * 0.03);
@@ -596,8 +596,8 @@ DRAW.cabin = function (g, x, y, w, h, P, s) {
 // the observation lounge board: what you are looking at out of the aft window
 DRAW.lounge = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), red = state.alert === 'red', warp = state.speed === 'warp';
-  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['DORSAL TURRET', red ? 'MANNED' : 'STOWED', red ? P.red : P.txt], ['TURRET ARCH', red ? 'FLOODS OFF' : 'FLOODLIT'], ['TURRET RANGE', '38 M'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
-  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ARCH FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
+  table(g, sub(g, a, 'VIEW AFT', P.acc, P), [['WEAPONS POD', red ? 'ARMED' : 'SAFE', red ? P.red : P.txt], ['ROLLBAR', red ? 'FLOODS OFF' : 'FLOODLIT'], ['POD RANGE', '38 M'], ['SHUTTERS', red ? 'CLOSED' : 'OPEN', red ? P.red : P.txt]], P);
+  lights(g, sub(g, b, 'EXTERIOR', P.ice, P), [['RUNNING LIGHTS', 'ok'], ['ROLLBAR FLOODS', red ? 'off' : 'ok'], ['NACELLE GRILLES', warp ? 'act' : 'ok'], ['TURRET', red ? 'alert' : 'off']], P);
 };
 DRAW.mess = function (g, x, y, w, h, P) {
   const R = { x, y, w, h }, [a, b] = split(R, [1.3, 1], false, w * 0.04), [b1, b2] = split(b, [1, 1], true, h * 0.06);
@@ -613,9 +613,9 @@ DRAW.aux = function (g, x, y, w, h, P, s) {
   spark(g, sub(g, c, 'TRACE', P.acc, P), P.ice, s.seed, 1.2, P);
 };
 // ---------- master systems display (aft bridge wall) ----------
-// A cutaway of the Defiance: a long swept primary hull flowing into the engineering section, a raised arch over the
-// back carrying the dorsal turret, and slim nacelles slung low and aft on swept spars. Original design, in the spirit of
-// the sleek late-century cruisers. Left panel: side cutaway with every deck and compartment, callouts and live damage.
+// A cutaway of the Defiance: a lens-shaped saucer flowing into a slim engineering body, a rollbar over the back carrying
+// the weapons pod and its torpedo launchers, and long nacelles just above the saucer on swept pylons. Original design,
+// in the spirit of the sleek late-century cruisers. Left panel: side cutaway with every deck and compartment, callouts and live damage.
 // Right panel: plan view with live shield arcs and the warp field, deck index and readouts.
 // The hull and compartments are drawn once into a cached layer per alert/damage state; live parts are drawn on top.
 // The ship geometry (SHIPGEO and its path helpers) lives in shipgeo.js, loaded before this file.
@@ -624,9 +624,9 @@ const MSD_ROOMS = SHIPGEO.rooms.flatMap((rs, i) => rs.map(([a, b, , st, k, side]
 const msdTopAt = (m) => { const T = SHIPGEO.top; for (let i = 1; i < T.length; i++) if (m <= T[i][0]) { const [a, x] = T[i - 1], [b, y] = T[i]; return x + (y - x) * (m - a) / (b - a); } return T[T.length - 1][1]; };
 // a point a fraction f of the way along a polyline [[m, d]...]
 const msdAlong = (pts, f) => { const L = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); L.push(l); tot += l; } let r = f * tot; for (let i = 0; i < L.length; i++) { if (r <= L[i]) { const k = r / L[i]; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k]; } r -= L[i]; } return pts[pts.length - 1]; };
-const MSD_FEED = [[113, 19.2], [113, 8.5], [118, 0.5], [124, -2.4], [129, -3.9]]; // power up the arch's forward rail to the turret
+const MSD_FEED = [[110, 19.2], [108, 13.6], [114, 8.6], [120, 4.4], [126, 0.8], [130, -2.6]]; // power and torpedoes up the rollbar to the weapons pod
 function msdPaths(X, Y) {
-  const S = shipSide(X, Y), turret = new Path2D(S.turret); turret.addPath(new Path2D(S.turretDeck)); turret.addPath(new Path2D(S.barrels));
+  const S = shipSide(X, Y), turret = new Path2D(S.pod); turret.addPath(new Path2D(S.launchers));
   return { hull: new Path2D(S.hull), bridge: new Path2D(S.spine), arch: new Path2D(S.arch), turret, spar: new Path2D(S.spar), nac: new Path2D(S.nacelle) };
 }
 function msdPlan(X, Z) { const P = shipPlan(X, Z); return { hull: new Path2D(P.hull), nacs: P.nacs.map((d) => new Path2D(d)), spars: P.spars.map((d) => new Path2D(d)) }; }
@@ -636,7 +636,7 @@ function msdUnion(g, paths, fill, line, lw) { g.lineJoin = 'round'; g.strokeStyl
 // right panel = the side cutaway with stacked callout lists at its four corners, title top right.
 const MSD_LISTS = {
   tl: [['SICKBAY', 64, 8.9], ['SENSOR PALLET', 56.5, 5.2], ['FORWARD SHIELD GENERATOR', 50, 8.9], ['CAPTAIN’S QUARTERS', 62, 5.2], ['BRIDGE', 64, 1.8], ['LIFT 1', 71.3, 12.3], ['SENIOR OFFICERS’ CABINS', 75, 4.4], ['WARDROOM', 85, 4.4]],
-  tr: [['TURRET CAPACITORS', 86.5, 6.2], ['OBSERVATION LOUNGE', 92, 5.2], ['COMPUTER CORE', 115, 14], ['DORSAL TURRET', 133, -6.4], ['SHIELD GENERATORS', 140, 12.3], ['LIFE SUPPORT', 170, 12.3], ['IMPULSE ENGINES', 198, 19]],
+  tr: [['POD CAPACITORS', 86.5, 6.2], ['OBSERVATION LOUNGE', 92, 5.2], ['COMPUTER CORE', 115, 14], ['WEAPONS POD', 133, -6.4], ['SHIELD GENERATORS', 140, 12.3], ['LIFE SUPPORT', 170, 12.3], ['IMPULSE ENGINES', 198, 19]],
   bl: [['DEFLECTOR', 9, 21.4], ['TORPEDO BAYS', 13, 16.1], ['TORPEDO MAGAZINE', 28, 15.7], ['ARMORY', 41, 15.7], ['CARGO BAY 1', 58, 19.2], ['MESS HALL', 60, 12.3]],
   br: [['CIC', 112, 22.7], ['VENTRAL ARRAY', 114, 26.2], ['LIFT 2', 126.5, 36], ['WARP CORE', 146, 30], ['MAIN ENGINEERING', 150, 19.2], ['NACELLE FIELD COILS', 164, 26.2], ['ANTIMATTER PODS', 172, 36.7], ['SHUTTLEBAY', 186, 29.7]],
 };
@@ -694,11 +694,11 @@ function msdBase(W, H, P) {
     g.fillStyle = P.butter; [158, 169, 180].forEach((m) => { rrect(g, X(m), Y(29), 8 * S, 2.2 * S, 1.4 * u); g.fill(); });
   };
   clipDraw(p.hull, rooms); clipDraw(p.bridge, rooms);
-  // the power feed up the arch's forward rail, and the near-side spar as a ghost over the decks behind it
+  // the power feed up the rollbar, and the near-side nacelle pylon as a ghost over the decks behind it
   g.strokeStyle = P.butter; g.lineWidth = 0.55 * S; g.beginPath(); MSD_FEED.forEach(([m, d], i) => (i ? g.lineTo(X(m), Y(d)) : g.moveTo(X(m), Y(d)))); g.stroke();
   g.save(); g.globalAlpha = 0.28; g.fillStyle = P.plum; g.fill(p.spar); g.restore(); g.save(); g.setLineDash([6 * u, 4 * u]); g.strokeStyle = P.ice; g.lineWidth = 1.6 * u; g.stroke(p.spar); g.restore();
-  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(108), Y(-6), 50 * S, 16 * S); g.fillStyle = P.ice; for (let i = 0; i < 12; i++) g.fillRect(X(112 + i * 3.7), Y(-6), 1.8 * S, 15 * S); g.fillStyle = P.butter; g.fillRect(X(108), Y(-3.9), 50 * S, 0.5 * S); });
-  clipDraw(p.turret, () => { g.fillStyle = P.rose; g.fillRect(X(125), Y(-7.5), 14 * S, 4 * S); g.fillStyle = P.butter; g.fillRect(X(129.5), Y(-5.7), 7 * S, 0.6 * S); g.fillStyle = P.txt; g.fillRect(X(126), Y(-6.1), 2.4 * S, 0.5 * S); });
+  clipDraw(p.arch, () => { g.fillStyle = P.plum; g.fillRect(X(102), Y(-4), 34 * S, 22 * S); g.fillStyle = P.ice; for (let i = 0; i < 9; i++) g.fillRect(X(104 + i * 3.4), Y(-4), 1.6 * S, 22 * S); });
+  clipDraw(p.turret, () => { const W = SHIPGEO.wpod; g.fillStyle = P.ice; g.fillRect(X(W.m[0]), Y(W.d - W.h), (W.m[1] - W.m[0]) * S, 2 * W.h * S); g.fillStyle = P.rose; SHIPGEO.launchers.forEach(([a, b, , d, , h]) => g.fillRect(X(a), Y(d - h), (b - a) * S, 2 * h * S)); g.fillStyle = P.butter; for (let i = 0; i < 6; i++) g.fillRect(X(W.m[0] + 7 + i * 4.2), Y(W.d - 0.3), 2 * S, 0.6 * S); });
     clipDraw(p.nac, () => { const N = SHIPGEO.nacelle; g.fillStyle = P.ice; g.fillRect(X(N.m0 - 2), Y(N.d - 5), 94 * S, 10 * S); g.fillStyle = P.plum; g.fillRect(X(N.m0 - 2), Y(N.d + 1.6), 94 * S, 3.4 * S); g.fillStyle = P.butter; for (let i = 0; i < 15; i++) g.fillRect(X(N.m0 + 10 + i * 4.9), Y(N.d - 2.4), 2.4 * S, 3.4 * S); g.fillStyle = P.rose; g.fillRect(X(N.m0 - 2), Y(N.d - 5), 6 * S, 10 * S); g.fillStyle = P.txt; g.fillRect(X(N.m0 + 8), Y(N.d + 1.1), 74 * S, 0.4 * S); });
   g.fillStyle = P.butter; for (let m = 26; m < 186; m += 3.2) { if (m > 50 && m < 98) continue; g.fillRect(X(m), Y(msdTopAt(m) + 0.9), 0.7 * S, 0.45 * S); }
   g.fillStyle = P.red; g.fillRect(X(196.8), Y(17), 2.6 * S, Y(21) - Y(17)); g.fillStyle = P.butter; g.beginPath(); g.ellipse(X(9), Y(21.4), 4.5 * S, 1.4 * S, -0.25, 0, 7); g.fill();
@@ -725,7 +725,7 @@ function msdBase(W, H, P) {
     g.fillStyle = P.tan; g.textAlign = side < 0 ? 'left' : 'right'; g.fillText(t, side < 0 ? x0 + 2 * u : x0 - 3 * u, ly + 1);
   });
   g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillStyle = P.ice; g.font = `600 ${54 * u | 0}px ${DISP}`; g.fillText('USS DEFIANCE · EV-0408', R.x + R.w - colW - 22 * u, R.y + barH + 56 * u);
-  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 12 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
+  g.fillStyle = P.tan; g.font = `500 ${17 * u | 0}px ${DISP}`; g.fillText('BASTION CLASS · HEAVY ESCORT · 10 DECKS · CREW 140', R.x + R.w - colW - 22 * u, R.y + barH + 82 * u);
   hexTab(g, R.x + R.w - colW - 300 * u, R.y + R.h - barH - 34 * u, 280 * u, 24 * u, true, true); g.fillStyle = P.ice; g.fill(); g.fillStyle = '#000'; g.font = `600 ${16 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('INTERIOR SYSTEMS OVERVIEW', R.x + R.w - colW - 160 * u, R.y + R.h - barH - 16 * u);
   // ---- left panel: plan view, and the warp field geometry inset ----
   const pl = msdPlan(PX, PZ);
@@ -752,15 +752,15 @@ function drawMSD(s) {
   g.drawImage(MSD.base, 0, 0);
   const t = elapsed, warp = smooth(30, 300, cur.speed);
   // warp core pulses; plasma rises through it
-  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143.5), Y(17.5), 5 * S, Y(38.5) - Y(17.5)); g.globalAlpha = 1;
-  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.5 + ((t * (1.2 + warp * 5) + i * 4.2) % 21); g.fillRect(X(143.5), Y(yy), 5 * S, 0.5 * S); }
-  // power running forward along the EPS trunk and up into the turret
+  const k = 0.55 + 0.45 * Math.sin(t * (2 + warp * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + k * 0.5; g.fillRect(X(143.5), Y(17.5), 5 * S, Y(35) - Y(17.5)); g.globalAlpha = 1;
+  g.fillStyle = P.txt; for (let i = 0; i < 5; i++) { const yy = 17.5 + ((t * (1.2 + warp * 5) + i * 3.5) % 17.5); g.fillRect(X(143.5), Y(yy), 5 * S, 0.5 * S); }
+  // power running forward along the EPS trunk and up the rollbar into the weapons pod
   g.fillStyle = P.txt; for (let i = 0; i < 9; i++) { const f = ((t * 0.18 + i / 9) % 1); g.fillRect(X(143 - f * 123), Y(19.1), 2.2 * S, 0.75 * S); }
   for (let i = 0; i < 3; i++) { const [m, d] = msdAlong(MSD_FEED, (t * 0.3 + i / 3) % 1); g.fillRect(X(m) - 0.5 * S, Y(d) - 0.6 * S, 1.1 * S, 1.2 * S); }
   // nacelle coils fire in sequence
   for (let i = 0; i < 15; i++) { if (((t * (4 + warp * 10) - i) % 15 + 15) % 15 < 2) { g.fillStyle = P.txt; g.fillRect(X(SHIPGEO.nacelle.m0 + 10 + i * 4.9), Y(SHIPGEO.nacelle.d - 2.4), 2.4 * S, 3.4 * S); } }
   // damage tints, and a scan bar crossing the cutaway
-  const ZR = { prow: [0, 10, 26, 26], dorsal: [50, -8, 160, 9], ventral: [40, 29, 190, 43], engines: [124, 12, 200, 34] };
+  const ZR = { prow: [0, 9, 26, 21], dorsal: [50, -8, 160, 9], ventral: [96, 24, 190, 34], engines: [124, 12, 200, 34] };
   Object.entries(ZR).forEach(([id, [a, y0, b, y1]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.28 + 0.2 * Math.sin(t * 5); g.fillRect(X(a), Y(y0), X(b) - X(a), Y(y1) - Y(y0)); g.globalAlpha = 1; });
   ['portNac', 'stbdNac'].forEach((id, i) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.35; { const N = SHIPGEO.nacelle; g.fillRect(X(N.m0), Y(N.d - 4.6 + i * 4.6), 90 * S, 4.6 * S); } g.globalAlpha = 1; });
   const sx = X(((t * 14) % 220) - 10); g.fillStyle = P.butter; g.globalAlpha = 0.3; g.fillRect(sx, Y(-8), 4 * u, Y(50) - Y(-8)); g.globalAlpha = 1;
@@ -824,19 +824,19 @@ function drawTable(s) {
   g.fillStyle = P.acc; g.beginPath(); g.ellipse(PX(64), PZ(0), 13 * PS, 7 * PS, 0, 0, 7); g.fill(); g.restore();
   pl.nacs.forEach((n) => { g.save(); g.clip(n); g.fillStyle = P.ice; g.fillRect(PX(120), PZ(-80), 85 * PS, 160 * PS); for (let i = 0; i < 13; i++) { const on = ((t * 6 - i) % 13 + 13) % 13 < 3; g.fillStyle = on ? P.txt : P.butter; g.fillRect(PX(138 + i * 4.6), PZ(-80), 2.4 * PS, 160 * PS); } g.restore(); });
   pl.spars.forEach((sp) => { g.save(); g.clip(sp); g.fillStyle = P.plum; g.fillRect(PX(120), PZ(-80), 80 * PS, 160 * PS); g.restore(); });
-  // power conduits: blocks running from the core to the nacelles, the turret and the shield generators
+  // power conduits: blocks running from the core to the nacelles, the weapons pod and the shield generators
   const core = [146, 0], routes = [[[146, 0], [150, -18], [160, -46]], [[146, 0], [150, 18], [160, 46]], [[146, 0], [133, 0], [64, 0]], [[146, 0], [140, -26]], [[146, 0], [140, 26]]];
   routes.forEach((rt, ri) => { for (let i = 0; i + 1 < rt.length; i++) { const [a, b] = [rt[i], rt[i + 1]], L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(2, Math.round(L2 / 3)); for (let k = 0; k < n; k++) { const f = ((k / n) + t * (0.35 + ri * 0.04)) % 1, x = a[0] + (b[0] - a[0]) * f, z = a[1] + (b[1] - a[1]) * f, on = ((k + Math.floor(t * 9)) % 4) === 0; g.fillStyle = on ? P.txt : ri < 2 ? P.butter : ri === 2 ? P.acc : P.ice; rrect(g, PX(x) - 3.2 * u, PZ(z) - 3.2 * u, 6.4 * u, 6.4 * u, 1.5 * u); g.fill(); } } });
   { const k = 0.6 + 0.4 * Math.sin(t * (2 + smooth(30, 300, cur.speed) * 7)); g.fillStyle = P.butter; g.globalAlpha = 0.5 + 0.5 * k; g.beginPath(); g.arc(PX(core[0]), PZ(core[1]), 11 * u, 0, 7); g.fill(); g.globalAlpha = 1; }
   // zone damage over the plan
-  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [60, -18, 80, 36], port: [30, -44, 110, 22], stbd: [30, 22, 110, 22], engines: [150, -16, 50, 32], portNac: [110, -54, 90, 8], stbdNac: [110, 46, 90, 8] };
+  const ZP = { prow: [0, -14, 22, 28], dorsal: [92, -10, 40, 20], ventral: [96, -13, 94, 26], port: [30, -44, 110, 22], stbd: [30, 22, 110, 22], engines: [150, -16, 50, 32], portNac: [110, -44, 90, 8], stbdNac: [110, 36, 90, 8] };
   Object.entries(ZP).forEach(([id, [a, z, w, d]]) => { const st = zoneStatus(id); if (st === 'ok') return; g.fillStyle = st === 'warn' ? P.yel : P.red; g.globalAlpha = 0.3 + 0.2 * Math.sin(t * 5); g.fillRect(PX(a), PZ(z), w * PS, d * PS); g.globalAlpha = 1; });
   // callouts round the plan
   g.font = `500 ${15 * u | 0}px ${DISP}`; g.textBaseline = 'middle';
-  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -50, -1, 0], ['STBD NACELLE', 186, 50, 1, 0], ['DORSAL TURRET', 133, -4, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
+  [['BRIDGE', 64, 0, -1, 0], ['WARP CORE', 146, 0, 1, 1], ['PORT NACELLE', 186, -40, -1, 0], ['STBD NACELLE', 186, 40, 1, 0], ['WEAPONS POD', 133, -4, -1, 1], ['TORPEDO BAYS', 6, 0, 1, 0]].forEach(([lab, a, z, sd, row]) => { const px = PX(a), pz = PZ(z), ly = sd < 0 ? Y0 + (50 + row * 26) * u : PZ(0) + (205 + row * 26) * u; g.strokeStyle = P.ice; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(px, pz); g.lineTo(px, ly); g.stroke(); g.fillStyle = P.butter; g.beginPath(); g.arc(px, pz, 4 * u, 0, 7); g.fill(); g.fillStyle = '#000'; const tw = g.measureText(lab).width; g.fillRect(px - tw / 2 - 4 * u, ly - 10 * u, tw + 8 * u, 20 * u); g.fillStyle = P.tan; g.textAlign = 'center'; g.fillText(lab, px, ly + 1); });
   // under the plan: deck status, numbers, a trace and buttons
   const by = PZ(0) + 270 * u, bw = cwid;
-  for (let d = 1; d <= 12; d++) { const x = cx0 + (d - 1) * bw / 12, w = bw / 12 - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === 12); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
+  const ND = SHIPGEO.rooms.length; for (let d = 1; d <= ND; d++) { const x = cx0 + (d - 1) * bw / ND, w = bw / ND - 6 * u, on = d <= 2; hexTab(g, x, by, w, 26 * u, d === 1, d === ND); g.fillStyle = on ? P.acc : Math.sin(t * 0.8 + d * 2.1) > 0.7 ? P.butter : [P.tan, P.ice, P.plum][d % 3]; g.fill(); g.fillStyle = '#000'; g.font = `600 ${15 * u | 0}px ${DISP}`; g.textAlign = 'center'; g.fillText('D' + d, x + w / 2, by + 14 * u); }
   const lo = { x: cx0, y: by + 40 * u, w: cwid, h: Y1 - by - 40 * u }, [l1, l2, l3] = split(lo, [1, 1.1, 1], false, 16 * u);
   numGrid(g, l1, 211, P); spark(g, l2, P.ice, 3, 1.4, P); pillBank(g, l3, 223, P, 3);
 }

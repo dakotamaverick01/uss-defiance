@@ -400,7 +400,7 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
 
 // ---------- officers' passage and observation lounge ----------
 // From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
-// sealed turret capacitor bank, to the observation lounge across the stern of the spine.
+// sealed pod capacitor bank, to the observation lounge across the stern of the spine.
 function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
   const cx = (x0 + x1) / 2;
   for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
@@ -421,7 +421,7 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
   d2frames(P.ax0, P.ax1, P.z1, P.az1, H);
   { const r = mesh(CYL(0.022, 0.022, P.az1 - P.z1 - 0.6, 10), MAT.steel, P.ax1 - 0.06, 0.95, (P.z1 + P.az1) / 2, DECK2); r.rotation.x = Math.PI / 2; }
   d2label('AFT · OBSERVATION LOUNGE', P.ax0 + 0.08, 2.0, 16.0, Math.PI / 2, 1.2);
-  doorAt(P.ax0, P.cap, Math.PI / 2, 'TURRET CAPACITORS', 'capbank', false, true, DECK2, 2);
+  doorAt(P.ax0, P.cap, Math.PI / 2, 'POD CAPACITORS', 'capbank', false, true, DECK2, 2);
   doorAt(D2_LNG.door, P.az1, Math.PI, 'OBSERVATION LOUNGE', 'lngdoor', true, true, DECK2, 2);
 }
 {
@@ -464,9 +464,8 @@ function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z,
 }
 
 // ---------- outside: the ship herself, seen through Deck 2's windows ----------
-// The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the hull back under the spine (its top
-// below every window sill), the arch and turret aft of the lounge, the nacelles slung low under the keel (out of sight
-// from up here). It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
+// The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the saucer's back under the spine (its top
+// below every window sill), the rollbar and weapons pod aft of the lounge, a nacelle out to either side. It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
 // lighter build.
 const EXTSET = buildExterior({ lite: isMobile }); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
 DECK2.updateMatrixWorld(true);

@@ -48,7 +48,7 @@ CHECK_JS = r"""() => {
   if (ext) ext.traverse((o) => { if (o.isMesh) { if (o.material.isMeshStandardMaterial) std++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
   ok('set piece exists inside Deck 2', ext && (() => { for (let p = ext; p; p = p.parent) if (p === DECK2) return true; return false; })());
   ok('set piece has no baked materials', ext && std === 0, std);
-  ok('exterior model within the phone budget (60k triangles)', ext && tris < 60000, Math.round(tris) + ' triangles');
+  ok('exterior model within budget (100k triangles desktop; phones build a lighter one)', ext && tris < 100000, Math.round(tris) + ' triangles');
   // every Deck 2 screen sits in front of its wall (walls are inset 6 cm from each room's outline)
   { const p = new THREE.Vector3(), hid = []; screens.forEach((sc) => { let d2 = false; for (let o = sc.mesh; o; o = o.parent) if (o === DECK2) d2 = true; if (!d2) return; sc.mesh.getWorldPosition(p); const x = p.x, z = p.z;
       if (!D2.rooms.some((r) => x > r.x0 + 0.061 && x < r.x1 - 0.061 && z > r.z0 + 0.061 && z < r.z1 - 0.061)) hid.push(sc.station + '@' + x.toFixed(2) + ',' + z.toFixed(2)); });
