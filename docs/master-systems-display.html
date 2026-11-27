@@ -4,263 +4,319 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Defiance Ship Display</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* VOICE: a working warship's master systems display: dense, calm, exact.
-   IDEA: the backlit cutaway panel mounted aft on the bridge, read deck by deck.
-   PICTURE: an original side-profile cutaway of the USS Defiance, 12 decks, every compartment tappable; plan view for the side zones.
-   COLOUR and TYPE: the ship's own interface: near-black glass, amber linework, ice-blue secondary, red at Red Alert. Oxanium, JetBrains Mono, Barlow.
-   LAYOUT: cutaway full width; below it deck list and deck detail side by side, stacking on phones. */
-:root { color-scheme: dark; --bg: #07090C; --frame: #1C2229; --acc: #E3A23B; --acc-dim: #9C6B22; --ice: #8FC3E0; --ink: #EEF2F5; --dim: #7F8994; --ok: #5FA97A; --warn: #D19A3E; --bad: #D2504B; }
-:root.red { --acc: #E04848; --acc-dim: #7A2A2A; --ice: #5D7F92; }
+   IDEA: the backlit cutaway panel mounted aft on the bridge, read deck by deck, in the bridge's own interface.
+   PICTURE: an original side-profile cutaway of the USS Defiance, 12 decks, every compartment tappable; plan view below.
+   COLOUR and TYPE: palette A, as on the bridge: peach frames, tan and butterscotch readouts, lilac, rose and plum accents,
+   cream text on black; green, amber and red only for status. Antonio for every label.
+   LAYOUT: a block-style frame (elbow top left, a column of coloured blocks down the left); cutaway full width, then the
+   deck list and deck detail side by side, stacking on phones. */
+@font-face { font-family: Antonio; font-weight: 600; font-display: swap; src: url(data:font/woff;base64,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) format('woff'); }
+:root { color-scheme: dark; --bg: #000; --peach: #E8A06A; --tan: #D9B07E; --butter: #F2C88F; --lilac: #B693C4; --lilac-dim: #6E5A78; --rose: #C67A86; --plum: #7E5C8E; --cream: #F5E6CF; --dim: #9A8678; --line: #2B2229; --ok: #8DBF84; --warn: #F0B44C; --bad: #E05A50; --hull: #120d12; }
+:root.red { --peach: #E0524A; --tan: #B8665C; --butter: #E9907A; --lilac: #6E5A78; --rose: #A8443E; --plum: #5A2C34; }
 * { box-sizing: border-box; min-width: 0; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 Barlow, system-ui, sans-serif; overflow-x: clip; }
-.wrap { max-width: 1240px; margin: 0 auto; padding: clamp(14px, 3vw, 32px) max(4vw, 14px) 40px; }
-header { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; }
-.node { width: 34px; height: 30px; background: var(--acc); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); position: relative; flex: none; }
-.node::after { content: ""; position: absolute; inset: 9px 11px; background: var(--bg); clip-path: inherit; }
-.title { display: flex; gap: 14px; align-items: center; }
-h1 { margin: 0; font: 700 clamp(22px, 4vw, 36px)/1.05 Oxanium, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-.sub { margin: 4px 0 0; color: var(--dim); font: 500 12px/1.4 'JetBrains Mono', monospace; letter-spacing: .06em; }
-.rail { display: flex; gap: 6px; margin: 14px 0 0; }
-.rail span { height: 8px; background: var(--frame); flex: 1; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 50%, calc(100% - 4px) 100%, 4px 100%, 0 50%); }
-.rail span:first-child { flex: 0 0 42%; background: var(--acc); } .rail span:nth-child(2) { flex: 0 0 14%; background: var(--ice); }
+body { margin: 0; background: var(--bg); color: var(--cream); font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; overflow-x: clip; }
+.lc, h1, h2, h3, button, .stats, .chip, .ptitle, .legend, .deck, svg text { font-family: Antonio, 'Arial Narrow', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.shell { max-width: 1280px; margin: 0 auto; padding: 12px max(2vw, 8px) 24px; display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+/* the frame: elbow top left, a column of blocks down the left, a bar along the top and an elbow at the bottom */
+.elbow { grid-column: 1 / -1; display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+.elbow .corner { background: var(--peach); border-top-left-radius: 46px; height: 64px; position: relative; }
+.elbow .corner::after { content: ""; position: absolute; right: 0; bottom: 0; width: 24px; height: 30px; background: var(--bg); border-top-left-radius: 22px; }
+.elbow .bar { display: flex; gap: 6px; height: 34px; }
+.elbow .bar span { background: var(--peach); flex: 1; }
+.elbow .bar span:nth-child(2) { flex: 0 0 16%; background: var(--tan); } .elbow .bar span:nth-child(3) { flex: 0 0 9%; background: var(--lilac); } .elbow .bar span:nth-child(4) { flex: 0 0 22%; background: var(--butter); border-radius: 0 17px 17px 0; }
+.elbow.bot .corner { border-radius: 0 0 0 46px; height: 46px; } .elbow.bot .corner::after { top: 0; bottom: auto; height: 24px; border-radius: 0 0 0 22px; }
+.elbow.bot .bar { align-self: end; height: 22px; } .elbow.bot .bar span:nth-child(2) { background: var(--plum); } .elbow.bot .bar span:nth-child(4) { background: var(--peach); }
+.col { display: flex; flex-direction: column; gap: 6px; padding: 6px 24px 6px 0; }
+.col span { flex: 1; min-height: 46px; background: var(--tan); color: #000; font-size: 12px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px 6px; }
+.col span:nth-child(2) { background: var(--lilac); flex: 2; } .col span:nth-child(3) { background: var(--butter); } .col span:nth-child(4) { background: var(--plum); flex: 3; } .col span:nth-child(5) { background: var(--peach); } .col span:nth-child(6) { background: var(--rose); flex: 2; }
+main { padding: 4px 0 8px; }
+header { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: end; justify-content: space-between; margin: -24px 0 0; }
+h1 { margin: 0; font-size: clamp(26px, 4.4vw, 52px); line-height: 1; color: var(--lilac); letter-spacing: .03em; }
+.sub { margin: 6px 0 0; color: var(--tan); font-size: 14px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg { display: flex; border: 1px solid var(--frame); }
-.seg button, .key { font: 700 13px Oxanium, sans-serif; letter-spacing: .08em; text-transform: uppercase; background: transparent; color: var(--dim); border: 0; padding: 0 14px; min-height: 44px; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--acc); color: #000; }
-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; background: var(--frame); border: 1px solid var(--frame); margin: 16px 0 0; }
-.stats div { background: var(--bg); padding: 8px 12px; }
-.stats b { display: block; font: 600 20px Oxanium, sans-serif; white-space: nowrap; }
-.stats span { color: var(--dim); font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .06em; }
-.panel { border: 1px solid var(--frame); background: linear-gradient(#0B0E12, var(--bg)); margin: 16px 0 0; position: relative; }
-.ptitle { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px 0; font: 600 12px 'JetBrains Mono', monospace; letter-spacing: .08em; color: var(--dim); }
-.ptitle b { color: var(--acc); font-weight: 600; }
+.seg { display: flex; gap: 4px; }
+.seg button { font-size: 15px; background: var(--plum); color: var(--cream); border: 0; padding: 0 16px; min-height: 44px; cursor: pointer; text-align: right; min-width: 92px; }
+.seg button:first-child { border-radius: 22px 0 0 22px; } .seg button:last-child { border-radius: 0 22px 22px 0; }
+.seg button[aria-pressed="true"] { background: var(--peach); color: #000; }
+button:focus-visible, li:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 4px; margin: 16px 0 0; }
+.stats div { background: var(--bg); border-left: 10px solid var(--tan); padding: 2px 10px; }
+.stats div:nth-child(3n+2) { border-color: var(--lilac); } .stats div:nth-child(3n) { border-color: var(--butter); }
+.stats b { display: block; font-size: 24px; line-height: 1.15; color: var(--cream); white-space: nowrap; }
+.stats span { color: var(--tan); font-size: 12px; }
+.panel { margin: 16px 0 0; position: relative; }
+.ptitle { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: var(--tan); }
+.ptitle .tab { background: var(--lilac); color: #000; padding: 2px 14px 2px 10px; border-radius: 0 14px 14px 0; }
 #profile { display: block; width: 100%; height: auto; }
 #profile .cell { cursor: pointer; }
-#profile text { font-family: 'JetBrains Mono', monospace; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0 14px 12px; color: var(--dim); font: 500 12px 'JetBrains Mono', monospace; }
-.legend i { display: inline-block; width: 22px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--acc); }
-.lw { background: rgba(227,162,59,.55); } .ln { background: rgba(227,162,59,.16); border-style: dashed !important; } .lp { background: rgba(143,195,224,.05); border-color: #3A4652 !important; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--tan); font-size: 13px; }
+.legend i { display: inline-block; width: 22px; height: 11px; margin-right: 6px; vertical-align: -1px; }
 .grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; margin: 16px 0 0; }
 .decks { display: grid; gap: 4px; align-content: start; }
-.deck { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; min-height: 48px; padding: 6px 10px; background: transparent; border: 1px solid var(--frame); color: var(--ink); cursor: pointer; font: inherit; }
-.deck .n { font: 700 15px Oxanium, sans-serif; color: var(--acc); }
-.deck .r { font-size: 14px; line-height: 1.25; }
+.deck { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; min-height: 48px; padding: 0 10px 0 0; background: transparent; border: 0; color: var(--cream); cursor: pointer; font-size: 16px; text-transform: none; }
+.deck .n { background: var(--tan); color: #000; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; border-radius: 24px 0 0 24px; font-size: 18px; }
+.deck .r { line-height: 1.15; text-transform: uppercase; }
 .deck .r small { display: block; color: var(--dim); font-size: 12px; }
-.deck[aria-current="true"] { background: var(--acc); color: #000; border-color: var(--acc); }
-.deck[aria-current="true"] .n, .deck[aria-current="true"] small { color: #000; }
-.chip { font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .06em; padding: 3px 6px; border: 1px solid currentColor; white-space: nowrap; }
-.chip.w { color: var(--ok); } .chip.n { color: var(--acc); } .chip.p { color: var(--dim); }
-.deck[aria-current="true"] .chip { color: #000; }
-.detail { border: 1px solid var(--frame); padding: 16px; }
-.detail h2 { margin: 0; font: 700 26px/1.1 Oxanium, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
-.detail .role { margin: 6px 0 0; color: var(--dim); max-width: 62ch; }
-.detail h3 { margin: 18px 0 6px; font: 600 12px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--acc); text-transform: uppercase; }
-.rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--frame); border: 1px solid var(--frame); }
-.rooms li { background: var(--bg); padding: 8px 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: baseline; cursor: pointer; }
-.rooms li[aria-selected="true"] { outline: 1px solid var(--acc); outline-offset: -1px; }
+.deck[aria-current="true"] { background: var(--peach); color: #000; } .deck[aria-current="true"] .n { background: var(--butter); } .deck[aria-current="true"] small { color: #000; }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; background: var(--line); color: var(--dim); }
+.chip.w { background: var(--ok); color: #000; } .chip.n { background: var(--warn); color: #000; }
+.detail { border-left: 10px solid var(--lilac); padding: 0 0 0 16px; }
+.detail h2 { margin: 0; font-size: 30px; line-height: 1.1; color: var(--peach); }
+.detail .role { margin: 6px 0 0; color: var(--cream); max-width: 64ch; }
+.detail h3 { margin: 18px 0 6px; font-size: 15px; color: #000; background: var(--tan); padding: 1px 12px; border-radius: 0 12px 12px 0; display: inline-block; }
+.rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.rooms li { padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; cursor: pointer; border-left: 6px solid var(--plum); background: #0d0a0d; }
+.rooms li .nm { font-family: Antonio, 'Arial Narrow', sans-serif; text-transform: uppercase; letter-spacing: .04em; font-size: 16px; }
+.rooms li .nm em { font-style: normal; color: var(--tan); font-size: 12px; margin-left: 6px; }
+.rooms li[aria-selected="true"] { border-color: var(--peach); background: #24180f; }
 .rooms li p { grid-column: 1 / -1; margin: 0; color: var(--dim); font-size: 14px; line-height: 1.4; }
-.shows { margin: 0; padding-left: 18px; color: var(--ink); } .shows li { margin: 3px 0; }
-.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 16px; align-items: start; }
+.shows { margin: 0; padding-left: 18px; } .shows li { margin: 3px 0; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 310px); gap: 16px; align-items: start; }
 #plan { width: 100%; height: auto; display: block; }
 .note { color: var(--dim); font-size: 13px; margin: 18px 0 0; }
-@media (max-width: 860px) { .pscroll { overflow-x: auto; } #profile { width: 900px; max-width: none; }  .grid, .two { grid-template-columns: minmax(0, 1fr); } .decks { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .deck { grid-template-columns: 40px 1fr; } .deck .chip { display: none; } }
+@media (max-width: 860px) { .pscroll { overflow-x: auto; } #profile { width: 900px; max-width: none; } .grid, .two { grid-template-columns: minmax(0, 1fr); } .decks { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .deck { grid-template-columns: 44px 1fr; } .deck .chip { display: none; } }
+@media (max-width: 640px) { #hint { display: none; } .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } .stats b { font-size: 19px; } .shell, .elbow { grid-template-columns: 22px minmax(0, 1fr); } .elbow .corner { border-top-left-radius: 18px; height: 40px; } .elbow .corner::after { width: 8px; height: 18px; border-top-left-radius: 10px; } .elbow .bar { height: 22px; } .elbow.bot .corner { border-radius: 0 0 0 18px; height: 30px; } .elbow.bot .corner::after { height: 10px; border-radius: 0 0 0 10px; } .col { padding-right: 8px; } .col span { font-size: 0; min-height: 30px; } header { margin: 0; } .seg button { min-width: 0; padding: 0 12px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="shell">
+  <div class="elbow" aria-hidden="true"><div class="corner"></div><div class="bar"><span></span><span></span><span></span><span></span></div></div>
+  <div class="col" aria-hidden="true"><span>04-08</span><span>12-200</span><span>35</span><span>101-56</span><span>140</span><span>2-1</span></div>
+  <main>
   <header>
-    <div>
-      <div class="title"><div class="node" aria-hidden="true"></div><div><h1>USS Defiance · Master Systems Display</h1><p class="sub">EV-0408 · BASTION-CLASS HEAVY ESCORT · SIDE CUTAWAY, BOW LEFT · DRAFT DECK PLAN</p></div></div>
-    </div>
+    <div><h1>USS Defiance · Master Systems Display</h1><p class="sub lc">EV-0408 · Bastion class heavy escort · side cutaway, bow left · deck plan</p></div>
     <div class="controls">
-      <div class="seg" role="group" aria-label="Overlay"><button data-ov="decks" aria-pressed="true">Decks</button><button data-ov="systems" aria-pressed="false">Systems</button><button data-ov="zones" aria-pressed="false">Damage zones</button></div>
+      <div class="seg" role="group" aria-label="Overlay"><button data-ov="decks" aria-pressed="true">Decks</button><button data-ov="systems" aria-pressed="false">Systems</button><button data-ov="zones" aria-pressed="false">Damage</button></div>
       <div class="seg" role="group" aria-label="Alert"><button data-al="green" aria-pressed="true">Normal</button><button data-al="red" aria-pressed="false">Red alert</button></div>
     </div>
   </header>
-  <div class="rail" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="stats" id="stats"></div>
   <section class="panel" aria-label="Side cutaway">
-    <div class="ptitle"><span>PROFILE · <b id="ovname">DECKS</b></span><span id="hint">TAP A COMPARTMENT OR A DECK · SWIPE TO PAN ON PHONES</span></div>
-    <div class="pscroll"><svg id="profile" viewBox="0 0 1060 300" role="img" aria-label="Side cutaway of the USS Defiance showing 12 decks"></svg></div>
-    <div class="legend"><span><i class="lw"></i>Walkable now</span><span><i class="ln"></i>Build next</span><span><i class="lp"></i>Planned</span></div>
+    <div class="ptitle"><span class="tab">Profile · <span id="ovname">Decks</span></span><span id="hint">Tap a compartment or a deck · swipe to pan on phones</span></div>
+    <div class="pscroll"><svg id="profile" viewBox="0 0 1060 322" role="img" aria-label="Side cutaway of the USS Defiance showing 12 decks"></svg></div>
+    <div class="legend" id="legend"></div>
   </section>
   <div class="grid">
     <nav class="decks" id="decks" aria-label="Decks"></nav>
     <section class="detail" id="detail" aria-live="polite"></section>
   </div>
-  <p class="note">Draft: the hull here is redrawn from the written description (compact saucer, small armored prow, dorsal turret spine, short deep rear hull, two blade nacelles on swept spars). Proportions will be corrected against the original schematic once it's attached. Original design; all names are the Defiance's own.</p>
+  <p class="note">Original design; all names are the Defiance's own. Positions follow the walkable ship: metres from the bow along the keel, depth from the top of Deck 1, 3.5 m per deck. Decks 1 and 2 ride in a raised spine on the hull's back; a keel under engineering holds Decks 10 to 12. Split cells on one deck: upper half starboard, lower half port. The near-side spar is drawn as a ghost over the hull.</p>
+  </main>
+  <div class="elbow bot" aria-hidden="true"><div class="corner"></div><div class="bar"><span></span><span></span><span></span><span></span></div></div>
 </div>
 <script>
 {
-// ---------- the ship, in metres and decks ----------
-// x: metres from the bow (0 = prow tip, 200 = stern). t: decks from the top of Deck 1 (0) to the bottom of Deck 12 (12). Each deck is 3.5 m.
-const SHIP = { length: 200, beam: 158, height: 44, crew: 140, decks: 12 };
-const X = (m) => 30 + m * 5, T = (t) => 34 + t * 17.5;
-const P = (pts) => 'M' + pts.map(([m, t]) => X(m).toFixed(1) + ' ' + T(t).toFixed(1)).join(' L') + ' Z';
-// one traced outline: armored prow, saucer, the command citadel, the dorsal spine with its turret, and the short deep rear hull
-const HULL = {
-  hull: [[0, 4.7], [6, 3.7], [8, 3.5], [12, 2.5], [20, 1.6], [32, 1.0], [44, 1.0], [50, 0.0], [72, 0.0], [76, 0.45], [96, 0.45], [99, -0.3], [110, -0.3], [113, 0.45], [148, 0.45], [162, 3.0], [180, 3.0], [192, 4.2], [199, 6.0], [199, 10.0], [190, 11.4], [176, 12.0], [124, 12.0], [112, 9.0], [100, 6.0], [32, 6.0], [20, 5.6], [16, 6.3], [6, 6.0]],
+// SHIPGEO-BEGIN (shared verbatim with js/screens.js; tools/check_plan.py keeps the two copies identical)
+// The ship in metres: m = metres from the bow (0) to the stern (200), equal to the 3D z + 64; d = depth below the top of
+// Deck 1 (Deck n spans 3.5(n-1) to 3.5n, negative is above); z = across the beam in the plan view, starboard negative.
+const SHIPGEO = {
+  top: [[0, 20], [5, 16.8], [14, 13.2], [30, 10.4], [46, 8.6], [60, 7.7], [150, 7.7], [166, 8.9], [182, 11.2], [193, 13.6], [199.5, 16.5]],
+  bottom: [[199.5, 32], [196, 36.5], [188, 42], [124, 42], [114, 37.5], [100, 34.5], [80, 32.5], [50, 30], [24, 27], [8, 24], [2, 22], [0, 20]],
+  spine: [[50, 7.8], [53.5, 5.6], [56, 3.8], [57.5, 1.8], [59.5, 0.5], [62, 0.1], [77, 0.1], [79.5, 1], [81, 2.8], [82.5, 3.4], [94.5, 3.4], [96.5, 5.3], [98, 7.7]],
+  archOuter: [[109.5, 8.5], [113, 3.5], [118, -0.3], [123, -3], [129, -4.6], [137, -4.6], [143, -3], [148, -0.3], [153, 3.5], [156.5, 8.5]],
+  archInner: [[113, 8.5], [116, 4.4], [120, 1.2], [124.5, -1.5], [129, -3.4], [137, -3.4], [141.5, -1.5], [146, 1.2], [150, 4.4], [153, 8.5]],
+  turretDeck: [128.5, 137.5, -5.0, -4.1], turret: [[129.9, -4.55], [129.9, -5.05], [130.3, -6.05], [131.4, -6.75], [133, -6.95], [134.6, -6.75], [135.7, -6.05], [136.1, -5.05], [136.1, -4.55]],
+  barrels: [126.2, 132.6, -6.15, -5.55],
+  nacelle: { m0: 134, d: 46.5, z: 48, prof: [[0, 0], [0.25, 1.3], [1, 2.1], [2.4, 2.5], [5, 2.6], [50, 2.6], [58, 2.3], [64, 1.4], [65, 0]] },
+  spar: [[133, 30.5], [139, 30.5], [170, 44], [166, 44]], sparPlan: [[133, 14], [139, 14], [170, 45.6], [166, 45.6]],
+  halfBeam: [[0, 0], [3, 14], [8, 25], [20, 34], [34, 40], [56, 45], [78, 46], [98, 44], [112, 40], [126, 30], [140, 20], [170, 16.5], [196, 14], [200, 9]],
+  spinePlan: [52, 96, -6.2, 7.2], pod: [[58, -3.55], [58, 3.55], [61.1, 6.4], [66.9, 6.4], [70.2, 4.0], [70.2, -4.0], [66.9, -6.4], [61.1, -6.4]],
+  lifts: [[70.2, 72.5, 1, 6, 'LIFT 1'], [124, 129, 3, 12, 'LIFT 2']], core: [140, 152, 6, 11],
+  // rooms[deck-1] = [from m, to m, name, status (w walkable, n next, p planned), kind (w command, l living, s systems,
+  // x weapons, e engineering), side ('' full, 's' starboard, 'p' port), note]
+  rooms: [
+    [[58, 70.2, 'Main bridge', 'w', 'w', '', 'Command chair, flight, ops, tactical, science, engineering and comms stations, the situation table and the viewscreen.'], [70.2, 72.5, 'Turbolift 1', 'w', 's', '', 'Forward lift. Runs Decks 1 to 6.'], [72.5, 77, 'Conference room', 'w', 'w', '', 'Senior staff briefings and battle honors, aft of the bridge.'], [77, 80, 'Ready room and head', 'w', 'w', '', 'The captain’s office off the bridge’s starboard aft corner; the head is to port.']],
+    [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Turret capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the dorsal turret.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Officers dine and meet here.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The aft end of the spine: a 10 m window looking back over the arch, the turret and both nacelles.']],
+    [[46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 12.'], [129, 140, 'Arch feeds and turret magazine', 'p', 'x', '', 'Power and focusing crystals go up the arch rails to the turret from here.'], [140, 162, 'Crew quarters', 'p', 'l', '', '']],
+    [[20, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge inside the armored prow.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 106, 'Crew quarters', 'p', 'l', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 186, 'Life support and environmental', 'p', 's', '', '']],
+    [[8, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin forward launchers in the armored prow.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes, 12 per bay.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo transporter and stores', 'p', 's', '', ''], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
+    [[2, 16, 'Navigational deflector', 'p', 's', '', 'Clears debris ahead of the ship.'], [16, 28, 'Lower sensor array', 'p', 's', '', ''], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Cargo bay 1', 'p', 's', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 104, 'Crew quarters', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
+    [[6, 48, 'Crew quarters', 'p', 'l', '', ''], [48, 100, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [100, 124, 'Combat information center', 'p', 'x', '', 'Deep in the armored hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Engineering workshops and spares', 'p', 'e', '', '']],
+    [[22, 70, 'Crew quarters', 'p', 'l', '', ''], [70, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 176, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [176, 199, 'Shuttle maintenance', 'p', 's', '', '']],
+    [[50, 96, 'Cargo bay 2', 'p', 's', '', ''], [96, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Flight operations', 'p', 's', '', 'Pilots’ ready room and bay control.'], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 199, 'Shuttlebay', 'p', 's', '', 'Three shuttles. The launch doors open aft.']],
+    [[90, 124, 'Environmental and water reclamation', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Air scrubbers and waste', 'p', 's', '', ''], [140, 152, 'Warp core, lower', 'p', 'e', '', ''], [152, 196, 'Lower hangar and shuttle storage', 'p', 's', '', '']],
+    [[112, 124, 'Fuel transfer', 'p', 'e', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Reactor base', 'p', 'e', '', ''], [152, 192, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods.']],
+    [[124, 129, 'Lift 2', 'p', 's', '', ''], [129, 146, 'Tractor beam and keel sensors', 'p', 's', '', ''], [146, 164, 'Antimatter pod ejection', 'p', 'e', '', 'Last-resort jettison of the fuel pods.'], [164, 188, 'Structural keel and waste', 'p', 's', '', '']],
+  ],
 };
-const NACELLE = [[132, 3.5], [140, 3.1], [196, 3.1], [200, 3.7], [196, 4.6], [140, 4.6]];
-const SPAR = [[146, 7.2], [158, 7.2], [172, 4.5], [160, 4.5]];
-// ---------- decks and compartments ----------
-// s: w = walkable now, n = build next, p = planned
-const DECKS = [
-  { n: 1, name: 'Command', role: 'The armored command citadel on top of the saucer. Everything here is already built and walkable.',
-    rooms: [[49, 63, 'Main bridge', 'w', 'Command chair, flight, ops, tactical, science, engineering and comms stations, viewscreen. About 12.8 x 12 m inside.'], [63, 66, 'Turbolift 1', 'w', 'Forward lift. Runs Decks 1 to 6.'], [66, 73, 'Conference room', 'w', 'Senior staff briefings, battle honors. About 8 x 6.5 m, room to walk around the table.'], [73, 79, 'Ready room and head', 'w', "The captain's office, about 6 x 6.5 m: desk, settee, a table for meals."]],
-    shows: ['Alert condition and which stations are crewed', 'Bridge environment', 'Lift 1 position'] },
-  { n: 2, name: "Officers' deck", role: 'Directly under the bridge and inside the dorsal spine: where the senior officers live, eat and look out. Recommended as the next deck to build.',
-    rooms: [[32, 44, 'Forward sensor and comms arrays', 'p', 'Long-range sensor pallet and subspace antenna.'], [44, 60, "Captain's quarters", 'n', 'A suite forward of the lift: day cabin, sleeping cabin, a small galley.'], [60, 66, 'Lift 1 lobby', 'n', 'Where the lift doors open on Deck 2.'], [66, 80, "First officer's quarters", 'n', ''], [80, 96, "Officers' wardroom", 'n', 'Officers dine and meet here.'], [96, 113, 'Dorsal turret capacitors', 'p', 'Power banks that feed the dorsal beam turret above.'], [113, 136, 'Senior officers’ quarters', 'p', 'Department heads.'], [136, 150, 'Observation lounge', 'n', 'At the aft end of the spine, with windows looking back over the turret and both nacelles.']],
-    shows: ['Quarters occupancy', 'Dorsal turret capacitor charge', 'Observation lounge shutters'] },
-  { n: 3, name: 'Medical and officers', role: 'Sickbay sits near the lift so casualties reach it fast; officers berth around it.',
-    rooms: [[14, 28, 'Forward shield generator', 'p', 'Feeds the forward shield arc.'], [28, 46, 'Sickbay', 'p', 'Eight beds, surgery, isolation ward.'], [46, 58, 'Medical lab and morgue', 'p', ''], [58, 66, 'Lift 1', 'p', ''], [66, 96, "Officers' quarters", 'p', ''], [96, 113, 'Dorsal turret mount', 'p', 'Turret drive and magazine of focusing crystals.'], [113, 127, 'Computer core, upper', 'p', ''], [127, 134, 'Impulse engines', 'p', 'Twin impulse engines at the saucer’s trailing edge.'], [134, 160, 'Crew quarters', 'p', '']],
-    shows: ['Sickbay beds in use and casualties', 'Forward shield generator output', 'Impulse engine output'] },
-  { n: 4, name: 'Crew deck', role: 'The heart of shipboard life: the mess, the lounge and most crew berths.',
-    rooms: [[6, 22, 'Auxiliary control', 'p', 'Back-up bridge inside the armored prow.'], [22, 44, 'Crew quarters', 'p', ''], [44, 70, 'Mess hall and galley', 'p', 'The one room everyone on the ship passes through every day.'], [70, 82, 'Crew lounge and gym', 'p', ''], [82, 96, 'Crew quarters', 'p', ''], [96, 116, 'Computer core', 'p', 'Main computer core, two decks tall.'], [116, 124, 'Lift 2', 'p', 'Aft lift. Runs Decks 2 to 12.'], [124, 150, 'Main shield generators', 'p', 'Port, starboard and aft arcs.'], [150, 180, 'Life support and environmental', 'p', '']],
-    shows: ['Galley stores', 'Shield generator load by arc', 'Atmosphere on each section'] },
-  { n: 5, name: 'Weapons and transport', role: 'The prow’s twin torpedo bays, the armory beside the transporters, and the science labs.',
-    rooms: [[2, 18, 'Torpedo bays 1 and 2', 'p', 'Twin forward launchers in the armored prow.'], [18, 32, 'Torpedo magazine', 'p', '24 torpedoes, 12 per bay.'], [32, 46, 'Armory and security', 'p', 'Next to the transporters, for boarding and away teams.'], [46, 62, 'Transporter rooms 1 and 2', 'p', ''], [62, 78, 'Science labs', 'p', ''], [78, 100, 'Crew quarters', 'p', ''], [100, 116, 'Cargo transporter and stores', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 150, 'Engineering offices', 'p', ''], [150, 196, 'Main engineering, upper gallery', 'p', 'Catwalk ring around the top of the warp core.']],
-    shows: ['Torpedo bays: loaded or reloading, magazine count', 'Transporters ready', 'Armory status'] },
-  { n: 6, name: 'Deflector and cargo', role: 'The saucer’s lower deck: the navigational deflector up front and the first cargo bay.',
-    rooms: [[4, 18, 'Navigational deflector', 'p', 'Clears debris ahead of the ship.'], [18, 30, 'Lower sensor array', 'p', ''], [30, 50, 'Torpedo loading', 'p', 'Feeds the magazine above.'], [50, 70, 'Cargo bay 1', 'p', ''], [70, 100, 'Crew quarters', 'p', ''], [100, 116, 'Escape pods and EVA prep', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 160, 'Main engineering', 'p', 'Control room and the warp core’s top.'], [160, 198, 'Auxiliary power', 'p', 'Fusion generators for when the core is down.']],
-    shows: ['Deflector status', 'Cargo bay contents', 'Auxiliary power reserve'] },
-  { n: 7, name: 'Engineering and CIC', role: 'Main engineering’s working floor around the warp core, and the combat information center, as deep and well armored as the ship gets.',
-    rooms: [[100, 116, 'Combat information center', 'p', 'Deep in the armored rear hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [116, 124, 'Lift 2', 'p', ''], [124, 166, 'Main engineering and warp core', 'p', 'The ship’s power plant.'], [166, 198, 'Engineering workshops and spares', 'p', '']],
-    shows: ['CIC contact count and threat level', 'Warp core output', 'Reactor temperature'] },
-  { n: 8, name: 'Propulsion', role: 'Fuel feed into the core, nacelle field control, and the ventral beam array.',
-    rooms: [[104, 116, 'Ventral beam array and capacitors', 'p', 'The ship’s lower beam weapon and its power banks.'], [116, 124, 'Lift 2', 'p', ''], [124, 140, 'Matter injection', 'p', ''], [140, 152, 'Warp core', 'p', ''], [152, 176, 'Nacelle field control', 'p', 'Port and starboard warp field coils are run from here.'], [176, 198, 'Shuttle maintenance', 'p', '']],
-    shows: ['Ventral array charge', 'Nacelle field strength, port and starboard', 'Matter injection rate'] },
-  { n: 9, name: 'Flight deck', role: 'The shuttlebay, opening off the stern, with flight operations beside it.',
-    rooms: [[110, 116, 'Cargo bay 2', 'p', ''], [116, 124, 'Lift 2', 'p', ''], [124, 140, 'Flight operations', 'p', 'Pilots’ ready room and bay control.'], [140, 152, 'Warp core', 'p', ''], [152, 199, 'Shuttlebay', 'p', 'Two shuttles. The launch doors open aft.']],
-    shows: ['Shuttles aboard and launch doors', 'Bay pressure'] },
-  { n: 10, name: 'Utilities', role: 'Water, air and waste systems, and the lower hangar.',
-    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 140, 'Environmental and water reclamation', 'p', ''], [140, 152, 'Warp core, lower', 'p', ''], [152, 198, 'Lower hangar and shuttle storage', 'p', '']],
-    shows: ['Water reclamation', 'Air scrubbers'] },
-  { n: 11, name: 'Fuel', role: 'Deuterium tanks and the antimatter storage pods that feed the core.',
-    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 140, 'Deuterium tanks', 'p', ''], [140, 152, 'Reactor base', 'p', ''], [152, 192, 'Antimatter storage pods', 'p', 'Magnetic containment pods.']],
-    shows: ['Antimatter containment', 'Fuel reserves'] },
-  { n: 12, name: 'Keel', role: 'The lowest deck: tractor beam, keel sensors and the pod ejection system.',
-    rooms: [[116, 124, 'Lift 2', 'p', ''], [124, 142, 'Tractor beam and keel sensors', 'p', ''], [142, 160, 'Antimatter pod ejection', 'p', 'Last-resort jettison of the fuel pods.'], [160, 182, 'Structural keel and waste', 'p', '']],
-    shows: ['Tractor beam', 'Ejection system armed or safe'] },
+// a smooth curve through points (Catmull-Rom as cubic Béziers), as SVG path commands after a starting point
+function shipCurve(pts, X, Y) {
+  const P = (i) => pts[Math.max(0, Math.min(pts.length - 1, i))], f = (x, y) => X(x).toFixed(1) + ' ' + Y(y).toFixed(1); let s = '';
+  for (let i = 0; i < pts.length - 1; i++) { const a = P(i - 1), b = P(i), c = P(i + 1), d = P(i + 2);
+    s += ' C' + f(b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6) + ' ' + f(c[0] - (d[0] - b[0]) / 6, c[1] - (d[1] - b[1]) / 6) + ' ' + f(c[0], c[1]); }
+  return s;
+}
+const shipPoly = (pts, X, Y) => 'M' + pts.map(([a, b]) => X(a).toFixed(1) + ' ' + Y(b).toFixed(1)).join(' L') + ' Z';
+const shipRect = ([a, b, c, d], X, Y) => shipPoly([[a, c], [b, c], [b, d], [a, d]], X, Y);
+// a nacelle seen side-on (centre c on the cross axis), from its profile
+function shipNacelle(c, X, Y) {
+  const N = SHIPGEO.nacelle, up = N.prof.map(([p, r]) => [N.m0 + p, c - r]), dn = N.prof.map(([p, r]) => [N.m0 + p, c + r]).reverse();
+  return 'M' + X(up[0][0]).toFixed(1) + ' ' + Y(up[0][1]).toFixed(1) + shipCurve(up, X, Y) + shipCurve(dn, X, Y) + ' Z';
+}
+// side view: SVG path strings (also valid input for canvas Path2D)
+function shipSide(X, Y) {
+  const G = SHIPGEO, T = G.top, B = G.bottom, S = G.spine, O = G.archOuter, I = G.archInner.slice().reverse();
+  return {
+    hull: 'M' + X(T[0][0]) + ' ' + Y(T[0][1]) + shipCurve(T, X, Y) + ' L' + X(B[0][0]) + ' ' + Y(B[0][1]) + shipCurve(B, X, Y) + ' Z',
+    spine: 'M' + X(S[0][0]) + ' ' + Y(S[0][1]) + shipCurve(S, X, Y) + ' Z',
+    arch: 'M' + X(O[0][0]) + ' ' + Y(O[0][1]) + shipCurve(O, X, Y) + ' L' + X(I[0][0]) + ' ' + Y(I[0][1]) + shipCurve(I, X, Y) + ' Z',
+    turretDeck: shipRect(G.turretDeck, X, Y), turret: 'M' + X(G.turret[0][0]) + ' ' + Y(G.turret[0][1]) + shipCurve(G.turret, X, Y) + ' Z', barrels: shipRect(G.barrels, X, Y),
+    nacelle: shipNacelle(G.nacelle.d, X, Y), spar: shipPoly(G.spar, X, Y),
+  };
+}
+// plan view, bow left, starboard up (Z takes the cross-beam metres, starboard negative)
+function shipPlan(X, Z) {
+  const G = SHIPGEO, H = G.halfBeam, up = H.map(([m, b]) => [m, -b]), dn = H.map(([m, b]) => [m, b]).reverse();
+  return {
+    hull: 'M' + X(0) + ' ' + Z(0) + shipCurve(up, X, Z) + ' L' + X(dn[0][0]) + ' ' + Z(dn[0][1]) + shipCurve(dn, X, Z) + ' Z',
+    spine: shipRect([G.spinePlan[0], G.spinePlan[1], G.spinePlan[2], G.spinePlan[3]], X, Z), pod: shipPoly(G.pod, X, Z),
+    nacs: [-1, 1].map((sd) => shipNacelle(sd * G.nacelle.z, X, Z)), spars: [-1, 1].map((sd) => shipPoly(G.sparPlan.map(([m, z]) => [m, sd * z]), X, Z)),
+    rails: [-1, 1].map((sd) => 'M' + X(111) + ' ' + Z(sd * 7.5) + ' Q' + X(133) + ' ' + Z(sd * 3.4) + ' ' + X(155) + ' ' + Z(sd * 7.5)),
+  };
+}
+// SHIPGEO-END
+
+const ROLES = [
+  ['Command', 'The bridge pod on top of the officers’ spine: the bridge, the conference room, the ready room and the head. All built and walkable.', ['Alert condition and which stations are crewed', 'Bridge environment', 'Lift 1 position']],
+  ['Officers’ deck', 'The raised spine under the bridge, on the hull’s back: where the senior officers live, eat and look out. Built and walkable from end to end.', ['Quarters occupancy', 'Dorsal turret capacitor charge', 'Observation lounge shutters']],
+  ['Medical and officers', 'The first deck inside the main hull. Sickbay sits beside Lift 1 so casualties reach it fast; the arch feeds rise from its aft end.', ['Sickbay beds in use and casualties', 'Forward shield generator output', 'Turret magazine']],
+  ['Crew deck', 'The heart of shipboard life: the mess, the lounge and most crew berths.', ['Galley stores', 'Shield generator load by arc', 'Atmosphere on each section']],
+  ['Weapons and transport', 'The prow’s twin torpedo bays, the armory beside the transporters, the science labs and the impulse engines at the stern.', ['Torpedo bays: loaded or reloading, magazine count', 'Transporters ready', 'Impulse engine output']],
+  ['Deflector and cargo', 'The deflector up front, the first cargo bay, and main engineering’s control room.', ['Deflector status', 'Cargo bay contents', 'Auxiliary power reserve']],
+  ['Engineering and CIC', 'Main engineering’s working floor around the warp core, and the combat information center, as deep and well armored as the ship gets.', ['CIC contact count and threat level', 'Warp core output', 'Reactor temperature']],
+  ['Propulsion', 'Fuel feed into the core, nacelle field control, and the ventral beam array.', ['Ventral array charge', 'Nacelle field strength, port and starboard', 'Matter injection rate']],
+  ['Flight deck', 'The shuttlebay, opening off the stern, with flight operations beside it.', ['Shuttles aboard and launch doors', 'Bay pressure']],
+  ['Utilities', 'The first deck of the keel: water, air and waste systems, and the lower hangar.', ['Water reclamation', 'Air scrubbers']],
+  ['Fuel', 'Deuterium tanks and the antimatter storage pods that feed the core, inside the keel.', ['Antimatter containment', 'Fuel reserves']],
+  ['Keel', 'The lowest deck, along the bottom of the keel: tractor beam, keel sensors and the pod ejection system.', ['Tractor beam', 'Ejection system armed or safe']],
 ];
-// systems overlay: lifts, warp core, power trunks, torpedo feed
-const LIFTS = [[63, 66, 0, 6, 'LIFT 1'], [116, 124, 1, 12, 'LIFT 2']];
-const CORE = [140, 152, 5, 11];
+const DECKS = SHIPGEO.rooms.map((rooms, i) => ({ n: i + 1, name: ROLES[i][0], role: ROLES[i][1], shows: ROLES[i][2], rooms }));
 // damage zones (match the ship model in js/sim.js); port and starboard are shown on the plan view
 const ZONES = [
-  { id: 'prow', name: 'Prow', pts: [[0, 3.3], [24, 3.3], [24, 6.6], [0, 6.6]] },
-  { id: 'dorsal', name: 'Dorsal', pts: [[30, -0.5], [162, -0.5], [162, 2.4], [30, 2.4]] },
-  { id: 'ventral', name: 'Ventral', pts: [[20, 5.0], [100, 5.0], [112, 9.6], [194, 9.6], [194, 12.2], [118, 12.2], [100, 6.4], [20, 6.4]] },
-  { id: 'engines', name: 'Engines', pts: [[124, 4.7], [200, 4.7], [200, 9.5], [124, 9.5]] },
-  { id: 'nac', name: 'Nacelles', pts: NACELLE },
+  { id: 'prow', name: 'Prow', pts: [[0, 10], [26, 10], [26, 27], [0, 22]] },
+  { id: 'dorsal', name: 'Dorsal', pts: [[50, -8], [160, -8], [160, 10], [50, 10]] },
+  { id: 'ventral', name: 'Ventral', pts: [[40, 29], [120, 29], [120, 43], [40, 43]] },
+  { id: 'engines', name: 'Engines', pts: [[124, 12], [200, 12], [200, 34], [124, 34]] },
+  { id: 'nac', name: 'Nacelles', pts: [[134, 43.5], [199, 43.5], [199, 49.5], [134, 49.5]] },
 ];
 // ---------- state ----------
 let deck = 2, room = null, ov = 'decks';
 const svg = document.getElementById('profile'), NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const FILL = { w: 'rgba(227,162,59,.55)', n: 'rgba(227,162,59,.16)', p: 'rgba(143,195,224,.05)' };
+const X = (m) => 30 + m * 5, Y = (d) => 46 + d * 5;
+const KIND = { w: ['--peach', '--butter'], l: ['--lilac', '--plum'], s: ['--plum', '--lilac'], x: ['--rose', '--plum'], e: ['--butter', '--peach'] };
 
 function draw() {
   svg.replaceChildren();
-  const acc = css('--acc'), ice = css('--ice'), frame = css('--frame'), dim = css('--dim');
-  const defs = el('defs', {}), clip = el('clipPath', { id: 'hull' }, defs);
-  Object.values(HULL).forEach((pts) => el('path', { d: P(pts) }, clip));
-  // nacelle and spar sit on the near side, drawn first so the hull reads in front
-  el('path', { d: P(SPAR), fill: '#0E1217', stroke: ice, 'stroke-width': 1.2, 'stroke-opacity': .6 });
-  el('path', { d: P(NACELLE), fill: '#0E1217', stroke: ice, 'stroke-width': 1.5 });
-  el('line', { x1: X(142), y1: T(3.85), x2: X(194), y2: T(3.85), stroke: ice, 'stroke-width': 3, 'stroke-opacity': .55 });
-  // one outline around the whole hull: thick strokes first, fills on top, so only the outer edge shows
-  Object.values(HULL).forEach((pts) => el('path', { d: P(pts), fill: 'none', stroke: acc, 'stroke-width': 3.4, 'stroke-linejoin': 'round' }));
-  Object.values(HULL).forEach((pts) => el('path', { d: P(pts), fill: '#0C1014' }));
-  // deck bands and compartments, clipped to the hull
-  const g = el('g', { 'clip-path': 'url(#hull)' });
-  DECKS.forEach((d) => {
-    const y0 = T(d.n - 1), h = 17.5, sel = d.n === deck;
-    if (sel) el('rect', { x: 0, y: y0, width: 1060, height: h, fill: acc, 'fill-opacity': .12 }, g);
-    d.rooms.forEach((r, i) => {
-      const [a, b, , s] = r, on = sel && room === i;
-      const c = el('rect', { class: 'cell', x: X(a) + 0.6, y: y0 + 0.6, width: X(b) - X(a) - 1.2, height: h - 1.2, fill: ov === 'decks' && s !== 'p' ? acc : ice, 'fill-opacity': ov === 'decks' ? { w: .55, n: .16, p: .05 }[s] : .03, stroke: on ? css('--ink') : ov === 'decks' && s !== 'p' ? acc : '#2F3943', 'stroke-width': on ? 1.6 : .8, 'stroke-dasharray': s === 'n' && ov === 'decks' ? '3 2' : 'none' }, g);
-      c.addEventListener('click', () => { deck = d.n; room = i; render(); });
-      const t = el('title', {}, c); t.textContent = `Deck ${d.n} · ${r[2]}`;
+  const C = (v) => css(v), S = shipSide(X, Y), cream = C('--cream'), hull = C('--hull');
+  const defs = el('defs', {}), clip = el('clipPath', { id: 'hullclip' }, defs);
+  [S.hull, S.spine].forEach((d) => el('path', { d }, clip));
+  // nacelle, turret and arch read as one silhouette with the hull: thick outlines first, fills on top
+  const solid = [S.nacelle, S.hull, S.spine, S.arch, S.turretDeck, S.turret, S.barrels];
+  solid.forEach((d) => el('path', { d, fill: 'none', stroke: cream, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+  solid.forEach((d) => el('path', { d, fill: hull }));
+  // the nacelle: lilac body, butterscotch coils, rose cap at the nose
+  const nc = el('clipPath', { id: 'nacclip' }, defs); el('path', { d: S.nacelle }, nc);
+  const ng = el('g', { 'clip-path': 'url(#nacclip)' });
+  el('rect', { x: X(132), y: Y(43.5), width: 70 * 5, height: 6 * 5, fill: C('--lilac') }, ng);
+  el('rect', { x: X(132), y: Y(47.6), width: 70 * 5, height: 2 * 5, fill: C('--plum') }, ng);
+  for (let i = 0; i < 15; i++) el('rect', { x: X(141 + i * 3.4), y: Y(44.5), width: 9, height: 13, fill: C('--butter') }, ng);
+  el('rect', { x: X(132), y: Y(43.5), width: 7 * 5, height: 6 * 5, fill: C('--rose') }, ng);
+  // the arch and turret
+  el('path', { d: S.arch, fill: C('--plum') }); el('path', { d: S.turretDeck, fill: C('--plum') });
+  el('path', { d: S.turret, fill: C('--rose') }); el('path', { d: S.barrels, fill: C('--tan') });
+  // deck bands and compartments, clipped to the hull and spine
+  const g = el('g', { 'clip-path': 'url(#hullclip)' });
+  DECKS.forEach((dk) => {
+    const y0 = Y((dk.n - 1) * 3.5), h = 17.5, sel = dk.n === deck;
+    if (sel) el('rect', { x: 0, y: y0, width: 1060, height: h, fill: C('--peach'), 'fill-opacity': .18 }, g);
+    dk.rooms.forEach((r, i) => {
+      const [a, b, name, st, k, side] = r, on = sel && room === i, hy = side === 'p' ? y0 + h / 2 : y0, hh = side ? h / 2 : h;
+      const col = C(KIND[k][i % 2 && st === 'w' ? 1 : 0]);
+      const fo = ov === 'decks' ? { w: .92, n: .55, p: .38 }[st] : .1;
+      const c = el('rect', { class: 'cell', x: X(a) + 0.6, y: hy + 0.6, width: X(b) - X(a) - 1.2, height: hh - 1.2, fill: col, 'fill-opacity': fo, stroke: on ? cream : '#000', 'stroke-width': on ? 2 : 1.2 }, g);
+      c.addEventListener('click', () => { deck = dk.n; room = i; render(); });
+      const t = el('title', {}, c); t.textContent = `Deck ${dk.n} · ${name}${side ? (side === 's' ? ' (starboard)' : ' (port)') : ''}`;
     });
-    el('line', { x1: 0, y1: y0, x2: 1060, y2: y0, stroke: frame, 'stroke-width': .6 }, g);
+    el('line', { x1: 0, y1: y0, x2: 1060, y2: y0, stroke: '#000', 'stroke-width': 1.2 }, g);
   });
-  // labels inside wide cells for the selected deck
-  const sd = DECKS[deck - 1];
-  sd.rooms.forEach(([a, b, name]) => { const w = X(b) - X(a); if (w > name.length * 4.3 + 6) { const t = el('text', { x: (X(a) + X(b)) / 2, y: T(deck - 1) + 11.6, 'text-anchor': 'middle', 'font-size': 7.2, fill: css('--ink'), 'pointer-events': 'none' }, g); t.textContent = name.toUpperCase(); } });
-  // fixed details: impulse engines, deflector, shuttlebay doors, turret
-  el('rect', { x: X(127.5), y: T(2.1), width: 14, height: 12, fill: acc, 'fill-opacity': .8 });
-  el('path', { d: P([[6, 6.0], [18, 6.3], [16, 6.9], [8, 6.6]]), fill: ice, 'fill-opacity': .7 });
-  el('rect', { x: X(198), y: T(8.1), width: 4, height: 30, fill: ice, 'fill-opacity': .6 });
-  el('rect', { x: X(101), y: T(-0.75), width: 40, height: 6, fill: acc });
-  // systems overlay
+  // labels inside wide enough cells on the selected deck
+  DECKS[deck - 1].rooms.forEach(([a, b, name, st, , side]) => {
+    const w = X(b) - X(a), fs = side ? 6.6 : 8, y0 = Y((deck - 1) * 3.5), y = side === 'p' ? y0 + 14.6 : side === 's' ? y0 + 6.6 : y0 + 11.4;
+    if (w > name.length * fs * 0.5 + 6) { const t = el('text', { x: (X(a) + X(b)) / 2, y, 'text-anchor': 'middle', 'font-size': fs, fill: st === 'w' && ov === 'decks' ? '#000' : cream, 'pointer-events': 'none' }, g); t.textContent = name.toUpperCase(); }
+  });
+  // the near-side spar crosses in front of the hull: a ghost, so the decks behind it still read
+  el('path', { d: S.spar, fill: C('--lilac'), 'fill-opacity': .14, stroke: C('--lilac'), 'stroke-width': 1.4, 'stroke-dasharray': '5 3', 'pointer-events': 'none' });
+  // fixed details: deflector, impulse engines, shuttlebay doors
+  el('ellipse', { cx: X(9), cy: Y(21.4), rx: 22, ry: 7, fill: C('--butter'), transform: `rotate(-14 ${X(9)} ${Y(21.4)})`, 'pointer-events': 'none' });
+  el('rect', { x: X(197), y: Y(17), width: 12, height: 20, fill: C('--bad'), 'pointer-events': 'none' });
+  el('rect', { x: X(198.6), y: Y(28.2), width: 4, height: 16, fill: C('--butter'), 'pointer-events': 'none' });
+  // systems overlay: lifts, warp core, power trunks
   if (ov === 'systems') {
-    LIFTS.forEach(([a, b, t0, t1, name]) => { el('rect', { x: X(a), y: T(t0), width: X(b) - X(a), height: T(t1) - T(t0), fill: ice, 'fill-opacity': .35, stroke: ice }); const t = el('text', { x: X(b) + 4, y: T(t0) + 9, 'font-size': 8, fill: ice }); t.textContent = name; });
-    el('rect', { x: X(CORE[0]) + 10, y: T(CORE[2]), width: X(CORE[1]) - X(CORE[0]) - 20, height: T(CORE[3]) - T(CORE[2]), fill: acc, 'fill-opacity': .8 });
-    const tc = el('text', { x: X(CORE[1]) + 4, y: T(8) + 4, 'font-size': 8, fill: acc }); tc.textContent = 'WARP CORE';
-    [[[146, 7.5], [146, 4.6], [178, 4.6]], [[146, 5.5], [100, 5.5], [24, 5.5], [10, 4.6]], [[146, 3.6], [120, 3.6], [120, 1.6], [104, 0.2]]].forEach((pts) => el('polyline', { points: pts.map(([m, t]) => X(m) + ',' + T(t)).join(' '), fill: 'none', stroke: acc, 'stroke-width': 1.4, 'stroke-dasharray': '6 3' }));
-    const tp = el('text', { x: X(26), y: T(5.5) - 4, 'font-size': 8, fill: acc }); tp.textContent = 'POWER TRUNKS';
+    SHIPGEO.lifts.forEach(([a, b, d0, d1, name]) => { el('rect', { x: X(a), y: Y((d0 - 1) * 3.5), width: X(b) - X(a), height: (d1 - d0 + 1) * 17.5, fill: C('--lilac'), 'fill-opacity': .55, stroke: C('--lilac') }); const t = el('text', { x: X(b) + 4, y: Y((d0 - 1) * 3.5) + 10, 'font-size': 9, fill: C('--lilac') }); t.textContent = name; });
+    const [a, b, d0, d1] = SHIPGEO.core; el('rect', { x: X(a) + 10, y: Y((d0 - 1) * 3.5), width: X(b) - X(a) - 20, height: (d1 - d0 + 1) * 17.5, fill: C('--butter'), 'fill-opacity': .9 });
+    const tc = el('text', { x: X(b) + 4, y: Y(30), 'font-size': 9, fill: C('--butter') }); tc.textContent = 'WARP CORE';
+    [[[146, 19.2], [186, 19.2]], [[146, 26.2], [100, 26.2], [30, 26.2], [12, 21]], [[143, 12.3], [120, 12.3], [113, 8.5], [118, 0.6], [128, -3.6], [131, -4.4]]].forEach((pts) => el('polyline', { points: pts.map(([m, d]) => X(m) + ',' + Y(d)).join(' '), fill: 'none', stroke: C('--peach'), 'stroke-width': 1.8, 'stroke-dasharray': '6 3' }));
+    const tp = el('text', { x: X(32), y: Y(26.2) - 4, 'font-size': 9, fill: C('--peach') }); tp.textContent = 'POWER TRUNKS';
   }
   // damage zone overlay
   if (ov === 'zones') ZONES.forEach((z) => {
-    el('path', { d: P(z.pts), fill: acc, 'fill-opacity': .1, stroke: acc, 'stroke-width': 1.2, 'stroke-dasharray': '5 3' });
+    el('path', { d: shipPoly(z.pts, X, Y), fill: C('--peach'), 'fill-opacity': .12, stroke: C('--peach'), 'stroke-width': 1.4, 'stroke-dasharray': '5 3' });
     const cx = z.pts.reduce((s, p) => s + p[0], 0) / z.pts.length, cy = z.pts.reduce((s, p) => s + p[1], 0) / z.pts.length;
-    const t = el('text', { x: X(cx), y: T(cy) + 3, 'text-anchor': 'middle', 'font-size': 9, fill: css('--ink'), 'font-weight': 600 }); t.textContent = z.name.toUpperCase();
+    const t = el('text', { x: X(cx), y: Y(cy) + 3, 'text-anchor': 'middle', 'font-size': 10, fill: cream }); t.textContent = z.name.toUpperCase();
   });
-  // deck numbers on the left, bow marker
-  DECKS.forEach((d) => { const t = el('text', { x: 4, y: T(d.n - 1) + 12, 'font-size': 8, fill: d.n === deck ? acc : dim }); t.textContent = 'D' + d.n; });
-  const bow = el('text', { x: X(0), y: T(12) + 14, 'font-size': 8, fill: dim }); bow.textContent = '◂ BOW';
-  const st = el('text', { x: X(200), y: T(12) + 14, 'font-size': 8, fill: dim, 'text-anchor': 'end' }); st.textContent = 'STERN ▸ 200 M';
+  // deck numbers on the left, bow and stern marks
+  DECKS.forEach((dk) => { const t = el('text', { x: 4, y: Y((dk.n - 1) * 3.5) + 12.5, 'font-size': 9, fill: dk.n === deck ? C('--peach') : C('--tan') }); t.textContent = 'D' + dk.n; });
+  const bow = el('text', { x: X(0), y: Y(49.5) + 14, 'font-size': 9, fill: C('--tan') }); bow.textContent = '◂ BOW';
+  const st = el('text', { x: X(200), y: Y(49.5) + 14, 'font-size': 9, fill: C('--tan'), 'text-anchor': 'end' }); st.textContent = 'STERN ▸ 200 M';
 }
 
 function planSVG() {
-  const acc = css('--acc'), ice = css('--ice'), ink = css('--ink');
-  // top view, bow left; starboard is the top half, port the bottom half
-  const x = (m) => 10 + m * 1.35, y = (b) => 120 + b * 1.35;
-  const poly = (pts, f, s, extra) => `<path d="M${pts.map(([m, b]) => x(m).toFixed(1) + ' ' + y(b).toFixed(1)).join(' L')} Z" fill="${f}" stroke="${s}" stroke-width="1.4" ${extra || ''}/>`;
-  const zones = ov === 'zones';
-  let s = `<svg id="plan" viewBox="0 0 290 240" role="img" aria-label="Plan view of the Defiance, bow left">`;
-  s += poly([[150, -14], [174, -70], [182, -70], [162, -14]], '#0E1217', ice) + poly([[150, 14], [174, 70], [182, 70], [162, 14]], '#0E1217', ice);
-  s += poly([[134, -66], [196, -68], [200, -73], [194, -76], [140, -74]], '#0E1217', ice) + poly([[134, 66], [196, 68], [200, 73], [194, 76], [140, 74]], '#0E1217', ice);
-  s += poly([[112, -18], [190, -16], [199, -8], [199, 8], [190, 16], [112, 18]], '#0C1014', acc);
-  s += `<circle cx="${x(70)}" cy="${y(0)}" r="${62 * 1.35}" fill="#0C1014" stroke="${acc}" stroke-width="1.4"/>`;
-  s += poly([[0, 0], [10, -10], [16, -10], [16, 10], [10, 10]], '#0C1014', acc);
-  s += `<rect x="${x(60)}" y="${y(-9)}" width="${18 * 1.35}" height="${18 * 1.35}" fill="none" stroke="${acc}" stroke-width="1"/>`;
-  s += `<rect x="${x(76)}" y="${y(-2.5)}" width="${72 * 1.35}" height="${5 * 1.35}" fill="${acc}" fill-opacity=".5"/>`;
+  const x = (m) => 8 + m * 1.37, z = (b) => 76 + b * 1.37, P = shipPlan(x, z), C = (v) => css(v), zones = ov === 'zones';
+  const p = (d, f, s, extra) => `<path d="${d}" fill="${f}" stroke="${s}" stroke-width="1.3" ${extra || ''}/>`;
+  let s = `<svg id="plan" viewBox="0 0 290 152" role="img" aria-label="Plan view of the Defiance, bow left, starboard up">`;
+  P.spars.forEach((d) => { s += p(d, C('--plum'), C('--cream')); }); P.nacs.forEach((d) => { s += p(d, C('--lilac'), C('--cream')); });
+  s += p(P.hull, C('--hull'), C('--cream')) + p(P.spine, C('--plum'), 'none') + p(P.pod, C('--peach'), 'none');
+  P.rails.forEach((d) => { s += `<path d="${d}" fill="none" stroke="${C('--tan')}" stroke-width="2.4"/>`; });
+  s += `<circle cx="${x(133)}" cy="${z(0)}" r="${3 * 1.37}" fill="${C('--rose')}"/>`;
+  SHIPGEO.lifts.forEach(([a, b], i) => { s += `<rect x="${x(a)}" y="${z(i ? -1.5 : 1.8)}" width="${(b - a) * 1.37}" height="${1.6 * 1.37}" fill="${C('--cream')}"/>`; });
   if (zones) {
-    s += `<rect x="${x(20)}" y="${y(-62)}" width="${180 * 1.35}" height="${44 * 1.35}" fill="${acc}" fill-opacity=".1" stroke="${acc}" stroke-dasharray="5 3"/>`;
-    s += `<rect x="${x(20)}" y="${y(18)}" width="${180 * 1.35}" height="${44 * 1.35}" fill="${acc}" fill-opacity=".1" stroke="${acc}" stroke-dasharray="5 3"/>`;
-    s += `<text x="${x(60)}" y="${y(-36)}" font-size="10" fill="${ink}" text-anchor="middle" font-family="JetBrains Mono">STBD HULL</text><text x="${x(60)}" y="${y(44)}" font-size="10" fill="${ink}" text-anchor="middle" font-family="JetBrains Mono">PORT HULL</text>`;
+    s += `<rect x="${x(20)}" y="${z(-46)}" width="${150 * 1.37}" height="${40 * 1.37}" fill="${C('--peach')}" fill-opacity=".12" stroke="${C('--peach')}" stroke-dasharray="5 3"/>`;
+    s += `<rect x="${x(20)}" y="${z(6)}" width="${150 * 1.37}" height="${40 * 1.37}" fill="${C('--peach')}" fill-opacity=".12" stroke="${C('--peach')}" stroke-dasharray="5 3"/>`;
+    s += `<text x="${x(60)}" y="${z(-26)}" font-size="10" fill="${C('--cream')}" text-anchor="middle">STBD HULL</text><text x="${x(60)}" y="${z(30)}" font-size="10" fill="${C('--cream')}" text-anchor="middle">PORT HULL</text>`;
   }
-  s += `<text x="8" y="16" font-size="10" fill="${css('--dim')}" font-family="JetBrains Mono">PLAN · BOW LEFT · STARBOARD UP</text></svg>`;
+  s += `<text x="4" y="10" font-size="9" fill="${C('--tan')}">PLAN · BOW LEFT · STARBOARD UP</text></svg>`;
   return s;
 }
 
 function render() {
   const d = DECKS[deck - 1];
   draw();
-  document.getElementById('ovname').textContent = { decks: 'DECKS', systems: 'SYSTEMS: LIFTS, CORE, POWER', zones: 'DAMAGE ZONES' }[ov];
-  const status = (d) => d.rooms.some((r) => r[3] === 'w') ? ['w', 'WALKABLE'] : d.rooms.some((r) => r[3] === 'n') ? ['n', 'NEXT'] : ['p', 'PLANNED'];
-  document.getElementById('decks').innerHTML = DECKS.map((x) => { const [c, l] = status(x); return `<button class="deck" data-d="${x.n}" aria-current="${x.n === deck}"><span class="n">D${x.n}</span><span class="r">${x.name}<small>${x.rooms.length} spaces</small></span><span class="chip ${c}">${l}</span></button>`; }).join('');
-  const label = { w: 'WALKABLE', n: 'NEXT', p: 'PLANNED' };
+  document.getElementById('ovname').textContent = { decks: 'Decks', systems: 'Systems: lifts, core, power', zones: 'Damage zones' }[ov];
+  const present = new Set(DECKS.flatMap((x) => x.rooms.map((r) => r[3])));
+  document.getElementById('legend').innerHTML = [['w', 'Walkable now', '--peach', .9], ['n', 'Build next', '--peach', .45], ['p', 'Planned', '--lilac', .38]].filter(([k]) => present.has(k)).map(([, l, v, o]) => `<span><i style="background:${css(v)};opacity:${o}"></i>${l}</span>`).join('') + '<span>Split cells: starboard above, port below</span>';
+  const status = (x) => x.rooms.some((r) => r[3] === 'w') ? ['w', 'WALKABLE'] : x.rooms.some((r) => r[3] === 'n') ? ['n', 'NEXT'] : ['p', 'PLANNED'];
+  document.getElementById('decks').innerHTML = DECKS.map((x) => { const [c, l] = status(x); return `<button class="deck" data-d="${x.n}" aria-current="${x.n === deck}"><span class="n">${x.n}</span><span class="r">${x.name}<small>${x.rooms.length} spaces</small></span><span class="chip ${c}">${l}</span></button>`; }).join('');
+  const label = { w: 'WALKABLE', n: 'NEXT', p: 'PLANNED' }, sideName = { s: 'starboard', p: 'port' };
+  const order = d.rooms.map((r, i) => i).sort((a, b) => d.rooms[a][0] - d.rooms[b][0] || (d.rooms[a][5] === 's' ? -1 : 1));
   document.getElementById('detail').innerHTML = `<h2>Deck ${d.n} · ${d.name}</h2><p class="role">${d.role}</p>
-    <div class="two"><div><h3>Spaces, bow to stern</h3><ul class="rooms">${d.rooms.map((r, i) => `<li data-r="${i}" aria-selected="${room === i}"><span>${r[2]}</span><span class="chip ${r[3]}">${label[r[3]]}</span>${r[4] ? `<p>${r[4]}</p>` : ''}</li>`).join('')}</ul></div>
+    <div class="two"><div><h3>Spaces, bow to stern</h3><ul class="rooms">${order.map((i) => { const r = d.rooms[i]; return `<li tabindex="0" data-r="${i}" aria-selected="${room === i}"><span class="nm">${r[2]}${r[5] ? `<em>${sideName[r[5]]}</em>` : ''}</span><span class="chip ${r[3]}">${label[r[3]]}</span>${r[6] ? `<p>${r[6]}</p>` : ''}</li>`; }).join('')}</ul></div>
     <div><h3>What the ship display shows</h3><ul class="shows">${d.shows.map((s) => `<li>${s}</li>`).join('')}</ul><h3>Plan view</h3>${planSVG()}</div></div>`;
 }
 
-document.getElementById('stats').innerHTML = [['200 m', 'LENGTH'], ['158 m', 'BEAM'], ['44 m', 'HEIGHT'], ['12', 'DECKS'], ['140', 'CREW'], ['2', 'TURBOLIFTS'], ['DECK 1', 'WALKABLE NOW'], ['DECK 2', 'BUILD NEXT']].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
+document.getElementById('stats').innerHTML = [['200 m', 'Length'], ['101 m', 'Beam'], ['56 m', 'Height'], ['12', 'Decks'], ['140', 'Crew'], ['2', 'Turbolifts'], ['Decks 1-2', 'Walkable now']].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('');
 document.getElementById('decks').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (b) { deck = +b.dataset.d; room = null; render(); } });
-document.getElementById('detail').addEventListener('click', (e) => { const li = e.target.closest('[data-r]'); if (li) { room = +li.dataset.r; render(); } });
+const pick = (e) => { const li = e.target.closest('[data-r]'); if (li && (e.type === 'click' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); room = +li.dataset.r; render(); } };
+document.getElementById('detail').addEventListener('click', pick); document.getElementById('detail').addEventListener('keydown', pick);
 document.querySelectorAll('[data-ov]').forEach((b) => b.addEventListener('click', () => { ov = b.dataset.ov; document.querySelectorAll('[data-ov]').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); }));
 document.querySelectorAll('[data-al]').forEach((b) => b.addEventListener('click', () => { document.documentElement.classList.toggle('red', b.dataset.al === 'red'); document.querySelectorAll('[data-al]').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); }));
 render();
+// on phones the cutaway pans: open it on the walkable spine rather than the bow
+{ const ps = document.querySelector('.pscroll'); if (ps.scrollWidth > ps.clientWidth) ps.scrollLeft = (X(76) / 1060) * ps.scrollWidth - ps.clientWidth / 2; }
 }
 </script>
 </body>
