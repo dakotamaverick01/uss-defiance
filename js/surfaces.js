@@ -19,7 +19,9 @@ function installPatches(m) {
   m.onBeforeCompile = (sh) => {
     const P = m._patches, world = P.some((q) => q.world);
     const W = 'varying vec3 vWP; varying vec3 vWN; varying vec3 vON;\n';
-    let vd = world ? W : '', vb = world ? 'vWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * normal); vON = normal;\n' : '', fd = world ? W : '';
+    // world position and normal; an instanced copy (the corridor kit) also carries its instance's placement
+    const WV = '#ifdef USE_INSTANCING\nvWP = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);\n#else\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * normal);\n#endif\nvON = normal;\n';
+    let vd = world ? W : '', vb = world ? WV : '', fd = world ? W : '';
     const at = {}, before = {}, rep = {};
     if (world) at.normal_fragment_begin = 'vec3 flatN = normal;\n';
     P.forEach((q) => {
