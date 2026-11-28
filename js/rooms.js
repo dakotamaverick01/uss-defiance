@@ -27,6 +27,14 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = 'rgba(70,64,58,0.45)'; for (let x = 0; x < Wd; x += 32) g.fillRect(x, 0, 2, Hp); for (let y = 0; y < Hp; y += 32) g.fillRect(0, y, Wd, 2);
     g.fillStyle = '#4a4540'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
     g.fillStyle = '#3a3530'; g.fillRect(0, 0, Wd, Y(H - 0.18));
+  } else if (kind === 'bulk') { // working spaces: grey bulkhead panels, a darker kick band, a stencil stripe
+    g.fillStyle = '#8d8f8f'; g.fillRect(0, 0, Wd, Hp);
+    const r = mulberry(41);
+    for (let i = 0; i < 4000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'; g.fillRect(r() * Wd, r() * Hp, 1.4, 1.4); }
+    g.fillStyle = 'rgba(20,22,24,0.55)'; [0, 96].forEach((x) => g.fillRect(x, 0, 2, Hp)); [Y(0.9), Y(1.9)].forEach((y) => g.fillRect(0, y, Wd, 2));
+    g.fillStyle = 'rgba(255,255,255,0.18)'; [0, 96].forEach((x) => g.fillRect(x + 2, 0, 1, Hp));
+    g.fillStyle = '#5d6062'; g.fillRect(0, Y(0.9), Wd, Y(0.12) - Y(0.9)); g.fillStyle = '#3c3f41'; g.fillRect(0, 0, Wd, Y(H - 0.22));
+    g.fillStyle = '#b8873a'; g.fillRect(0, Y(1.35), Wd, 6); g.fillStyle = '#222'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   } else {
     g.fillStyle = '#58514a'; g.fillRect(0, 0, Wd, Y(H - 0.26));
     const gr = g.createLinearGradient(0, Y(H - 0.26), 0, Y(1.02)); gr.addColorStop(0, '#c2b39c'); gr.addColorStop(1, '#b3a48d');
@@ -40,12 +48,12 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = '#211e1b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   }
   ge.fillStyle = '#000'; ge.fillRect(0, 0, Wd, Hp);
-  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : 0.26)) - 2, Wd, 3);
+  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : kind === 'bulk' ? 0.22 : 0.26)) - 2, Wd, 3);
   return [c, e];
 }
 function roomWallMat(H, kind) {
   const [c, e] = roomWallCanvases(H, kind); const map = tex(c), em = tex(e); map.wrapS = em.wrapS = THREE.RepeatWrapping;
-  const nm = normalTex(c, kind === 'tile' ? 4 : 2.5); nm.wrapS = THREE.RepeatWrapping;
+  const nm = normalTex(c, kind === 'tile' ? 4 : kind === 'bulk' ? 3 : 2.5); nm.wrapS = THREE.RepeatWrapping;
   const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.3 });
   ROOM_WALL_MATS.push(m); return m;
 }

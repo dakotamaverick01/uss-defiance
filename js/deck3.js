@@ -254,7 +254,7 @@ function d3Light() {
   D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { lights.push([(r.x0 + r.x1 - STD.corridor.w) / 2, D3Y + H - 0.01, (r.z0 + r.z1) / 2, 1.3, 0], [LIFT_DX, D3Y + H - 0.01, r.z1 - 1.0, 1.1, 0]); });
   // fitted rooms: their own lights, which light only their own room (space k: a room's light doesn't reach the
   // corridor or the next room, and the corridor's doesn't reach in)
-  const rooms = (D3.cabins || []); rooms.forEach((c, i) => c.lights.forEach(([x, y, z, k]) => lights.push([x, D3Y + y, z, k, i + 1])));
+  const rooms = (D3.fitted || D3.cabins || []); rooms.forEach((c, i) => c.lights.forEach(([x, y, z, k]) => lights.push([x, D3Y + y, z, k, i + 1])));
   const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
   const spaceAt = (x, z) => { for (let i = 0; i < rooms.length; i++) { const b = rooms[i].bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3] && inP(rooms[i].wpoly, x, z)) return i + 1; } return 0; };
   const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
@@ -302,14 +302,14 @@ function d3Cabins(Lt) {
     (holes || []).slice().sort((p, q) => p.a - q.a).forEach((h) => { if (h.a > t) { wq(mat, P(t), P(h.a), 0, RH, n, t); kitSeg(D3, ...P(t), ...P(h.a), 0.2); }
       wq(mat, P(h.a), P(h.b), h.y1, RH, n, h.a); t = h.b; });
     if (L > t) { wq(mat, P(t), P(L), 0, RH, n, t); kitSeg(D3, ...P(t), ...P(L), 0.2); } };
-  D3.cabins = [];
-  Lt.F.spaces.forEach((s) => {
-    const Lay = shipRoomLayout(s); if (!Lay) return;
+  // a room's shell from its plan space: floor and ceiling (triangulated), walls on the inset outline with the door's
+  // opening where the snapped door is, collision lines. Returns the inset outline and its centre.
+  const shell = (s, floorMat, wMat) => {
     const dd = D3.doors.find((q) => q.s === s), wp = insetPoly(s.poly.map(W2), I), n = wp.length;
     const cx = wp.reduce((a, p) => a + p[0] / n, 0), cz = wp.reduce((a, p) => a + p[1] / n, 0);
     // floor and ceiling
     const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), []);
-    [[MAT.roomCarpet, 0.003, 1], [MAT.ceiling, RH, -1]].forEach(([mat, y, up]) => { const pos = [], nor = [], uv = [];
+    [[floorMat, 0.003, 1], [MAT.ceiling, RH, -1]].forEach(([mat, y, up]) => { const pos = [], nor = [], uv = [];
       tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = wp[a], B = wp[b], C = wp[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
         t.forEach((k) => { pos.push(wp[k][0], y, wp[k][1]); nor.push(0, up, 0); uv.push(wp[k][0] / (up > 0 ? 1 : 1.2), wp[k][1] / (up > 0 ? 1 : 1.2)); }); });
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); put(mat, g); });
@@ -318,7 +318,13 @@ function d3Cabins(Lt) {
       const d = Math.hypot(A[0] + tc * (B[0] - A[0]) - dd.x, A[1] + tc * (B[1] - A[1]) - dd.z); if (d < bd) { bd = d; de = i; dt = t * L; } });
     wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L]; let nn = [-u[1], u[0]];
       if ((cx - A[0]) * nn[0] + (cz - A[1]) * nn[1] < 0) nn = [-nn[0], -nn[1]];
-      wall(wallMat, A, B, nn, i === de ? [{ a: dt - 0.6, b: dt + 0.6, y1: 2.3 }] : null); });
+      wall(wMat, A, B, nn, i === de ? [{ a: dt - 0.6, b: dt + 0.6, y1: 2.3 }] : null); });
+    return { dd, wp, n, cx, cz };
+  };
+  D3.cabins = [];
+  Lt.F.spaces.forEach((s) => {
+    const Lay = shipRoomLayout(s); if (!Lay) return;
+    const { dd, wp, n } = shell(s, MAT.roomCarpet, wallMat);
     // the room's frame in world terms
     const at = (u, v) => W2(Lay.at(u, v)), ux = [Lay.ux[1], Lay.ux[0]], uy = [Lay.uy[1], Lay.uy[0]], mid = (i) => at((i.u0 + i.u1) / 2, (i.v0 + i.v1) / 2), neg = (v) => [-v[0], -v[1]];
     Lay.items.forEach((it) => {
@@ -355,7 +361,8 @@ function d3Cabins(Lt) {
         note: 'Walk up to the door to go in.', acts: [] }) };
     D3.rooms.unshift({ label: (s.n === 'Crew quarters' ? 'Crew cabin ' : 'Cabin ') + s.id, test: (x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const [ax, az] = wp[i], [bx, bz] = wp[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; } });
   });
-  geo.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, DECK3); m.name = 'Deck 3 cabins'; });
+  const extra = d3Rooms(Lt, { shell, put, wall, place, W2, RH, I });
+  geo.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, DECK3); m.name = 'Deck 3 rooms'; });
   // the fittings, each drawn as instances; local frames: +z faces into the room (beds: +z toward the foot)
   const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
   const bedParts = (y) => [P(RBOX(0.95, 0.3, 2.05, 0.03), WOOD, 0, y + 0.15, 0), P(RBOX(0.88, 0.18, 1.95, 0.05), CERAMIC, 0, y + 0.39, 0), P(RBOX(0.92, 0.05, 1.3, 0.02), FABRIC, 0, y + 0.5, 0.32), P(RBOX(0.6, 0.1, 0.34, 0.04), CERAMIC, 0, y + 0.53, -0.76)];
@@ -373,5 +380,146 @@ function d3Cabins(Lt) {
     shower: [P(RBOX(1.2, 0.06, 0.86, 0.02), CERAMIC, 0, 0.03, 0), P(RBOX(0.62, 1.9, 0.012, 0.004), GLASS, -0.27, 1.0, 0.45), P(CYL(0.07, 0.07, 0.02, 16), MAT.steel, 0, 2.1, -0.35)],
     cabinlight: [P(RBOX(0.9, 0.04, 0.5, 0.015), MAT.steel, 0, -0.02, 0), P((() => { const g = new THREE.PlaneGeometry(0.78, 0.38); g.rotateX(Math.PI / 2); return g; })(), downlightMat, 0, -0.045, 0)],
   };
-  D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); });
+  Object.assign(KIT, extra);
+  D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { if (!KIT[k]) { console.warn('Deck 3: no kit for', k); return; } D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); });
+}
+
+// ---------- standard rooms (roadmap C2): the deck's other ordinary rooms ----------
+// Medical lab and morgue, the forward shield generator bays, the upper computer core, the pod feeds and torpedo
+// magazine, the damage control station. Each gets the shared shell (d3Cabins' shell: bulkhead walls and deck plate in
+// the working spaces), fittings laid out in its own frame (u along the door's wall, v into the room), a grid of
+// ceiling lights (its own light space in d3Light), an opening door. Returns the fittings' kits (instanced by d3Cabins).
+// Small props (mugs, data pads, tool cases) go on desks, benches and consoles in cabins and rooms alike.
+function d3Rooms(Lt, C) {
+  const { shell, put, wall, place, W2, RH } = C, bulk = roomWallMat(RH, 'bulk'), labWall = roomWallMat(RH, 'tile'), neg = (v) => [-v[0], -v[1]];
+  const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
+  const KINDS = { 'Medical lab and morgue': 'lab', 'Forward shield generator': 'shield', 'Computer core, upper': 'core', 'Pod feeds and torpedo magazine': 'magazine', 'Damage control station': 'dc' };
+  D3.fitted = (D3.cabins || []).slice(); D3.roomsFitted = [];
+  // small props on top of a fitting: off = [along its width, out from its back, height]
+  const small = (k, p, off) => { const r = p.ry, ax = [Math.cos(r), -Math.sin(r)], az = [Math.sin(r), Math.cos(r)]; place(k, p.x + ax[0] * off[0] + az[0] * off[1], p.z + ax[1] * off[0] + az[1] * off[1], az, off[2]); };
+  const placed = (k, x, z, dir, y) => { place(k, x, z, dir, y); return { x, z, ry: Math.atan2(dir[0], dir[1]) }; };
+  // cabins' desks get a mug and a data pad
+  (D3.cabins || []).forEach((c) => { const L = shipRoomLayout(c.s), d = L.items.find((i) => i.k === 'desk'); if (!d) return;
+    const m = W2(L.at((d.u0 + d.u1) / 2, (d.v0 + d.v1) / 2)), ux = [L.ux[1], L.ux[0]], p = { x: m[0], z: m[1], ry: Math.atan2(ux[0], ux[1]) };
+    small('mug', p, [0.3, 0.05, 0.76]); small('pad', p, [-0.15, 0.08, 0.76]); });
+  Lt.F.spaces.forEach((s) => {
+    const kind = KINDS[s.n]; if (!kind) return;
+    const work = kind !== 'lab', { dd, wp, cx, cz } = shell(s, work ? MAT.floorPlate : MAT.roomCarpet, work ? bulk : labWall);
+    // the frame: u along the door's wall, v into the room
+    const nD = [-Math.sin(dd.rot), -Math.cos(dd.rot)], uy = nD, ux = [uy[1], -uy[0]], o = [dd.x, dd.z];
+    const L = (u, v) => [o[0] + ux[0] * u + uy[0] * v, o[1] + ux[1] * u + uy[1] * v], inside = (u, v, m) => { const q = L(u, v); return inP(insetPoly(wp, m || 0), q[0], q[1]); };
+    const loc = wp.map(([x, z]) => [(x - o[0]) * ux[0] + (z - o[1]) * ux[1], (x - o[0]) * uy[0] + (z - o[1]) * uy[1]]);
+    const span = (v) => { const xs = []; loc.forEach((a, i) => { const b = loc[(i + 1) % loc.length]; if ((a[1] - v) * (b[1] - v) <= 0 && a[1] !== b[1]) xs.push(a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1])); }); return xs.length > 1 ? [Math.min(...xs), Math.max(...xs)] : null; };
+    const vmax = Math.max(...loc.map((p) => p[1])), lights = [];
+    // a run of units w wide along depth v, between u0 and u1, facing dir; skip(u) leaves gaps
+    const run = (k, v, u0, u1, w, dir, skip, obsR) => { const out = []; const n = Math.floor((u1 - u0) / w); const st = u0 + (u1 - u0 - n * w) / 2;
+      for (let i = 0; i < n; i++) { const u = st + w * (i + 0.5); if (skip && skip(u)) continue; if (!inside(u - w / 2, v, 0.05) || !inside(u + w / 2, v, 0.05)) continue; const p = L(u, v); out.push(placed(k, p[0], p[1], dir)); if (obsR) kitObs(D3, p[0], p[1], obsR); }
+      return out; };
+    const near = (v) => { const q = span(v); return q ? [q[0] + 0.1, q[1] - 0.1] : [0, 0]; };
+    if (kind === 'shield') {
+      // the generator in the middle of the bay, conduits from its crown out to three walls, a console by the door
+      const g = [cx, cz]; place('shgen', g[0], g[1], uy); kitObs(D3, g[0], g[1], 2.75);
+      // a guard rail round it, open toward the door
+      { const r = 2.7, a0 = Math.atan2(-uy[0], -uy[1]); [0.55, 1.0].forEach((y) => { const t = new THREE.TorusGeometry(r, 0.025, 6, 64, Math.PI * 2 - 0.9); t.rotateX(Math.PI / 2); t.rotateY(-(a0 + 0.45) + Math.PI / 2); t.translate(g[0], y, g[1]); put(MAT.steel, t); });
+        for (let i = 0; i <= 12; i++) { const a = a0 + 0.45 + (Math.PI * 2 - 0.9) * i / 12, pst = CYL(0.03, 0.03, 1.0, 8); pst.translate(g[0] + Math.sin(a) * r, 0.5, g[1] + Math.cos(a) * r); put(MAT.steel, pst); } }
+      [[1, 0], [0, 1], [Math.SQRT1_2, Math.SQRT1_2], [-1, 0], [0, -1]].forEach(([a, b]) => { const d = [ux[0] * a + uy[0] * b, ux[1] * a + uy[1] * b]; let t = 1.3; while (t < 20 && inP(wp, g[0] + d[0] * (t + 0.3), g[1] + d[1] * (t + 0.3))) t += 0.25;
+        if (t < 2.5) return; const len = t - 1.3, cyl = CYL(0.11, 0.11, len, 10); cyl.rotateX(Math.PI / 2); cyl.rotateY(Math.atan2(d[0], d[1])); cyl.translate(g[0] + d[0] * (1.3 + len / 2), RH - 0.28, g[1] + d[1] * (1.3 + len / 2)); put(MAT.steel, cyl);
+        const cl = BOX(0.32, 0.32, 0.12); cl.rotateY(Math.atan2(d[0], d[1])); cl.translate(g[0] + d[0] * (t - 0.06), RH - 0.28, g[1] + d[1] * (t - 0.06)); put(MAT.gunDark, cl); });
+      const cu = inside(1.8, 1.6, 0.4) ? 1.8 : -1.8, cp = L(cu, 1.6), toG = [g[0] - cp[0], g[1] - cp[1]], lg = Math.hypot(...toG);
+      const con = placed('console', cp[0], cp[1], neg([toG[0] / lg, toG[1] / lg])); kitObs(D3, cp[0], cp[1], 0.55); small('case', con, [0.75, 0.0, 0]);
+    }
+    if (kind === 'core') {
+      const [a0, a1] = near(vmax - 0.5); run('rack', vmax - 0.45, a0, a1, 1.25, neg(uy), null, 0.5);
+      const [b0, b1] = near(1.55); run('rack', 1.55, b0, b1, 1.25, uy, (u) => Math.abs(u) < 1.4, 0.5);
+      const cp = L(a0 + 0.75, (1.9 + vmax - 0.8) / 2); const con = placed('console', cp[0], cp[1], ux); // at the end of the aisle, clear of the door kitObs(D3, cp[0], cp[1], 0.5); small('mug', con, [0.42, 0.15, 0.95]);
+    }
+    if (kind === 'magazine') {
+      const [a0, a1] = near(vmax - 0.5); const racks = run('torprack', vmax - 0.45, a0, a1, 2.6, neg(uy), null);
+      racks.forEach((r) => { const ax = [Math.cos(r.ry), -Math.sin(r.ry)]; [-1, 1].forEach((k) => kitObs(D3, r.x + ax[0] * k * 0.8, r.z + ax[1] * k * 0.8, 0.45)); });
+      // the loading rail along the racks with its hoist, hazard lines on the deck in front, the feed trunk up to the pod
+      const rv = vmax - 1.45, [r0, r1] = near(rv), A = L(r0 + 0.2, rv), B = L(r1 - 0.2, rv), rl = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      { const beam = BOX(rl, 0.16, 0.12); beam.rotateY(-Math.atan2(B[1] - A[1], B[0] - A[0])); beam.translate((A[0] + B[0]) / 2, RH - 0.1, (A[1] + B[1]) / 2); put(MAT.gun, beam);
+        const st = BOX(rl, 0.02, 0.1); st.rotateY(-Math.atan2(B[1] - A[1], B[0] - A[0])); st.translate((A[0] + B[0]) / 2, 0.004, (A[1] + B[1]) / 2); put(MAT.hazard, st);
+        const h = L((r0 + r1) / 2 - 1.0, rv); place('hoist', h[0], h[1], uy); }
+      const fu = inside(a1 - 0.4, 1.7, 0.7) ? a1 - 0.4 : a0 + 0.4, fp = L(fu, 1.7); place('feed', fp[0], fp[1], uy); kitObs(D3, fp[0], fp[1], 0.75);
+      const cp = L(fu > 0 ? fu - 1.9 : fu + 1.9, 1.3); const lk = placed('locker', cp[0], cp[1], fu > 0 ? ux : neg(ux)); kitObs(D3, cp[0], cp[1], 0.35);
+    }
+    if (kind === 'dc') {
+      const [a0, a1] = near(vmax - 0.35); run('locker', vmax - 0.3, a0, a1, 0.64, neg(uy), null, 0.32);
+      const sp1 = span(2.1), bp = L(sp1[0] + 0.08, 2.1); place('dcboard', bp[0], bp[1], ux);
+      [1.3, 2.0].forEach((v) => { const t = L(span(v)[1] - 0.25, v); place('tank', t[0], t[1], neg(ux)); kitObs(D3, t[0], t[1], 0.22); });
+      const bc = L(0, 2.45), bench = placed('worktable', bc[0], bc[1], uy); kitObs(D3, bc[0], bc[1], 0.75); small('case', bench, [-0.35, 0, 0.92]); small('pad', bench, [0.35, 0.1, 0.92]);
+    }
+    if (kind === 'lab') {
+      // benches along the far straight wall, cabinets along the door's wall beside the door, the morgue's drawer bank
+      // on the door's wall toward the ring with an examination table before it, an island in the middle
+      let far = null; wp.forEach((A, i) => { const B = wp[(i + 1) % wp.length], len = Math.hypot(B[0] - A[0], B[1] - A[1]); if (len < 4) return; const e = [(B[0] - A[0]) / len, (B[1] - A[1]) / len];
+        if (Math.abs(e[0] * ux[0] + e[1] * ux[1]) < 0.3 && (!far || len > far.len)) far = { A, B, len, e }; });
+      if (far) { let nn = [-far.e[1], far.e[0]]; if ((cx - far.A[0]) * nn[0] + (cz - far.A[1]) * nn[1] < 0) nn = neg(nn);
+        for (let t = 1.4; t + 0.9 < far.len - 1.0; t += 1.9) { const p = [far.A[0] + far.e[0] * (t + 0.9) + nn[0] * 0.36, far.A[1] + far.e[1] * (t + 0.9) + nn[1] * 0.36];
+          if (!inP(wp, p[0], p[1])) continue; const b = placed('labbench', p[0], p[1], nn); kitSeg(D3, p[0] - far.e[0] * 0.92 + nn[0] * 0.36, p[1] - far.e[1] * 0.92 + nn[1] * 0.36, p[0] + far.e[0] * 0.92 + nn[0] * 0.36, p[1] + far.e[1] * 0.92 + nn[1] * 0.36, 0.2);
+          small(t % 3.8 < 1.9 ? 'pad' : 'case', b, [0.55, 0.1, 0.92]); } }
+      const side = inside(3.4, 0.5, 0.2) ? 1 : -1;
+      run('cabinet', 0.32, side > 0 ? -7 : 1.4, side > 0 ? -1.4 : 7, 0.95, uy, null, 0.3);
+      const mp = L(side * 3.4, 0.45); place('morgue', mp[0], mp[1], uy); kitSeg(D3, ...L(side * 3.4 - 1.25, 0.9), ...L(side * 3.4 + 1.25, 0.9), 0.2);
+      const sp = L(side * 3.4, 2.4); place('slab', sp[0], sp[1], ux); kitObs(D3, sp[0], sp[1], 0.55);
+      // three island benches across the middle of the lab, stools at them
+      [-3.4, 0, 3.4].forEach((du, i) => { const ip = [cx + ux[0] * du, cz + ux[1] * du]; if (!inP(insetPoly(wp, 1.4), ip[0], ip[1])) return;
+        const isl = placed('labisland', ip[0], ip[1], ux); [-0.6, 0.6].forEach((k) => kitObs(D3, ip[0] + uy[0] * k, ip[1] + uy[1] * k, 0.75));
+        small(i === 1 ? 'mug' : 'pad', isl, [0.5, 0.2, 0.94]); if (i !== 1) small('case', isl, [-0.6, -0.1, 0.94]);
+        [-0.5, 0.5].forEach((k) => { const sp = [ip[0] + uy[0] * k + ux[0] * 0.95, ip[1] + uy[1] * k + ux[1] * 0.95]; place('stool', sp[0], sp[1], neg(ux)); }); });
+    }
+    // ceiling lights on a 3 m grid over the floor (not over the generator), each also a light for d3Light
+    const pts = [];
+    for (let v = 1.4; v < vmax - 0.6; v += 3.0) { const q = span(v); if (!q) continue; const n = Math.max(1, Math.round((q[1] - q[0] - 1.2) / 3.0)); for (let i = 0; i < n; i++) { const u = q[0] + 0.6 + (q[1] - q[0] - 1.2) * (i + 0.5) / n; if (inside(u, v, 0.5)) pts.push(L(u, v)); } }
+    pts.filter((p) => kind !== 'shield' || Math.hypot(p[0] - cx, p[1] - cz) > 2.4).forEach((p) => { place('roomlight', p[0], p[1], uy, RH); lights.push([p[0], RH - 0.05, p[1], 1.4]); });
+    const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]), entry = { s, kind, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights };
+    D3.fitted.push(entry); D3.roomsFitted.push(entry);
+    const door = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); if (door) door.auto = true;
+    const what = { lab: 'Lab benches, an island bench, cabinets, the morgue’s drawer bank and an examination table', shield: 'The generator housing, its conduits and a control console',
+      core: 'Two rows of core banks and a console', magazine: 'Torpedo racks, the loading rail and hoist, the feed trunk up to the weapons pod', dc: 'Repair lockers, the deck’s damage board, suppression tanks and a work table' }[kind];
+    STATIONS['d3:' + (s.id || s.n)] = { title: s.n + (s.id ? ' ' + s.id : ''), role: 'Deck 3', panel: () => ({ read: [['Inside', what]], note: 'Walk up to the door to go in.', acts: [] }) };
+    D3.rooms.unshift({ label: s.n, test: (x, z) => inP(wp, x, z) });
+  });
+  // the kits: +z faces out from the wall into the room
+  const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, R = (g, rx, ry, rz) => { const q = g.clone(); if (rx) q.rotateX(rx); if (ry) q.rotateY(ry); if (rz) q.rotateZ(rz); return q; };
+  const glow = CKIT.shieldGlow || (CKIT.shieldGlow = new THREE.MeshStandardMaterial({ color: 0x241a30, emissive: new THREE.Color(0x8a5fb0), emissiveIntensity: 0.75, roughness: 0.4 }));
+  const casing = CKIT.casing || (CKIT.casing = new THREE.MeshStandardMaterial({ color: 0x3b3f43, metalness: 0.7, roughness: 0.35, envMapIntensity: 0.8 }));
+  const red = CKIT.red || (CKIT.red = new THREE.MeshStandardMaterial({ color: 0xa8322c, metalness: 0.3, roughness: 0.4 }));
+  const caseMat = CKIT.caseMat || (CKIT.caseMat = new THREE.MeshStandardMaterial({ color: 0xb88a3a, metalness: 0.2, roughness: 0.5 }));
+  const face = (w, h, draw) => { const c = cnv(w, h), g = c.getContext('2d'); draw(g, w, h); return new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }); };
+  const rackFace = CKIT.rackFace || (CKIT.rackFace = face(128, 256, (g, w, h) => { g.fillStyle = '#0b0c0e'; g.fillRect(0, 0, w, h); const r = mulberry(5);
+    for (let y = 10; y < h - 10; y += 14) { g.fillStyle = '#16191c'; g.fillRect(8, y, w - 16, 10); for (let x = 14; x < w - 20; x += 10) if (r() < 0.45) { g.fillStyle = ['#7FB6E8', '#8DBF84', '#B693C4', '#F2C88F'][(r() * 4) | 0]; g.fillRect(x, y + 3, 4, 4); } } }));
+  const morgueFace = CKIT.morgue || (CKIT.morgue = face(256, 64, (g, w, h) => { g.fillStyle = '#d8d6d0'; g.fillRect(0, 0, w, h); g.fillStyle = '#7E5C8E'; g.fillRect(8, 8, 60, 10); g.fillStyle = '#222'; g.font = `600 22px ${DISP}`; g.fillText('MORGUE', 80, 40); }));
+  const dcFace = CKIT.dcBoard || (CKIT.dcBoard = face(512, 288, (g, w, h) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, h); elbow(g, 10, 10, 50, 14, 220, 22, true, '#E05A50');
+    g.fillStyle = '#E05A50'; g.font = `600 30px ${DISP}`; g.fillText('DAMAGE CONTROL · DECK 3', 72, 36);
+    g.strokeStyle = '#D9B07E'; g.lineWidth = 6; g.beginPath(); g.arc(180, 160, 80, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(80, 160); g.lineTo(470, 160); g.moveTo(180, 60); g.lineTo(180, 260); g.stroke();
+    [['FWD SHIELDS', 'NOMINAL', '#8DBF84'], ['HULL', 'NOMINAL', '#8DBF84'], ['LIFT 2', 'OFFLINE', '#F0B44C']].forEach(([a, b, c], i) => { g.fillStyle = '#D9B07E'; g.font = `500 22px ${DISP}`; g.fillText(a, 300, 214 + i * 26); g.fillStyle = c; g.fillText(b, 420, 214 + i * 26); }); }));
+  const padFace = CKIT.pad || (CKIT.pad = face(64, 96, (g, w, h) => { g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h); g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 30, 8); g.fillStyle = '#B693C4'; for (let y = 22; y < 86; y += 10) g.fillRect(8, y, 20 + ((y * 7) % 26), 4); }));
+  const torp = (y) => [P(R(CYL(0.26, 0.26, 1.9, 18), 0, 0, Math.PI / 2), casing, -0.1, y, 0), P(R(CYL(0.0, 0.26, 0.42, 18), 0, 0, -Math.PI / 2), casing, 1.06, y, 0), P(R(CYL(0.27, 0.27, 0.08, 18), 0, 0, Math.PI / 2), MAT.hazard, 0.7, y, 0)];
+  return {
+    shgen: [P(CYL(2.0, 2.1, 0.2, 40), MAT.gunDark, 0, 0.1, 0), P(CYL(1.5, 1.5, 1.85, 40), MAT.panel, 0, 1.12, 0), P(CYL(1.53, 1.53, 0.32, 40), glow, 0, 1.3, 0), P(CYL(1.15, 1.5, 0.3, 40), MAT.gunDark, 0, 2.2, 0)]
+      .concat([0, 1, 2, 3, 4, 5].map((i) => { const a = i * Math.PI / 3; return P(BOX(0.14, 1.85, 0.22), MAT.gunDark, Math.sin(a) * 1.55, 1.12, Math.cos(a) * 1.55); })),
+    console: [P(BOX(1.2, 0.85, 0.6), MAT.gunDark, 0, 0.425, 0), P(R(BOX(1.2, 0.05, 0.55), -0.45), MAT.gun, 0, 0.96, 0.02), P(R(new THREE.PlaneGeometry(1.0, 0.42), -Math.PI / 2 - 0.45), D3.screenMat, 0, 0.99, 0.03)],
+    rack: [P(BOX(1.2, 2.2, 0.7), MAT.gunDark, 0, 1.1, 0), P(new THREE.PlaneGeometry(1.08, 2.0), rackFace, 0, 1.1, 0.352)],
+    torprack: [P(BOX(0.1, 1.9, 0.62), MAT.gunDark, -1.25, 0.95, 0), P(BOX(0.1, 1.9, 0.62), MAT.gunDark, 1.25, 0.95, 0), P(BOX(2.5, 0.06, 0.55), MAT.gunDark, 0, 0.42, 0), P(BOX(2.5, 0.06, 0.55), MAT.gunDark, 0, 1.12, 0)].concat(torp(0.72), torp(1.42)),
+    hoist: [P(BOX(0.4, 0.28, 0.5), MAT.gunDark, 0, RH - 0.32, 0), P(CYL(0.01, 0.01, 0.6, 6), MAT.steel, 0, RH - 0.76, 0), P(BOX(0.3, 0.06, 0.06), MAT.hazard, 0, RH - 1.08, 0)],
+    feed: [P(CYL(0.6, 0.6, RH, 24), MAT.gun, 0, RH / 2, 0), P(CYL(0.72, 0.72, 0.14, 24), MAT.hazard, 0, 0.07, 0), P(BOX(0.5, 0.7, 0.04), MAT.gunDark, 0, 1.3, 0.6)],
+    locker: [P(BOX(0.6, 2.0, 0.5), MAT.panel, 0, 1.0, 0), P(BOX(0.01, 1.8, 0.01), MAT.gunDark, 0, 1.0, 0.252), ...[1.6, 1.68, 1.76].map((y) => P(BOX(0.36, 0.015, 0.01), MAT.gunDark, 0, y, 0.252)), P(BOX(0.04, 0.12, 0.03), MAT.steel, 0.2, 1.05, 0.26)],
+    dcboard: [P(BOX(1.8, 1.0, 0.05), MAT.gunDark, 0, 1.5, 0.025), P(new THREE.PlaneGeometry(1.7, 0.9), dcFace, 0, 1.5, 0.052)],
+    tank: [P(CYL(0.18, 0.18, 1.1, 16), red, 0, 0.55, 0), P(CYL(0.05, 0.05, 0.14, 8), MAT.steel, 0, 1.17, 0), P(BOX(0.42, 0.05, 0.08), MAT.gunDark, 0, 0.9, -0.16)],
+    worktable: [P(BOX(1.6, 0.05, 0.8), MAT.steel, 0, 0.9, 0), P(BOX(1.5, 0.85, 0.7), MAT.panel, 0, 0.43, 0)],
+    labbench: [P(BOX(1.82, 0.86, 0.64), MAT.panel, 0, 0.43, 0), P(BOX(1.86, 0.04, 0.7), CERAMIC, 0, 0.88, 0), P(BOX(1.86, 0.5, 0.03), CERAMIC, 0, 1.15, -0.34),
+      P(BOX(0.3, 0.36, 0.32), MAT.panel, -0.5, 1.08, -0.1), P(CYL(0.05, 0.05, 0.22, 10), MAT.gunDark, -0.5, 1.33, -0.05), P(BOX(0.5, 0.32, 0.03), MAT.gunDark, 0.25, 1.12, -0.25), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0.25, 1.12, -0.234)],
+    labisland: [P(BOX(2.4, 0.86, 1.1), MAT.panel, 0, 0.43, 0), P(BOX(2.5, 0.04, 1.2), CERAMIC, 0, 0.88, 0), P(BOX(0.4, 0.05, 0.3), MAT.steel, 0.6, 0.9, 0)],
+    cabinet: [P(BOX(0.9, 2.0, 0.5), MAT.panel, 0, 1.0, 0), P(new THREE.PlaneGeometry(0.8, 1.0), GLASS, 0, 1.45, 0.252), P(BOX(0.8, 0.02, 0.4), CERAMIC, 0, 1.2, 0.03), P(BOX(0.8, 0.02, 0.4), CERAMIC, 0, 1.6, 0.03)],
+    morgue: [P(BOX(2.5, 2.1, 0.8), MAT.steel, 0, 1.05, 0)].concat([0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => P(BOX(0.76, 0.6, 0.02), MAT.panel, (c - 1) * 0.8, 0.45 + r * 0.66, 0.41))),
+      [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => P(BOX(0.3, 0.03, 0.04), MAT.gunDark, (c - 1) * 0.8, 0.62 + r * 0.66, 0.43))), [P(new THREE.PlaneGeometry(0.8, 0.2), morgueFace, 0, 2.2, 0.401)]),
+    stool: [P(CYL(0.19, 0.19, 0.05, 14), MAT.leather, 0, 0.68, 0), P(CYL(0.025, 0.025, 0.66, 8), MAT.steel, 0, 0.34, 0), P(CYL(0.2, 0.2, 0.02, 14), MAT.steel, 0, 0.01, 0)],
+    slab: [P(BOX(0.8, 0.06, 2.0), MAT.steel, 0, 0.88, 0), P(CYL(0.08, 0.08, 0.82, 10), MAT.steel, 0, 0.42, 0), P(BOX(0.6, 0.04, 0.9), MAT.gunDark, 0, 0.02, 0)],
+    roomlight: [P(BOX(1.2, 0.04, 0.5), MAT.steel, 0, -0.02, 0), P(R(new THREE.PlaneGeometry(1.08, 0.38), Math.PI / 2), downlightMat, 0, -0.045, 0)],
+    mug: [P(CYL(0.04, 0.035, 0.09, 12), CERAMIC, 0, 0.045, 0), P(R(new THREE.TorusGeometry(0.025, 0.007, 6, 10), 0, Math.PI / 2), CERAMIC, 0.045, 0.05, 0)],
+    pad: [P(BOX(0.16, 0.012, 0.22), MAT.gunDark, 0, 0.006, 0), P(R(new THREE.PlaneGeometry(0.14, 0.2), -Math.PI / 2), padFace, 0, 0.013, 0)],
+    case: [P(BOX(0.45, 0.12, 0.32), caseMat, 0, 0.06, 0), P(BOX(0.16, 0.03, 0.03), MAT.gunDark, 0, 0.135, 0)],
+  };
 }

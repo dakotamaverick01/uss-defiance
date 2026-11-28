@@ -36,7 +36,7 @@ CHECK_JS = r"""() => {
     want.forEach((s) => { const d = D3.doors.find((q) => q.s === s); if (!d) { bad.push((s.id || s.n) + ' missing'); return; }
       const n = [Math.sin(d.rot), Math.cos(d.rot)], t = [n[1], -n[0]];
       [-0.55, 0, 0.55].forEach((u) => { const x = d.x - n[0] * 0.35 + t[0] * u, z = d.z - n[1] * 0.35 + t[1] * u; if (!inPoly(s.poly, ...w2p(x, z))) bad.push(`${s.id || s.n} opening at ${u}`); });
-      const dd = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); if (!dd || dd.deck !== 3 || dd.auto !== !!s.b) bad.push((s.id || s.n) + ' door object'); // fitted cabins open, other rooms stay sealed
+      const dd = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); const fitted = (D3.fitted || []).some((f) => f.s === s); if (!dd || dd.deck !== 3 || dd.auto !== fitted) bad.push((s.id || s.n) + ' door object'); // fitted rooms open, the rest stay sealed
       const st = STATIONS['d3:' + (s.id || s.n)]; try { if (!st || !st.panel().read.length) bad.push((s.id || s.n) + ' station'); } catch (e) { bad.push((s.id || s.n) + ' panel ' + e.message); }
       if (d.moved > 1.3) far.push(`${s.id || s.n} ${d.moved.toFixed(2)} m`); });
     ok(`every room has its door in its own wall (${want.length} doors)`, !bad.length, bad.slice(0, 6).join('; '));
@@ -90,6 +90,22 @@ CHECK_JS = r"""() => {
     DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
     ok('walk into every cabin through its door; the readout names it', !bad.length, bad.slice(0, 6).join('; '));
     ok('cabins lit by their own lights (one light space each)', D3.cabins.every((c) => c.lights.length === 2)); }
+  // C2: the other ordinary rooms fitted (lab, shield bays, core, magazine, damage control): their fittings, lights, an
+  // opening door you can walk through; sickbay (step D) and Lift 2 stay sealed
+  { const want = ['Medical lab and morgue', 'Forward shield generator', 'Computer core, upper', 'Pod feeds and torpedo magazine', 'Damage control station'];
+    const rooms = F.spaces.filter((s) => want.includes(s.n)), got = D3.roomsFitted || [], bad = [];
+    ok(`all ${rooms.length} other ordinary rooms fitted`, got.length === rooms.length && rooms.every((s) => got.some((g) => g.s === s)), got.length);
+    const c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+    ok('their fittings are in place', c('shgen') === 2 && c('rack') >= 12 && c('torprack') >= 4 && c('locker') >= 6 && c('labbench') >= 4 && c('morgue') === 1 && c('dcboard') === 1 && c('roomlight') >= 20,
+      ['shgen', 'rack', 'torprack', 'locker', 'labbench', 'morgue', 'roomlight', 'mug', 'pad', 'case'].map((k) => k + ' ' + c(k)).join(', '));
+    ok('every fitted room has its own lights', got.every((g) => g.lights.length >= 1));
+    DOORS.forEach((d) => { if (d.deck === 3 && d.auto) d.open = 1; });
+    rooms.forEach((s) => { const d = D3.doors.find((q) => q.s === s), n = [Math.sin(d.rot), Math.cos(d.rot)]; let x = d.x + n[0] * 0.75, z = d.z + n[1] * 0.75; const tx = d.x - n[0] * 1.3, tz = d.z - n[1] * 1.3;
+      for (let k = 0; k < 90; k++) { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz); if (l < 0.03) break; [x, z] = collide(x + dx / l * Math.min(0.04, l), z + dz / l * Math.min(0.04, l)); }
+      if (Math.hypot(tx - x, tz - z) > 0.08) bad.push(`${s.id} stuck at ${x.toFixed(2)},${z.toFixed(2)}`); else { player.x = tx; player.z = tz; if (liftLocation().indexOf(s.n) < 0) bad.push(s.id + ' readout ' + liftLocation()); } });
+    DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
+    ok('walk into every fitted room through its door; the readout names it', !bad.length, bad.join('; '));
+    const sealed = ['Sickbay', 'Lift 2'].map((nm) => { const sp = F.spaces.find((q) => q.n === nm); return DOORS.find((q) => q.station === 'd3:' + (sp.id || sp.n)); }); ok('sickbay and Lift 2 still sealed', sealed.every((d) => d && !d.auto)); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
