@@ -76,7 +76,7 @@ CHECK_JS = r"""() => {
   // C: cabins fitted out: every cabin has its shell, its fittings (a bed per berth, its head), a ceiling light, an
   // opening door, and you can walk in through it
   { const cabs = F.spaces.filter((s) => s.b), bad = [];
-    const count = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+    const count = (k) => D3.kitCount(k);
     ok(`all ${cabs.length} cabins fitted`, D3.cabins.length === cabs.length, D3.cabins.length);
     const beds = count('bed') + 2 * count('bunk'), berths = cabs.reduce((a, s) => a + s.b, 0);
     ok(`a bed for every berth (${berths}), a head, desk, wardrobe and light in every cabin`, beds >= berths && ['toilet', 'basin', 'shower', 'sliding', 'cabinlight', 'wardrobe'].every((k) => count(k) === cabs.length) && count('desk') >= cabs.length - 2,
@@ -105,7 +105,7 @@ CHECK_JS = r"""() => {
   { const want = ['Medical lab and morgue', 'Forward shield generator', 'Computer core, upper', 'Pod feeds and torpedo magazine', 'Damage control station'];
     const rooms = F.spaces.filter((s) => want.includes(s.n)), got = D3.roomsFitted || [], bad = [];
     ok(`all ${rooms.length} other ordinary rooms fitted`, got.length === rooms.length && rooms.every((s) => got.some((g) => g.s === s)), got.length);
-    const c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+    const c = (k) => D3.kitCount(k);
     ok('their fittings are in place', c('shgen') === 2 && c('rack') >= 12 && c('torprack') >= 4 && c('locker') >= 6 && c('labbench') >= 4 && c('morgue') === 1 && c('dcboard') === 1 && c('roomlight') >= 20,
       ['shgen', 'rack', 'torprack', 'locker', 'labbench', 'morgue', 'roomlight', 'mug', 'pad', 'case'].map((k) => k + ' ' + c(k)).join(', '));
     ok('every fitted room has its own lights', got.every((g) => g.lights.length >= 1));
@@ -118,7 +118,7 @@ CHECK_JS = r"""() => {
     const l2 = DOORS.find((q) => q.station === 'd3:Lift 2'); ok('Lift 2 still sealed', l2 && !l2.auto); }
   // D2: sickbay built from its shared layout: the fittings, glass rooms, lights; walk in through the door, round the
   // ward to the foot of bed 8, and into the surgery and the CMO's office through their glass doors; the readout names each
-  { const S = D3.sickbay, c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0, bad = [];
+  { const S = D3.sickbay, c = (k) => D3.kitCount(k), bad = [];
     ok('sickbay fitted: 9 biobeds with wall panels, operating table and lamp, consoles, station, stores, office desk', S && c('biobed') === 9 && c('bedhead') === 9 && c('optable') === 1 && c('oplamp') === 1 && c('surgcon') === 2 && c('medstation') === 1 && c('cmodesk') === 1 && c('replicator') === 1 && c('medcab') >= 8,
       ['biobed', 'bedhead', 'bedside', 'optable', 'surgcon', 'medstation', 'cmodesk', 'replicator', 'medcab'].map((k) => k + ' ' + c(k)).join(', '));
     ok('three glass rooms, each with a doorway', S && S.glassRooms.length === 3 && S.glassRooms.every((g) => g.door), S && S.glassRooms.map((g) => g.q.k + (g.door ? '' : ' (no door)')).join(', '));
@@ -150,11 +150,25 @@ CHECK_JS = r"""() => {
     state.alert = 'red'; d3Screens(10.7); const b = F3.map((f) => px(...f)), al1 = px(D3.screenMat, 296, 238, 212, 30); state.alert = was; D3.scr = null;
     ok('moving screens: biobed traces, surgical scan, status sweep move; the status screen shows the alert', a.every((v, i) => v !== b[i]) && al0 !== al1, a.map((v, i) => v !== b[i]).join(' ') + ' / alert ' + (al0 !== al1)); }
   // polish: personal things on cabin desks, chosen from each cabin's id: a mix of books, plants and mugs, the same every build
-  { const cp = D3.cabins.map((c) => c.personal || {}), n = (f) => cp.filter(f).length, c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+  { const cp = D3.cabins.map((c) => c.personal || {}), n = (f) => cp.filter(f).length, c = (k) => D3.kitCount(k);
     const books = n((p) => p.books), plants = n((p) => p.plant), mugs = n((p) => p.mug), info = `books ${books}, plants ${plants}, mugs ${mugs} of ${cp.length}`;
     ok('personal props on cabin desks, varied by cabin', books > 8 && books < 34 && plants > 8 && plants < 34 && mugs > 15 && mugs < 38 && c('books') + c('books2') === books && c('dplant') === plants, info); }
   // the nook windows on the exterior (built with Deck 2): one in the saucer's top for each nook
   { const nw = EXTSET && EXTSET.getObjectByName('Deck 3 nook windows'); ok('exterior: a lit window in the saucer’s top for each nook', nw && EXTSET.userData.nookWindows === D3.cabins.filter((c) => c.s.nookAt && c.s.nookAt.win).length, nw ? EXTSET.userData.nookWindows : 'none'); }
+  // 3b: a room's walls and fittings are drawn only while you are in it or its door is open. From the lobby with every
+  // door shut: no room drawn, no fitting kit drawn; inside cabin 3-10: that room only; with sickbay's door open as well:
+  // both; every room's walls are a group of their own
+  { const shells = D3.roomShells, kits = D3.cullKits || [], f10 = D3.fitted.find((f) => f.s.id === '3-10'), d10 = DOORS.find((q) => q.station === 'd3:3-10'), bad = [];
+    DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; }); D3.shownKey = null; d3RoomsShown(null); const dsb = D3.roomDoor.get(D3.sickbay.s);
+    const kits0 = (D3.cullKits || []).filter((m) => m.visible).length, rooms0 = [...shells.values()].filter((g) => g.visible).length;
+    if (kits0 || rooms0) bad.push(`all shut: ${kits0} kits, ${rooms0} rooms drawn`);
+    d3RoomsShown(f10); const r1 = [...shells].filter(([, g]) => g.visible).map(([s]) => s.id || s.n), beds1 = D3.cabinProps.bed.filter((m) => m.visible).map((m) => m.count);
+    if (r1.join() !== '3-10' || !beds1.length || beds1[0] !== 1) bad.push(`inside 3-10: rooms ${r1.join()} beds ${beds1.join()}`);
+    dsb.open = 1; d3RoomsShown(f10); const r2 = [...shells].filter(([, g]) => g.visible).length, bb = D3.cabinProps.biobed.filter((m) => m.visible).length;
+    if (r2 !== 2 || !bb) bad.push(`3-10 and sickbay open: ${r2} rooms, biobed kit ${bb ? 'shown' : 'hidden'}`);
+    dsb.open = 0; D3.showAllRooms = true; D3.shownKey = null; d3RoomsShown(null); const all = [...shells.values()].every((g) => g.visible) && D3.kitCount('bed') === D3.cabinProps.bed[0].count; D3.showAllRooms = false; D3.shownKey = null;
+    if (!all) bad.push('showAllRooms did not show everything');
+    ok(`rooms drawn only from inside or through an open door (${shells.size} room groups)`, shells.size >= 46 && !bad.length, bad.join('; ')); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;

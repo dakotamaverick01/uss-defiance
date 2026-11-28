@@ -306,8 +306,11 @@ function d3Light() {
 // 38 cabins cost a few dozen draws. Their doors open as you walk up.
 function d3Cabins(Lt) {
   const RH = STD.room.h, I = STD.inset, W2 = (p) => [p[1], p[0] - 64], wallMat = roomWallMat(RH, 'fabric'), tileMat = CKIT.bathWall || (CKIT.bathWall = roomWallMat(RH, 'bath'));
-  const geo = new Map(), put = (mat, g) => { if (!geo.has(mat)) geo.set(mat, []); geo.get(mat).push([g, null]); };
-  const props = {}, place = (k, x, z, dir, y) => (props[k] = props[k] || []).push({ x, z, y: y || 0, ry: Math.atan2(dir[0], dir[1]) });
+  // what is built is tagged with the room it belongs to (`cur`, a plan space), so a room's walls and fittings can be
+  // drawn only while you are in it or its door is open (roadmap 3b, d3Cull)
+  let cur = null; const room = (s) => { cur = s; };
+  const geo = new Map(), put = (mat, g) => { if (!geo.has(cur)) geo.set(cur, new Map()); const G = geo.get(cur); if (!G.has(mat)) G.set(mat, []); G.get(mat).push([g, null]); };
+  const props = {}, place = (k, x, z, dir, y) => (props[k] = props[k] || []).push({ x, z, y: y || 0, ry: Math.atan2(dir[0], dir[1]), room: cur });
   const wq = (mat, A, B, y0, y1, n, uo) => { const L = Math.hypot(B[0] - A[0], B[1] - A[1]); put(mat, kitQuad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]],
     [[uo / 1.2, y0 / RH], [(uo + L) / 1.2, y0 / RH], [(uo + L) / 1.2, y1 / RH], [uo / 1.2, y1 / RH]], [n[0], 0, n[1]])); };
   // a wall from A to B facing n, with openings [{ a, b, y1 }] along it (metres from A), and its collision line
@@ -337,7 +340,7 @@ function d3Cabins(Lt) {
   };
   D3.cabins = [];
   Lt.F.spaces.forEach((s) => {
-    const Lay = shipRoomLayout(s); if (!Lay) return;
+    const Lay = shipRoomLayout(s); if (!Lay) return; room(s);
     const { dd, wp, n } = shell(s, MAT.roomCarpet, wallMat);
     // window nook (ring cabins; John chose these, Nov 28): the bed lies in an alcove off the far wall (the shell above
     // builds its walls) under a window in the hull's top: a light well from the ceiling up to the glass, which sits
@@ -390,9 +393,13 @@ function d3Cabins(Lt) {
         note: 'Walk up to the door to go in.', acts: [] }) };
     D3.rooms.unshift({ label: (s.n === 'Crew quarters' ? 'Crew cabin ' : 'Cabin ') + s.id, test: (x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const [ax, az] = wp[i], [bx, bz] = wp[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; } });
   });
-  const extra = d3Rooms(Lt, { shell, put, wall, place, W2, RH, I });
-  Object.assign(extra, d3Sickbay(Lt, { shell, put, place, RH }));
-  geo.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, DECK3); m.name = 'Deck 3 rooms'; });
+  const extra = d3Rooms(Lt, { shell, put, wall, place, W2, RH, I, room });
+  Object.assign(extra, d3Sickbay(Lt, { shell, put, place, RH, room })); room(null);
+  // shells: one group per room (one mesh per material), left out of the merge pass so d3Cull can hide a whole room;
+  // anything built outside a room stays deck-wide
+  D3.roomShells = new Map();
+  geo.forEach((G, sp) => { const top = sp ? group(0, 0, 0, 0, DECK3) : DECK3; if (sp) { top.name = 'Deck 3 room ' + (sp.id || sp.n); top.userData.noBatch = true; D3.roomShells.set(sp, top); }
+    G.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, top); m.name = 'Deck 3 rooms'; }); });
   // the fittings, each drawn as instances; local frames: +z faces into the room (beds: +z toward the foot)
   const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
   const bedParts = (y) => [P(RBOX(0.95, 0.3, 2.05, 0.03), WOOD, 0, y + 0.15, 0), P(RBOX(0.88, 0.18, 1.95, 0.05), CERAMIC, 0, y + 0.39, 0), P(RBOX(0.92, 0.05, 1.3, 0.02), FABRIC, 0, y + 0.5, 0.32), P(RBOX(0.6, 0.1, 0.34, 0.04), CERAMIC, 0, y + 0.53, -0.76)];
@@ -415,7 +422,7 @@ function d3Cabins(Lt) {
     cabinlight: [P(RBOX(0.9, 0.04, 0.5, 0.015), MAT.steel, 0, -0.02, 0), P((() => { const g = new THREE.PlaneGeometry(0.78, 0.38); g.rotateX(Math.PI / 2); return g; })(), downlightMat, 0, -0.045, 0)],
   };
   Object.assign(KIT, extra);
-  D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { if (!KIT[k]) { console.warn('Deck 3: no kit for', k); return; } D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); });
+  D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { if (!KIT[k]) { console.warn('Deck 3: no kit for', k); return; } D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); D3.cabinProps[k].forEach((m) => { m.userData.rooms = list.map((p) => p.room); }); });
   // a little variety from cabin to cabin: each bed's blanket in one of a few colours
   { const pal = [[1, 1, 1], [1.5, 0.75, 0.6], [0.7, 0.8, 1.35], [1.25, 1.1, 0.7], [0.85, 1.25, 0.9], [1.3, 0.8, 1.2]], c = new THREE.Color(), r = mulberry(83);
     ['bed', 'bunk'].forEach((k) => (D3.cabinProps[k] || []).filter((m) => m.material === FABRIC).forEach((m) => { for (let i = 0; i < m.count; i++) { c.setRGB(...pal[(r() * pal.length) | 0]); m.setColorAt(i, c); } m.instanceColor.needsUpdate = true; })); }
@@ -436,7 +443,7 @@ function d3Rooms(Lt, C) {
   const small = (k, p, off) => { const r = p.ry, ax = [Math.cos(r), -Math.sin(r)], az = [Math.sin(r), Math.cos(r)]; place(k, p.x + ax[0] * off[0] + az[0] * off[1], p.z + ax[1] * off[0] + az[1] * off[1], az, off[2]); };
   const placed = (k, x, z, dir, y) => { place(k, x, z, dir, y); return { x, z, ry: Math.atan2(dir[0], dir[1]) }; };
   // cabins' desks get a mug and a data pad
-  (D3.cabins || []).forEach((c) => { const L = shipRoomLayout(c.s), d = L.items.find((i) => i.k === 'desk'); if (!d) return;
+  (D3.cabins || []).forEach((c) => { C.room(c.s); const L = shipRoomLayout(c.s), d = L.items.find((i) => i.k === 'desk'); if (!d) return;
     const m = W2(L.at((d.u0 + d.u1) / 2, (d.v0 + d.v1) / 2)), ux = [L.ux[1], L.ux[0]], p = { x: m[0], z: m[1], ry: Math.atan2(ux[0], ux[1]) };
     // personal things, chosen from the cabin's id (so each cabin keeps its own): books (a row, or a pile and a few
     // standing), a small plant, a mug; everyone has a data pad
@@ -446,7 +453,7 @@ function d3Rooms(Lt, C) {
     if (c.personal.books) small(c.personal.books, p, [-0.36, -0.17, 0.76]);
     if (c.personal.plant) small('dplant', p, [0.35, -0.17, 0.76]); });
   Lt.F.spaces.forEach((s) => {
-    const kind = KINDS[s.n]; if (!kind) return;
+    const kind = KINDS[s.n]; if (!kind) return; C.room(s);
     const work = kind !== 'lab', { dd, wp, cx, cz } = shell(s, work ? MAT.floorPlate : MAT.roomCarpet, work ? bulk : labWall);
     // the frame: u along the door's wall, v into the room
     const nD = [-Math.sin(dd.rot), -Math.cos(dd.rot)], uy = nD, ux = [uy[1], -uy[0]], o = [dd.x, dd.z];
@@ -600,7 +607,7 @@ function d3Rooms(Lt, C) {
 // light space in d3Light). Glass walls, frames and trim are merged into the deck's room meshes; fittings are instanced.
 // Returns the fittings' kits (d3Cabins instances them with the rest).
 function d3Sickbay(Lt, C) {
-  const { shell, put, place, RH } = C, s = Lt.F.spaces.find((q) => q.n === 'Sickbay'), Lay = s && shipSickbayLayout(s); if (!Lay) return {};
+  const { shell, put, place, RH } = C, s = Lt.F.spaces.find((q) => q.n === 'Sickbay'), Lay = s && shipSickbayLayout(s); if (!Lay) return {}; C.room(s);
   const W = (p) => [p[1], p[0] - 64], Wd = (f) => [f[1], f[0]], neg = (v) => [-v[0], -v[1]];
   // materials (kept on CKIT so a rebuild reuses them)
   const white = CKIT.medWhite || (CKIT.medWhite = new THREE.MeshStandardMaterial({ color: 0xdfe4e4, roughness: 0.38, metalness: 0.04, envMapIntensity: 0.7 }));
@@ -714,6 +721,7 @@ function d3Cull(p) {
   if (!D3.fitted) return; const x = p.x, z = p.z; let room = null;
   for (const f of D3.fitted) { const b = f.bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3]) { const P = f.wpoly; let c = false;
     for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } if (c) { room = f; break; } } }
+  d3RoomsShown(room);
   if (room === D3.cullRoom) return; D3.cullRoom = room;
   D3.doorObjs = D3.doorObjs || DOORS.filter((d) => d.deck === 3 && d.station !== 'lift').map((d) => ({ g: d.L.parent, x: d.wx, z: d.wz }));
   const dd = room && D3.doors.find((q) => q.s === room.s);
@@ -761,3 +769,27 @@ function d3Screens(t) {
       g.fillStyle = '#000'; g.fillRect(296, 238, 212, 30); g.fillStyle = A[1]; g.font = `500 24px ${DISP}`; g.fillText(A[0], 300, 262); }
     up(D); }
 }
+
+// Draw only the rooms you can see into (roadmap 3b): a fitted room's walls and fittings are drawn while you are inside
+// it or its door is open (doors open only as you come near), otherwise not at all. Each fitting kit is one instanced
+// mesh for the whole deck: the shown rooms' copies are packed to the front and only those drawn (mesh.count), so this
+// never adds draw calls; a kit with nothing shown is hidden. Rooms' shells are one group each (D3.roomShells). Only
+// does work when the set of shown rooms changes. `D3.showAllRooms = true` draws everything (checks, shots).
+function d3RoomsShown(inside) {
+  if (!D3.cabinProps || !D3.roomShells) return;
+  if (!D3.cullKits) { // first call: keep each kit's full list of copies (after the blanket tints are in)
+    D3.cullKits = []; Object.values(D3.cabinProps).forEach((ms) => ms.forEach((m) => { if (!m.userData.rooms) return;
+      m.userData.all = { mat: m.instanceMatrix.array.slice(), col: m.instanceColor ? m.instanceColor.array.slice() : null, n: m.count }; D3.cullKits.push(m); }));
+    D3.roomDoor = new Map(); (D3.fitted || []).forEach((f) => D3.roomDoor.set(f.s, DOORS.find((q) => q.station === 'd3:' + (f.s.id || f.s.n)))); }
+  const shown = new Set(); if (inside) shown.add(inside.s);
+  D3.roomDoor.forEach((d, s) => { if (D3.showAllRooms || (d && d.open > 0.002)) shown.add(s); });
+  const key = [...shown].map((s) => s.id || s.n).sort().join(','); if (key === D3.shownKey) return; D3.shownKey = key;
+  D3.roomShells.forEach((g, s) => { g.visible = shown.has(s); });
+  D3.cullKits.forEach((m) => { const A = m.userData.all, R = m.userData.rooms; let n = 0;
+    for (let i = 0; i < A.n; i++) { if (R[i] && !shown.has(R[i])) continue;
+      m.instanceMatrix.array.set(A.mat.subarray(i * 16, i * 16 + 16), n * 16); if (A.col) m.instanceColor.array.set(A.col.subarray(i * 3, i * 3 + 3), n * 3); n++; }
+    m.count = n; m.visible = n > 0; m.instanceMatrix.needsUpdate = true; if (A.col) m.instanceColor.needsUpdate = true; if (n) m.computeBoundingSphere(); });
+  D3.shownRooms = shown;
+}
+// how many copies of a fitting kit the deck has (whatever is shown right now)
+D3.kitCount = (k) => { const m = D3.cabinProps && D3.cabinProps[k] && D3.cabinProps[k][0]; return m ? (m.userData.all ? m.userData.all.n : m.count) : 0; };

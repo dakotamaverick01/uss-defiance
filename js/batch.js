@@ -166,6 +166,7 @@ function batchSleep() {
 // pass 1: a deck's fixed parts, once it is built (the bridge at load, other decks from decks.js deckBuild)
 function batchDeck(top) {
   const skip = new Set([EXTSET, holo, ...DECALS].filter(Boolean)); // decals are switched on and off with the bake
+  top.traverse((o) => { if (o.userData.noBatch) skip.add(o); }); // groups a deck shows and hides itself (Deck 3's rooms)
   SHUTTERS.forEach((s) => s.slats.forEach((x) => skip.add(x)));
   // the bridge's lift door frame takes the lift car's materials later (lift.js), so it must still be its own object
   const ld = DOORS.find((q) => q.station === 'lift'); if (ld) ld.reveal.forEach((x) => skip.add(x));
