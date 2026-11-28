@@ -368,7 +368,7 @@ function d3Cabins(Lt) {
   const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
   const bedParts = (y) => [P(RBOX(0.95, 0.3, 2.05, 0.03), WOOD, 0, y + 0.15, 0), P(RBOX(0.88, 0.18, 1.95, 0.05), CERAMIC, 0, y + 0.39, 0), P(RBOX(0.92, 0.05, 1.3, 0.02), FABRIC, 0, y + 0.5, 0.32), P(RBOX(0.6, 0.1, 0.34, 0.04), CERAMIC, 0, y + 0.53, -0.76)];
   const KIT = {
-    bed: bedParts(0).concat([P(RBOX(0.95, 1.0, 0.08, 0.02), MAT.leatherDark, 0, 0.62, -1.03)]),
+    bed: bedParts(0).concat([P(RBOX(0.95, 1.0, 0.08, 0.02), MAT.leatherDark, 0, 0.62, -1.03), P(BOX(0.86, 0.018, 0.03), downlightMat, 0, 1.125, -1.0)]),
     bunk: bedParts(0).concat(bedParts(1.15), [-1, 1].flatMap((sx) => [-1, 1].map((sz) => P(CYL(0.025, 0.025, 1.85, 8), MAT.steel, sx * 0.45, 0.92, sz * 1.0)))),
     desk: [P(RBOX(0.9, 0.04, 0.6, 0.012), WOOD, 0, 0.74, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, -0.42, 0.36, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, 0.42, 0.36, 0),
       P(RBOX(0.5, 0.32, 0.03, 0.01), MAT.gunDark, 0, 1.0, -0.22), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0, 1.0, -0.204)],
@@ -379,9 +379,9 @@ function d3Cabins(Lt) {
       CKIT.bathFloor || (CKIT.bathFloor = (() => { const c = cnv(128, 128), g = c.getContext('2d'), r = mulberry(71); g.fillStyle = '#b9bcb8'; g.fillRect(0, 0, 128, 128);
         for (let y = 0; y < 128; y += 32) for (let x = 0; x < 128; x += 32) { const v = 178 + Math.round(r() * 14); g.fillStyle = `rgb(${v},${v + 2},${v})`; g.fillRect(x + 1, y + 1, 30, 30); }
         const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.35, envMapIntensity: 0.6 }); })()), 0, 0.006, 0)],
-    toilet: [P(RBOX(0.38, 0.4, 0.5, 0.08), CERAMIC, 0, 0.2, 0.05), P(RBOX(0.38, 0.36, 0.17, 0.03), CERAMIC, 0, 0.58, -0.22), P(RBOX(0.4, 0.03, 0.46, 0.03), CERAMIC, 0, 0.42, 0.06)],
-    basin: [P(RBOX(0.46, 0.06, 0.42, 0.02), WOOD, 0, 0.82, 0), P(RBOX(0.36, 0.1, 0.3, 0.04), CERAMIC, 0, 0.88, 0.02), P(new THREE.PlaneGeometry(0.46, 0.6), MIR, 0, 1.45, -0.205), P(CYL(0.012, 0.012, 0.16, 8), MAT.steel, 0, 0.98, -0.14)],
-    shower: [P(RBOX(1.2, 0.06, 0.86, 0.02), CERAMIC, 0, 0.03, 0), P(RBOX(0.62, 1.9, 0.012, 0.004), GLASS, -0.27, 1.0, 0.45), P(CYL(0.07, 0.07, 0.02, 16), MAT.steel, 0, 2.1, -0.35)],
+    toilet: [P(RBOX(0.38, 0.4, 0.5, 0.08), CERAMIC, 0, 0.2, 0.05), P(RBOX(0.38, 0.36, 0.17, 0.03), CERAMIC, 0, 0.58, -0.22), P(RBOX(0.4, 0.03, 0.46, 0.03), CERAMIC, 0, 0.42, 0.06), P(BOX(0.16, 0.01, 0.09), MAT.steel, 0, 0.765, -0.22)],
+    basin: [P(RBOX(0.46, 0.06, 0.42, 0.02), WOOD, 0, 0.82, 0), P(RBOX(0.36, 0.1, 0.3, 0.04), CERAMIC, 0, 0.88, 0.02), P(new THREE.PlaneGeometry(0.46, 0.6), MIR, 0, 1.45, -0.205), P(CYL(0.012, 0.012, 0.16, 8), MAT.steel, 0, 0.98, -0.14), P(BOX(0.44, 0.015, 0.1), MAT.steel, 0, 1.11, -0.15), P(CYL(0.025, 0.025, 0.12, 10), FABRIC, 0.14, 1.18, -0.15)],
+    shower: [P(RBOX(1.2, 0.06, 0.86, 0.02), CERAMIC, 0, 0.03, 0), P(RBOX(0.62, 1.9, 0.012, 0.004), GLASS, -0.27, 1.0, 0.45), P(CYL(0.07, 0.07, 0.02, 16), MAT.steel, 0, 2.1, -0.35), P(CYL(0.012, 0.012, 0.9, 8), MAT.steel, 0.38, 1.35, -0.39), P(RBOX(0.05, 0.2, 0.05, 0.02), MAT.steel, 0.38, 1.55, -0.36), P(CYL(0.05, 0.05, 0.005, 12), MAT.steel, 0, 0.063, 0)],
     cabinlight: [P(RBOX(0.9, 0.04, 0.5, 0.015), MAT.steel, 0, -0.02, 0), P((() => { const g = new THREE.PlaneGeometry(0.78, 0.38); g.rotateX(Math.PI / 2); return g; })(), downlightMat, 0, -0.045, 0)],
   };
   Object.assign(KIT, extra);
@@ -512,7 +512,7 @@ function d3Rooms(Lt, C) {
     P(R(CYL(0.252, 0.252, 0.08, 28), 0, 0, Math.PI / 2), MAT.hazard, -0.55, y, 0), P(R(CYL(0.2, 0.2, 0.06, 20), 0, 0, Math.PI / 2), MAT.gunDark, -0.97, y, 0)]
     .concat([0, 1, 2, 3].map((k) => P(R(BOX(0.34, 0.02, 0.2), k * Math.PI / 2 + Math.PI / 4, 0, 0).translate(0, Math.cos(k * Math.PI / 2 + Math.PI / 4) * 0.2, Math.sin(k * Math.PI / 2 + Math.PI / 4) * 0.2), MAT.gun, -0.8, y, 0)));
   return {
-    shgen: [P(CYL(2.0, 2.1, 0.2, 40), MAT.gunDark, 0, 0.1, 0), P(CYL(1.5, 1.5, 1.85, 40), MAT.panel, 0, 1.12, 0), P(CYL(1.53, 1.53, 0.32, 40), glow, 0, 1.3, 0), P(CYL(1.15, 1.5, 0.3, 40), MAT.gunDark, 0, 2.2, 0)]
+    shgen: [P(CYL(2.0, 2.1, 0.2, 40), MAT.gunDark, 0, 0.1, 0), P(CYL(1.5, 1.5, 1.85, 40), casing, 0, 1.12, 0), P(CYL(1.53, 1.53, 0.32, 40), glow, 0, 1.3, 0), P(CYL(1.15, 1.5, 0.3, 40), MAT.gunDark, 0, 2.2, 0), P(R(new THREE.TorusGeometry(2.4, 0.04, 4, 64), Math.PI / 2), MAT.hazard, 0, 0.01, 0), P(R(new THREE.TorusGeometry(1.25, 0.03, 6, 40), Math.PI / 2), glow, 0, 2.36, 0)]
       .concat([0, 1, 2, 3, 4, 5].map((i) => { const a = i * Math.PI / 3; return P(BOX(0.14, 1.85, 0.22), MAT.gunDark, Math.sin(a) * 1.55, 1.12, Math.cos(a) * 1.55); })),
     console: [P(BOX(1.2, 0.85, 0.6), MAT.gunDark, 0, 0.425, 0), P(R(BOX(1.2, 0.05, 0.55), -0.45), MAT.gun, 0, 0.96, 0.02), P(R(new THREE.PlaneGeometry(1.0, 0.42), -Math.PI / 2 - 0.45), D3.screenMat, 0, 0.99, 0.03)],
     rack: [P(BOX(1.2, 2.45, 0.6), MAT.gunDark, 0, 1.225, -0.06), P(new THREE.PlaneGeometry(1.0, 2.1), rackFace, 0, 1.2, 0.245),
