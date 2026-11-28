@@ -619,8 +619,8 @@ function d3Sickbay(Lt, C) {
   const L = (p, k) => { place('roomlight', p[0], p[1], [0, 1], RH); lights.push([p[0], RH - 0.05, p[1], k]); };
   [24, 38, 52, 66, 80].forEach((t) => L(W(Lay.at(13.0, t)), 1.3));
   [W(Lay.at(6.5, 80)), W([64.4, -3.0])].forEach((p) => L(p, 1.2));
-  glassRooms.forEach(({ q }) => { if (q.k !== 'surgery') L(W(q.c), q.k === 'office' ? 0.9 : 1.0); });
-  { const c = W(Lay.items.find((q) => q.k === 'surgery').c); lights.push([c[0], RH - 0.5, c[1], 2.4]); }
+  glassRooms.forEach(({ q }) => { if (q.k !== 'surgery') L(W(q.c), q.k === 'office' ? 1.1 : 1.2); });
+  { const c = W(Lay.items.find((q) => q.k === 'surgery').c); lights.push([c[0], RH - 0.5, c[1], 3.2]); }
   // a light band hung round the ward, following the curved wall over the foot of the beds
   { const r = 14.2, t0 = 18, t1 = 84, n = 22; for (let i = 0; i < n; i++) { const A = W(Lay.at(r, t0 + (t1 - t0) * i / n)), B = W(Lay.at(r, t0 + (t1 - t0) * (i + 1) / n)), M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], u = [B[0] - A[0], B[1] - A[1]], l = Math.hypot(...u);
     bar(white, M, u, l + 0.01, RH - 0.06, 0.06, 0.26); bar(downlightMat, M, u, l + 0.01, RH - 0.075, 0.015, 0.18); bar(glow, M, u, l + 0.01, RH - 0.1, 0.012, 0.03);
