@@ -278,7 +278,7 @@ function buildExterior(opts) {
   }
   const NAME_AR = R.name[2] / R.name[3], REG_AR = R.reg[2] / R.reg[3]; // decal width over height = its atlas box
   // on top of the forward hull, read from aft with the letters' tops toward the bow: name, then the registry aft of it
-  { const h = 4.4, w = h * NAME_AR, mc = 33; decal((a, b) => hullTop(mc - h / 2 + b * h, (a - 0.5) * w), R.name, 24, 4); }
+  { const h = 4.4, w = h * NAME_AR, mc = 28; decal((a, b) => hullTop(mc - h / 2 + b * h, (a - 0.5) * w), R.name, 24, 4); } // forward of Deck 3's nook windows (m 33-37)
   { const h = 6.2, w = h * REG_AR, mc = 41.5; decal((a, b) => hullTop(mc - h / 2 + b * h, (a - 0.5) * w), R.reg, 16, 4); }
   // under the forward hull, read from below (left to right runs starboard to port)
   { const h = 4.4, w = h * NAME_AR, mc = 44; decal((a, b) => hullBot(mc - h / 2 + b * h, (0.5 - a) * w), R.name, 24, 4); }
@@ -764,7 +764,7 @@ function buildExterior(opts) {
 
   // warm floodlights on the hull (Deck 2 frame): position, aim point
   const FL = [
-    [[0, Y(HT(50)) + 1.2, Z(51)], [0, Y(HT(37)), Z(37)]],                      // the registry on the forward hull, from the spine's front
+    [[0, Y(HT(50)) + 1.2, Z(51)], [0, Y(HT(34)), Z(34)]],                      // the name and registry on the forward hull, from the spine's front
     [[-10, Y(HT(100)) + 0.6, Z(100)], [-9, 6.5, Z(123)]], [[10, Y(HT(100)) + 0.6, Z(100)], [9, 6.5, Z(123)]], // the rollbar, from the saucer's back
     [[0, Y(HT(108)) + 0.8, Z(108)], [0, Y(POD.d), Z(116)]],                    // the pod's launchers, from the saucer's back
     [[-26, Y(19), Z(138)], [-15, Y(24.5), Z(164)]], [[26, Y(19), Z(138)], [15, Y(24.5), Z(164)]], // the flank lettering, from the rim
