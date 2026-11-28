@@ -65,6 +65,14 @@ CHECK_JS = r"""() => {
     ok('a call panel beside every room door on Decks 2 and 3', [2, 3].every((n) => bells(n).length && bells(n).every((k) => k === 1)), [2, 3].map((n) => bells(n).join('')).join(' / '));
     const bands = D3.mods.filter((m) => m.material === CKIT.band);
     ok('section colour bands on every walled corridor piece', bands.length && bands.every((m) => m.instanceColor && m.instanceColor.count === m.count)); }
+  // light: worked out for the deck (no Blender bake files, no light-mapped surfaces), the probe grid covers every
+  // corridor piece, and under a ceiling panel the floor is brighter than the ceiling
+  { const D = BKD[3], g = D && D.meta.grid, inG = (x, z) => x >= g.origin[0] && x <= g.origin[0] + (g.dims[0] - 1) * g.step && z >= g.origin[2] && z <= g.origin[2] + (g.dims[2] - 1) * g.step;
+    ok('Deck 3 lit by its computed probes', D && D.computed && BAKE.decks[3].ok && BAKE.decks[3].receivers.length === 0 && BKU.bkPr.value === D.pr);
+    ok('probe grid covers every corridor piece', g && Lt.mods.every((d) => inG(d.x, d.z)));
+    const L = d3Light(), [X, Y] = L.dims, d = Lt.mods.find((m) => m.spoke === 0 && m.full), ix = Math.round((d.x - L.origin[0]) / L.step), iz = Math.round((d.z - L.origin[2]) / L.step);
+    const v = (iy, f) => L.data[((iz * Y + iy) * 6 * X + f * X + ix) * 4 + 1];
+    ok('floor under a panel brighter than the ceiling, the ceiling lit', v(0, 2) > v(Y - 1, 3) && v(Y - 1, 3) > 20, `floor ${v(0, 2)}, ceiling ${v(Y - 1, 3)}`); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;

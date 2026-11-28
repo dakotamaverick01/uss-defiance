@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `edf99dd`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `4023d47`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -901,6 +901,7 @@ const pal = () => {
 //   segs(), obs() collision lines and round obstacles on this deck
 //   rooms()       named rectangles { label, x0, x1, z0, z1 } for the location readout
 //   floor(x, z)   extra floor height at a point (the bridge's dais)
+//   light()       optional: the deck works out its own light (bake.js bakeComputed) instead of a Blender bake
 //   door()        the deck's own Lift 1 landing doors { L, Rr } once built (lift.js slides them with the car's)
 //   build()       builds the deck's geometry; run once, by deckBuild, the first time the lift heads there (the doors are
 //                 shut and the car is moving, so nobody sees it happen). Deck 1 is built at start-up.
@@ -920,7 +921,7 @@ deckDef(1, { built: true, made: true, envAt: [0, 1.75, 0.6], root: () => LIFT.de
 // Deck 2, the officers' deck (deck2.js)
 deckDef(2, { built: true, envAt: [1.3, 1.6, 9.0], root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms, door: () => D2.door, build: () => buildDeck2() });
 // Deck 3, medical and officers (deck3.js): corridors open, rooms sealed until fitted out
-deckDef(3, { built: true, envAt: [-2.6, 1.6, 4.2], root: () => DECK3, segs: () => D3.segs, obs: () => D3.obs, rooms: () => D3.rooms, door: () => D3.door, build: () => buildDeck3() });
+deckDef(3, { built: true, envAt: [-2.6, 1.6, 4.2], root: () => DECK3, segs: () => D3.segs, obs: () => D3.obs, rooms: () => D3.rooms, door: () => D3.door, light: () => d3Light(), build: () => buildDeck3() });
 // Decks 4 to 10: not fitted out yet
 for (let n = 4; n <= 10; n++) deckDef(n, {});
 
@@ -5056,6 +5057,8 @@ function buildDeck3() {
   D3.doors = all;
 
   d3Dress(Lt);
+  // the whole deck is lit by its computed probes (d3Light), none of it by a light map
+  DECK3.traverse((o) => { if (o.isMesh) o.userData.probeLit = true; });
 
   // ---------- where you are: the corridor runs (rectangles) and the ring ----------
   const [ocx, ocz] = d3xz(...Lt.F.P.c), W = Lt.W;
@@ -5152,6 +5155,45 @@ function d3Dress(Lt) {
     [-1, 1].forEach((sd) => { const p = mesh(RBOX(0.3, H, 0.3, 0.03), MAT.gunDark, ox + u[0] * t + v[0] * sd * (W + 0.08), H / 2, oz + u[1] * t + v[1] * sd * (W + 0.08), DECK3); p.rotation.y = Math.atan2(u[0], u[1]); }); });
 }
 
+// Deck 3's light, worked out here instead of baked (John, Nov 27: corridors only need a simple pass): a probe grid over
+// the deck, lit by every corridor module's ceiling panel and the lobby's downlights (the white layer) and by the cove
+// lights along the walls (the alert-tinted layer), with a soft share of bounced light. Each probe stores, for six
+// directions, the light falling on a surface facing that way (the format bake.js reads). Walls don't block light here:
+// the corridors are narrow and far apart, so light reaching a room's side of a wall doesn't show.
+function d3Light() {
+  const Lt = D3.layout, H = D3C, W = Lt.W, step = 0.5, y0 = D3Y + 0.15, lights = [], coves = [];
+  Lt.mods.forEach((d) => { lights.push([d.x, D3Y + H - 0.05, d.z, d.sz < 0.5 ? 0.5 : 1]);
+    [[-1, d.L], [1, d.R]].forEach(([sd, k]) => { if (k === 'o') return; for (let u = -0.75; u <= 0.75; u += 0.5) { const p = d3ModPt(d, sd * (W - 0.15), 0, u); coves.push([p[0], D3Y + H - 0.28, p[2]]); } }); });
+  D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { lights.push([(r.x0 + r.x1 - STD.corridor.w) / 2, D3Y + H - 0.01, (r.z0 + r.z1) / 2, 1.3], [LIFT_DX, D3Y + H - 0.01, r.z1 - 1.0, 1.1]); });
+  const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
+  const X = Math.ceil((Math.max(...xs) + 3 - x0) / step) + 1, Z = Math.ceil((Math.max(...zs) + 3 - z0) / step) + 1, Y = Math.floor((H - 0.4) / step) + 1; // layers stay below the ceiling (it samples the top one)
+  // spatial hash, 4 m cells
+  const cell = (x, z) => Math.floor(x / 4) + ',' + Math.floor(z / 4), hash = (list) => { const m = new Map(); list.forEach((l) => { const k = cell(l[0], l[2]); if (!m.has(k)) m.set(k, []); m.get(k).push(l); }); return m; };
+  const HL = hash(lights), HC = hash(coves), near = (M, x, z) => { const out = [], cx = Math.floor(x / 4), cz = Math.floor(z / 4); for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const l = M.get((cx + i) + ',' + (cz + j)); if (l) out.push(...l); } return out; };
+  const PW = 2.4, PS = 0.3, IP = 2.3, IC = 0.035, COL = [1.0, 0.93, 0.84], N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  const data = new Uint8Array(6 * X * Y * Z * 4), E = new Float32Array(6), S = new Float32Array(6);
+  for (let iz = 0; iz < Z; iz++) for (let ix = 0; ix < X; ix++) {
+    const px = x0 + ix * step, pz = z0 + iz * step, LL = near(HL, px, pz), CC = near(HC, px, pz);
+    const direct = (py) => { E.fill(0); LL.forEach(([lx, ly, lz, k]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 49) return;
+      const r = Math.sqrt(r2), cl = Math.max(0, dy / r), a = IP * k * Math.pow(cl, 1.5) / (r2 + 0.35);
+      N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) E[f] += a * c; }); }); };
+    direct(D3Y + 0.02); const floorLit = E[2]; // the light on the floor below: it bounces back up onto the ceiling
+    for (let iy = 0; iy < Y; iy++) {
+      const py = y0 + iy * step; S.fill(0); direct(py);
+      CC.forEach(([lx, ly, lz]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 16) return;
+        const r = Math.sqrt(r2), a = IC / (r2 + 0.25); N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) S[f] += a * c; }); });
+      // bounce: a share of the light on the walls to every side, and the lit floor back up onto the ceiling
+      const avg = (E[0] + E[1] + E[4] + E[5]) / 4; for (let f = 0; f < 6; f++) E[f] += 0.3 * avg; E[3] += 0.4 * floorLit;
+      for (let f = 0; f < 6; f++) {
+        const t = ((iz * Y + iy) * 6 * X + f * X + ix) * 4, w = Math.min(1, E[f] / PW);
+        data[t] = Math.round(255 * Math.sqrt(w * COL[0])); data[t + 1] = Math.round(255 * Math.sqrt(w * COL[1])); data[t + 2] = Math.round(255 * Math.sqrt(w * COL[2]));
+        data[t + 3] = Math.round(255 * Math.sqrt(Math.min(1, S[f] / PS)));
+      }
+    }
+  }
+  return { origin: [x0, y0, z0], step, dims: [X, Y, Z], data, pr_max: [PW, PS], lm: 140 };
+}
+
 ````
 
 ---
@@ -5217,6 +5259,7 @@ const PLANAR = { PlaneGeometry: 1, ShapeGeometry: 1, CircleGeometry: 1 };
 // shown, not counting a deck's own group (a deck is laid out while it is still hidden, as the lift heads there)
 function bakeLive(o) { for (let p = o; p; p = p.parent) if (!p.visible && !(p.parent === scene && Object.values(DECKS).some((d) => d.n !== 1 && d.root() === p))) return false; return true; }
 function isReceiver(o) {
+  if (o.userData.probeLit) return false; // a deck lit by its own computed probes only (deck3.js)
   if (!o.isMesh || o.layers.mask !== 1 || !PLANAR[o.geometry.type] || Array.isArray(o.material)) return false;
   const m = o.material; if (!m.isMeshStandardMaterial || m.transparent || !bakeLive(o)) return false;
   o.geometry.computeBoundingBox(); const s = new THREE.Vector3(); o.geometry.boundingBox.getSize(s);
@@ -5373,6 +5416,16 @@ function bakeProvisional(n) {
     meta: Object.assign({}, m, { deck: n, atlas: B.atlas, grid: { origin: [0, y + 1.4, 0], step: 1000, dims: [1, 1, 1] } }) };
   console.warn('Deck ' + n + ' has no light bake yet: using provisional light (bake it with tools/bake_export.py . <work> ' + n + ')');
 }
+// A deck that works out its own light (decks.js light(): corridors whose fixtures are known, deck3.js) instead of a
+// Blender bake: L = { origin, step, dims [X, Y, Z], data (Uint8Array, six direction blocks side by side, RGBA = sqrt of
+// the white light / pr_max[0] and of the alert-tinted light / pr_max[1]), pr_max, lm }.
+function bakeComputed(n, L) {
+  const B = BAKE.decks[n], ref = BKD[1]; if (!B || !ref || BKD[n]) return;
+  const [X, Y, Z] = L.dims, pr = new THREE.Data3DTexture(L.data, 6 * X, Y, Z); pr.minFilter = pr.magFilter = THREE.LinearFilter; pr.unpackAlignment = 1; pr.needsUpdate = true;
+  const t1 = (v) => { const t = new THREE.DataTexture(new Uint8Array([v, v, v, 255]), 1, 1); t.needsUpdate = true; return t; };
+  BKD[n] = { computed: true, lmW: t1(L.lm || 140), lmS: t1(0), pr,
+    meta: Object.assign({}, ref.meta, { deck: n, atlas: B.atlas, grid: { origin: L.origin, step: L.step, dims: L.dims }, pr_max: L.pr_max }) };
+}
 // Point the shared uniforms at deck n's bake (on arrival; lift.js). False if that deck has no bake applied.
 function bakeUse(n) {
   const D = BKD[n]; if (!D || !BAKE.decks[n] || !BAKE.decks[n].ok) return false;
@@ -5387,7 +5440,7 @@ function bakeUse(n) {
 // the light map, every other lit interior material the probes. A material used both ways is copied for the other use.
 // Returns true when the deck's bake is in place (batch.js then merges its light-mapped surfaces).
 function bakeApply(n) {
-  if (BAKE.ok && !BKD[n]) bakeProvisional(n); // after start-up, a deck without files gets the provisional light
+  if (BAKE.ok && !BKD[n]) { const L = deckOf(n).light; if (L) bakeComputed(n, L()); else bakeProvisional(n); } // no files: computed or provisional light
   const B = BAKE.decks[n], D = BKD[n]; if (!B || !D || B.ok) return false;
   const A = D.meta.atlas;
   if (A.w !== B.atlas.w || A.h !== B.atlas.h || A.sig !== B.atlas.sig) { console.warn('Deck ' + n + ': bake does not match the deck; re-run its bake (see README)'); return false; }
@@ -5417,7 +5470,7 @@ BAKE.ready = (async () => {
   await SURF.ready(); // textures first, so every material is final before it is patched
   if (window.DEFIANCE_NO_BAKE) throw new Error('bake disabled');
   // every built deck's files, side by side; only Deck 1's are needed to start
-  const loads = Object.values(DECKS).filter((d) => d.built).map((d) => bakeFetch(d.n).catch((e) => console.warn('Deck ' + d.n + ' bake unavailable:', e.message)));
+  const loads = Object.values(DECKS).filter((d) => d.built && !d.light).map((d) => bakeFetch(d.n).catch((e) => console.warn('Deck ' + d.n + ' bake unavailable:', e.message)));
   await Promise.all(loads);
   if (!BKD[1]) throw new Error('no bake for Deck 1');
   if (!bakeApply(1)) throw new Error('bake does not match the scene; re-run the bake (see README)');

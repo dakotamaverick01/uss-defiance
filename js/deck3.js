@@ -143,6 +143,8 @@ function buildDeck3() {
   D3.doors = all;
 
   d3Dress(Lt);
+  // the whole deck is lit by its computed probes (d3Light), none of it by a light map
+  DECK3.traverse((o) => { if (o.isMesh) o.userData.probeLit = true; });
 
   // ---------- where you are: the corridor runs (rectangles) and the ring ----------
   const [ocx, ocz] = d3xz(...Lt.F.P.c), W = Lt.W;
@@ -237,4 +239,43 @@ function d3Dress(Lt) {
   // posts closing the ring crossings' outer corners (the ring's outer edge is a little wider than the spoke)
   Lt.F.P.spokes.forEach(([a]) => { const r = a * Math.PI / 180, u = [Math.sin(r), Math.cos(r)], v = [u[1], -u[0]], [ox, oz] = d3xz(...Lt.F.P.c), t = Lt.dc + W + 0.1;
     [-1, 1].forEach((sd) => { const p = mesh(RBOX(0.3, H, 0.3, 0.03), MAT.gunDark, ox + u[0] * t + v[0] * sd * (W + 0.08), H / 2, oz + u[1] * t + v[1] * sd * (W + 0.08), DECK3); p.rotation.y = Math.atan2(u[0], u[1]); }); });
+}
+
+// Deck 3's light, worked out here instead of baked (John, Nov 27: corridors only need a simple pass): a probe grid over
+// the deck, lit by every corridor module's ceiling panel and the lobby's downlights (the white layer) and by the cove
+// lights along the walls (the alert-tinted layer), with a soft share of bounced light. Each probe stores, for six
+// directions, the light falling on a surface facing that way (the format bake.js reads). Walls don't block light here:
+// the corridors are narrow and far apart, so light reaching a room's side of a wall doesn't show.
+function d3Light() {
+  const Lt = D3.layout, H = D3C, W = Lt.W, step = 0.5, y0 = D3Y + 0.15, lights = [], coves = [];
+  Lt.mods.forEach((d) => { lights.push([d.x, D3Y + H - 0.05, d.z, d.sz < 0.5 ? 0.5 : 1]);
+    [[-1, d.L], [1, d.R]].forEach(([sd, k]) => { if (k === 'o') return; for (let u = -0.75; u <= 0.75; u += 0.5) { const p = d3ModPt(d, sd * (W - 0.15), 0, u); coves.push([p[0], D3Y + H - 0.28, p[2]]); } }); });
+  D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { lights.push([(r.x0 + r.x1 - STD.corridor.w) / 2, D3Y + H - 0.01, (r.z0 + r.z1) / 2, 1.3], [LIFT_DX, D3Y + H - 0.01, r.z1 - 1.0, 1.1]); });
+  const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
+  const X = Math.ceil((Math.max(...xs) + 3 - x0) / step) + 1, Z = Math.ceil((Math.max(...zs) + 3 - z0) / step) + 1, Y = Math.floor((H - 0.4) / step) + 1; // layers stay below the ceiling (it samples the top one)
+  // spatial hash, 4 m cells
+  const cell = (x, z) => Math.floor(x / 4) + ',' + Math.floor(z / 4), hash = (list) => { const m = new Map(); list.forEach((l) => { const k = cell(l[0], l[2]); if (!m.has(k)) m.set(k, []); m.get(k).push(l); }); return m; };
+  const HL = hash(lights), HC = hash(coves), near = (M, x, z) => { const out = [], cx = Math.floor(x / 4), cz = Math.floor(z / 4); for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const l = M.get((cx + i) + ',' + (cz + j)); if (l) out.push(...l); } return out; };
+  const PW = 2.4, PS = 0.3, IP = 2.3, IC = 0.035, COL = [1.0, 0.93, 0.84], N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  const data = new Uint8Array(6 * X * Y * Z * 4), E = new Float32Array(6), S = new Float32Array(6);
+  for (let iz = 0; iz < Z; iz++) for (let ix = 0; ix < X; ix++) {
+    const px = x0 + ix * step, pz = z0 + iz * step, LL = near(HL, px, pz), CC = near(HC, px, pz);
+    const direct = (py) => { E.fill(0); LL.forEach(([lx, ly, lz, k]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 49) return;
+      const r = Math.sqrt(r2), cl = Math.max(0, dy / r), a = IP * k * Math.pow(cl, 1.5) / (r2 + 0.35);
+      N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) E[f] += a * c; }); }); };
+    direct(D3Y + 0.02); const floorLit = E[2]; // the light on the floor below: it bounces back up onto the ceiling
+    for (let iy = 0; iy < Y; iy++) {
+      const py = y0 + iy * step; S.fill(0); direct(py);
+      CC.forEach(([lx, ly, lz]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 16) return;
+        const r = Math.sqrt(r2), a = IC / (r2 + 0.25); N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) S[f] += a * c; }); });
+      // bounce: a share of the light on the walls to every side, and the lit floor back up onto the ceiling
+      const avg = (E[0] + E[1] + E[4] + E[5]) / 4; for (let f = 0; f < 6; f++) E[f] += 0.3 * avg; E[3] += 0.4 * floorLit;
+      for (let f = 0; f < 6; f++) {
+        const t = ((iz * Y + iy) * 6 * X + f * X + ix) * 4, w = Math.min(1, E[f] / PW);
+        data[t] = Math.round(255 * Math.sqrt(w * COL[0])); data[t + 1] = Math.round(255 * Math.sqrt(w * COL[1])); data[t + 2] = Math.round(255 * Math.sqrt(w * COL[2]));
+        data[t + 3] = Math.round(255 * Math.sqrt(Math.min(1, S[f] / PS)));
+      }
+    }
+  }
+  return { origin: [x0, y0, z0], step, dims: [X, Y, Z], data, pr_max: [PW, PS], lm: 140 };
 }

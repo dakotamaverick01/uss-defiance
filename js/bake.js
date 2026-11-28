@@ -24,6 +24,7 @@ const PLANAR = { PlaneGeometry: 1, ShapeGeometry: 1, CircleGeometry: 1 };
 // shown, not counting a deck's own group (a deck is laid out while it is still hidden, as the lift heads there)
 function bakeLive(o) { for (let p = o; p; p = p.parent) if (!p.visible && !(p.parent === scene && Object.values(DECKS).some((d) => d.n !== 1 && d.root() === p))) return false; return true; }
 function isReceiver(o) {
+  if (o.userData.probeLit) return false; // a deck lit by its own computed probes only (deck3.js)
   if (!o.isMesh || o.layers.mask !== 1 || !PLANAR[o.geometry.type] || Array.isArray(o.material)) return false;
   const m = o.material; if (!m.isMeshStandardMaterial || m.transparent || !bakeLive(o)) return false;
   o.geometry.computeBoundingBox(); const s = new THREE.Vector3(); o.geometry.boundingBox.getSize(s);
@@ -180,6 +181,16 @@ function bakeProvisional(n) {
     meta: Object.assign({}, m, { deck: n, atlas: B.atlas, grid: { origin: [0, y + 1.4, 0], step: 1000, dims: [1, 1, 1] } }) };
   console.warn('Deck ' + n + ' has no light bake yet: using provisional light (bake it with tools/bake_export.py . <work> ' + n + ')');
 }
+// A deck that works out its own light (decks.js light(): corridors whose fixtures are known, deck3.js) instead of a
+// Blender bake: L = { origin, step, dims [X, Y, Z], data (Uint8Array, six direction blocks side by side, RGBA = sqrt of
+// the white light / pr_max[0] and of the alert-tinted light / pr_max[1]), pr_max, lm }.
+function bakeComputed(n, L) {
+  const B = BAKE.decks[n], ref = BKD[1]; if (!B || !ref || BKD[n]) return;
+  const [X, Y, Z] = L.dims, pr = new THREE.Data3DTexture(L.data, 6 * X, Y, Z); pr.minFilter = pr.magFilter = THREE.LinearFilter; pr.unpackAlignment = 1; pr.needsUpdate = true;
+  const t1 = (v) => { const t = new THREE.DataTexture(new Uint8Array([v, v, v, 255]), 1, 1); t.needsUpdate = true; return t; };
+  BKD[n] = { computed: true, lmW: t1(L.lm || 140), lmS: t1(0), pr,
+    meta: Object.assign({}, ref.meta, { deck: n, atlas: B.atlas, grid: { origin: L.origin, step: L.step, dims: L.dims }, pr_max: L.pr_max }) };
+}
 // Point the shared uniforms at deck n's bake (on arrival; lift.js). False if that deck has no bake applied.
 function bakeUse(n) {
   const D = BKD[n]; if (!D || !BAKE.decks[n] || !BAKE.decks[n].ok) return false;
@@ -194,7 +205,7 @@ function bakeUse(n) {
 // the light map, every other lit interior material the probes. A material used both ways is copied for the other use.
 // Returns true when the deck's bake is in place (batch.js then merges its light-mapped surfaces).
 function bakeApply(n) {
-  if (BAKE.ok && !BKD[n]) bakeProvisional(n); // after start-up, a deck without files gets the provisional light
+  if (BAKE.ok && !BKD[n]) { const L = deckOf(n).light; if (L) bakeComputed(n, L()); else bakeProvisional(n); } // no files: computed or provisional light
   const B = BAKE.decks[n], D = BKD[n]; if (!B || !D || B.ok) return false;
   const A = D.meta.atlas;
   if (A.w !== B.atlas.w || A.h !== B.atlas.h || A.sig !== B.atlas.sig) { console.warn('Deck ' + n + ': bake does not match the deck; re-run its bake (see README)'); return false; }
@@ -224,7 +235,7 @@ BAKE.ready = (async () => {
   await SURF.ready(); // textures first, so every material is final before it is patched
   if (window.DEFIANCE_NO_BAKE) throw new Error('bake disabled');
   // every built deck's files, side by side; only Deck 1's are needed to start
-  const loads = Object.values(DECKS).filter((d) => d.built).map((d) => bakeFetch(d.n).catch((e) => console.warn('Deck ' + d.n + ' bake unavailable:', e.message)));
+  const loads = Object.values(DECKS).filter((d) => d.built && !d.light).map((d) => bakeFetch(d.n).catch((e) => console.warn('Deck ' + d.n + ' bake unavailable:', e.message)));
   await Promise.all(loads);
   if (!BKD[1]) throw new Error('no bake for Deck 1');
   if (!bakeApply(1)) throw new Error('bake does not match the scene; re-run the bake (see README)');
