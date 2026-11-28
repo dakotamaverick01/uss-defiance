@@ -59,6 +59,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `rooms.js` | Ready room, conference room, head, window views |
   | `lighting.js` | The one live light (viewscreen warp glow) and a fallback rig if the bake can't load |
   | `bake.js` | Loads the baked light and adds it to every interior material |
+  | `batch.js` | Merges fixed objects that share a material into one per deck, material and 6 m zone (and inside each moving part, like a chair or a door leaf) to cut draw calls; `tools/check_budget.py` checks the result per deck |
   | `collision.js` | Walking collision |
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |

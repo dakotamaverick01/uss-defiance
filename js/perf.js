@@ -29,7 +29,7 @@
 #perf button.on{background:#E8A06A;color:#000}#perf small{color:#b9a98f;display:block;margin-top:6px;word-break:break-word}#perf table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px}#perf td{padding:2px 4px;border-top:1px solid #3a2f44}#perf td+td{text-align:right}#perf .x{position:absolute;right:8px;top:6px;min-height:28px;background:none;color:#E8A06A}`;
   document.head.appendChild(css);
   const el = document.createElement('div'); el.id = 'perf'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Performance');
-  el.innerHTML = `<button class="x" aria-label="Close">✕</button><h2>PERFORMANCE · P TO CLOSE</h2><div><span class="big" id="pf-fps">--</span> fps &nbsp; <span id="pf-ms">--</span></div>
+  el.innerHTML = `<button class="x" aria-label="Close">✕</button><h2>PERFORMANCE · P TO CLOSE</h2><div><span class="big" id="pf-fps">--</span> fps &nbsp; <span id="pf-ms">--</span></div><div id="pf-calls">--</div>
 <div class="row"><span>Resolution</span></div><div class="row" data-k="res"></div>
 <div class="row"><span>Soft contact shadows</span></div><div class="row" data-k="ao"></div>
 <div class="row"><span>Edge smoothing</span></div><div class="row" data-k="aa"></div>
@@ -52,9 +52,13 @@
   if (location.hash === '#perf') toggle(true);
 
   // frame timing: frames per second and the average and slowest frame over the last second
-  let last = performance.now(), n = 0, sum = 0, worst = 0, acc = 0, cpuSum = 0;
+  // draw calls and triangles per frame: the renderer's counters add up over a whole frame (every pass, the viewscreen,
+  // the screens) and are read and cleared here once a frame
+  renderer.info.autoReset = false;
+  let last = performance.now(), n = 0, sum = 0, worst = 0, acc = 0, cpuSum = 0, calls = 0, tris = 0;
   const tick = () => { const now = performance.now(), dt = now - last; last = now; n++; sum += dt; cpuSum += PERF_OPT.cpu; worst = Math.max(worst, dt); acc += dt;
-    if (acc >= 1000) { if (!el.hidden) { $('pf-fps').textContent = Math.round(n * 1000 / acc); $('pf-ms').textContent = `${(sum / n).toFixed(1)} ms avg · ${worst.toFixed(0)} ms slowest · processor ${(cpuSum / n).toFixed(1)} ms`; } cpuSum = 0; n = 0; sum = 0; worst = 0; acc = 0; }
+    calls += renderer.info.render.calls; tris += renderer.info.render.triangles; renderer.info.reset();
+    if (acc >= 1000) { if (!el.hidden) { $('pf-fps').textContent = Math.round(n * 1000 / acc); $('pf-ms').textContent = `${(sum / n).toFixed(1)} ms avg · ${worst.toFixed(0)} ms slowest · processor ${(cpuSum / n).toFixed(1)} ms`; $('pf-calls').textContent = `${Math.round(calls / n)} draw calls · ${Math.round(tris / n / 1000)}k triangles a frame · Deck ${LIFT.deck}`; } cpuSum = 0; calls = 0; tris = 0; n = 0; sum = 0; worst = 0; acc = 0; }
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 
