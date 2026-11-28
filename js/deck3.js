@@ -372,11 +372,12 @@ function d3Cabins(Lt) {
   // the fittings, each drawn as instances; local frames: +z faces into the room (beds: +z toward the foot)
   const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
   const bedParts = (y) => [P(RBOX(0.95, 0.3, 2.05, 0.03), WOOD, 0, y + 0.15, 0), P(RBOX(0.88, 0.18, 1.95, 0.05), CERAMIC, 0, y + 0.39, 0), P(RBOX(0.92, 0.05, 1.3, 0.02), FABRIC, 0, y + 0.5, 0.32), P(RBOX(0.6, 0.1, 0.34, 0.04), CERAMIC, 0, y + 0.53, -0.76)];
+  const RB = (w, h, d, r) => r <= 0.012 ? BOX(w, h, d) : RBOX(w, h, d, r); // a 1 cm round isn't seen at walking distance; 190 triangles a part x 38 cabins is
   const KIT = {
     bed: bedParts(0).concat([P(RBOX(0.95, 1.0, 0.08, 0.02), MAT.leatherDark, 0, 0.62, -1.03), P(BOX(0.86, 0.018, 0.03), downlightMat, 0, 1.125, -1.0)]),
     bunk: bedParts(0).concat(bedParts(1.15), [-1, 1].flatMap((sx) => [-1, 1].map((sz) => P(CYL(0.025, 0.025, 1.85, 8), MAT.steel, sx * 0.45, 0.92, sz * 1.0)))),
-    desk: [P(RBOX(0.9, 0.04, 0.6, 0.012), WOOD, 0, 0.74, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, -0.42, 0.36, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, 0.42, 0.36, 0),
-      P(RBOX(0.5, 0.32, 0.03, 0.01), MAT.gunDark, 0, 1.0, -0.22), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0, 1.0, -0.204)],
+    desk: [P(RB(0.9, 0.04, 0.6, 0.012), WOOD, 0, 0.74, 0), P(RB(0.04, 0.72, 0.56, 0.01), WOOD, -0.42, 0.36, 0), P(RB(0.04, 0.72, 0.56, 0.01), WOOD, 0.42, 0.36, 0),
+      P(RB(0.5, 0.32, 0.03, 0.01), MAT.gunDark, 0, 1.0, -0.22), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0, 1.0, -0.204)],
     chair: [P(RBOX(0.46, 0.06, 0.46, 0.02), MAT.leather, 0, 0.46, 0), P(RBOX(0.46, 0.5, 0.06, 0.02), MAT.leather, 0, 0.75, -0.22), P(CYL(0.03, 0.03, 0.42, 8), MAT.steel, 0, 0.22, 0), P(CYL(0.24, 0.24, 0.03, 16), MAT.steel, 0, 0.02, 0)],
     wardrobe: [P(RBOX(0.8, 2.05, 0.58, 0.02), WOOD, 0, 1.025, 0), P(BOX(0.012, 1.7, 0.012), MAT.steel, 0, 1.025, 0.295)],
     sliding: [P(RBOX(0.72, 2.1, 0.03, 0.01), CERAMIC, 0, 1.05, 0)],
@@ -413,7 +414,13 @@ function d3Rooms(Lt, C) {
   // cabins' desks get a mug and a data pad
   (D3.cabins || []).forEach((c) => { const L = shipRoomLayout(c.s), d = L.items.find((i) => i.k === 'desk'); if (!d) return;
     const m = W2(L.at((d.u0 + d.u1) / 2, (d.v0 + d.v1) / 2)), ux = [L.ux[1], L.ux[0]], p = { x: m[0], z: m[1], ry: Math.atan2(ux[0], ux[1]) };
-    small('mug', p, [0.3, 0.05, 0.76]); small('pad', p, [-0.15, 0.08, 0.76]); });
+    // personal things, chosen from the cabin's id (so each cabin keeps its own): books (a row, or a pile and a few
+    // standing), a small plant, a mug; everyone has a data pad
+    const r = mulberry([...c.s.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7)); r(); const b = r();
+    c.personal = { mug: r() < 0.75, books: b < 0.4 ? 'books' : b < 0.7 ? 'books2' : null, plant: r() < 0.5 };
+    if (c.personal.mug) small('mug', p, [0.3, 0.05, 0.76]); small('pad', p, [-0.15, 0.08, 0.76]);
+    if (c.personal.books) small(c.personal.books, p, [-0.36, -0.17, 0.76]);
+    if (c.personal.plant) small('dplant', p, [0.35, -0.17, 0.76]); });
   Lt.F.spaces.forEach((s) => {
     const kind = KINDS[s.n]; if (!kind) return;
     const work = kind !== 'lab', { dd, wp, cx, cz } = shell(s, work ? MAT.floorPlate : MAT.roomCarpet, work ? bulk : labWall);
@@ -510,6 +517,7 @@ function d3Rooms(Lt, C) {
     g.fillStyle = '#E05A50'; g.font = `600 30px ${DISP}`; g.fillText('DAMAGE CONTROL · DECK 3', 72, 36);
     g.strokeStyle = '#D9B07E'; g.lineWidth = 6; g.beginPath(); g.arc(180, 160, 80, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(80, 160); g.lineTo(470, 160); g.moveTo(180, 60); g.lineTo(180, 260); g.stroke();
     [['FWD SHIELDS', 'NOMINAL', '#8DBF84'], ['HULL', 'NOMINAL', '#8DBF84'], ['LIFT 2', 'OFFLINE', '#F0B44C']].forEach(([a, b, c], i) => { g.fillStyle = '#D9B07E'; g.font = `500 22px ${DISP}`; g.fillText(a, 300, 214 + i * 26); g.fillStyle = c; g.fillText(b, 420, 214 + i * 26); }); }));
+  const bookMat = CKIT.books || (CKIT.books = [0x8a2f2a, 0x2a4470, 0xc09040].map((c) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c).convertSRGBToLinear(), roughness: 0.75, envMapIntensity: 0.2 })));
   const padFace = CKIT.pad || (CKIT.pad = face(64, 96, (g, w, h) => { g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h); g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 30, 8); g.fillStyle = '#B693C4'; for (let y = 22; y < 86; y += 10) g.fillRect(8, y, 20 + ((y * 7) % 26), 4); }));
   // a photon torpedo: a turned casing (lathe) lying along x, nose to +x, a lit warhead band, four tail fins, a hazard ring
   const torpGeo = CKIT.torpGeo || (CKIT.torpGeo = (() => { const pts = [[0.0, -1.0], [0.1, -0.99], [0.15, -0.9], [0.19, -0.86], [0.23, -0.7], [0.25, -0.5], [0.25, 0.45], [0.235, 0.62], [0.19, 0.8], [0.11, 0.94], [0.0, 1.0]].map(([r, y]) => new THREE.Vector2(r, y));
@@ -547,6 +555,14 @@ function d3Rooms(Lt, C) {
     slab: [P(BOX(0.8, 0.06, 2.0), MAT.steel, 0, 0.88, 0), P(CYL(0.08, 0.08, 0.82, 10), MAT.steel, 0, 0.42, 0), P(BOX(0.6, 0.04, 0.9), MAT.gunDark, 0, 0.02, 0)],
     roomlight: [P(BOX(1.2, 0.04, 0.5), MAT.steel, 0, -0.02, 0), P(R(new THREE.PlaneGeometry(1.08, 0.38), Math.PI / 2), downlightMat, 0, -0.045, 0)],
     mug: [P(CYL(0.04, 0.035, 0.09, 12), CERAMIC, 0, 0.045, 0), P(R(new THREE.TorusGeometry(0.025, 0.007, 6, 10), 0, Math.PI / 2), CERAMIC, 0.045, 0.05, 0)],
+    // personal props on cabin desks: books in three cover colours (a row standing; or a pile with two standing) and a
+    // small potted plant (a few low-poly leaves)
+    books: [[-0.055, 0.21, 0.028, 0], [-0.025, 0.235, 0.03, 1], [0.006, 0.19, 0.026, 2], [0.034, 0.22, 0.03, 0], [0.062, 0.2, 0.024, 1]]
+      .map(([x, hh, t, m]) => P(BOX(t, hh, 0.15), bookMat[m], x, hh / 2, 0)),
+    books2: [[0.035, 0.2, 2], [0.07, 0.17, 1]].map(([y, w, m], i) => P(R(BOX(w, 0.035, 0.15), 0, i * 0.2), bookMat[m], 0, y - 0.0175, 0))
+      .concat([P(BOX(0.028, 0.2, 0.14), bookMat[0], -0.07, 0.1, 0), P(BOX(0.025, 0.18, 0.13), bookMat[2], 0.1, 0.09, 0)]),
+    dplant: [P(CYL(0.05, 0.04, 0.09, 10), POT, 0, 0.045, 0)].concat([0, 1, 2, 3, 4, 5].map((i) => { const a = i / 6 * Math.PI * 2 + (i % 2) * 0.3, t = 0.45 + (i % 3) * 0.2;
+      const g = new THREE.SphereGeometry(1, 5, 3); g.scale(0.02, 0.085, 0.008); g.translate(0, 0.08, 0); g.rotateX(t); g.rotateY(a); g.translate(0, 0.09, 0); return { geo: g, mat: LEAF }; })),
     pad: [P(BOX(0.16, 0.012, 0.22), MAT.gunDark, 0, 0.006, 0), P(R(new THREE.PlaneGeometry(0.14, 0.2), -Math.PI / 2), padFace, 0, 0.013, 0)],
     case: [P(BOX(0.45, 0.12, 0.32), caseMat, 0, 0.06, 0), P(BOX(0.16, 0.03, 0.03), MAT.gunDark, 0, 0.135, 0)],
   };

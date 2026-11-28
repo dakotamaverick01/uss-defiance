@@ -139,6 +139,10 @@ CHECK_JS = r"""() => {
     state.alert = 'green'; D3.scr = null; d3Screens(10); const a = F3.map((f) => px(...f)), al0 = px(D3.screenMat, 296, 238, 212, 30);
     state.alert = 'red'; d3Screens(10.7); const b = F3.map((f) => px(...f)), al1 = px(D3.screenMat, 296, 238, 212, 30); state.alert = was; D3.scr = null;
     ok('moving screens: biobed traces, surgical scan, status sweep move; the status screen shows the alert', a.every((v, i) => v !== b[i]) && al0 !== al1, a.map((v, i) => v !== b[i]).join(' ') + ' / alert ' + (al0 !== al1)); }
+  // polish: personal things on cabin desks, chosen from each cabin's id: a mix of books, plants and mugs, the same every build
+  { const cp = D3.cabins.map((c) => c.personal || {}), n = (f) => cp.filter(f).length, c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+    const books = n((p) => p.books), plants = n((p) => p.plant), mugs = n((p) => p.mug), info = `books ${books}, plants ${plants}, mugs ${mugs} of ${cp.length}`;
+    ok('personal props on cabin desks, varied by cabin', books > 8 && books < 34 && plants > 8 && plants < 34 && mugs > 15 && mugs < 38 && c('books') + c('books2') === books && c('dplant') === plants, info); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
