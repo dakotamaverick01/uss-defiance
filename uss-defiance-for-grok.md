@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `84eb5e8`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `aebb089`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -7453,6 +7453,17 @@ function whoosh(up) {
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.5, t0 + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
   n.connect(bp); bp.connect(g); g.connect(master); n.start(t0); n.stop(t0 + 1.7);
 }
+// a footstep (roadmap 3): a soft low thud on carpet, a short bright tap on tile, a dull ring on deck plate; k is how
+// fast you were walking (0..1). Quiet, and a little different each time.
+function footstep(kind, k) {
+  if (!AC || !soundOn || !noiseBuf) return; const t0 = AC.currentTime, v = (0.5 + 0.5 * k) * (0.85 + Math.random() * 0.3);
+  const S = { carpet: [180, 0.8, 0.09, 0.06], tile: [2300, 1.4, 0.05, 0.035], plate: [700, 6, 0.06, 0.12] }[kind] || [180, 0.8, 0.09, 0.06];
+  const n = AC.createBufferSource(); n.buffer = noiseBuf; const bp = AC.createBiquadFilter(); bp.type = kind === 'carpet' ? 'lowpass' : 'bandpass'; bp.frequency.value = S[0] * (0.9 + Math.random() * 0.2); bp.Q.value = S[1];
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(S[2] * v * 4, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + S[3] + 0.02);
+  n.connect(bp); bp.connect(g); g.connect(master); n.start(t0, Math.random() * 3); n.stop(t0 + S[3] + 0.05);
+  if (kind === 'plate') { const o = AC.createOscillator(), og = AC.createGain(); o.type = 'triangle'; o.frequency.value = 310 + Math.random() * 40;
+    og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.012 * v, t0 + 0.004); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18); o.connect(og); og.connect(master); o.start(t0); o.stop(t0 + 0.2); }
+}
 $('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn; if (master) master.gain.value = soundOn ? 0.7 : 0;
   $('sound-btn').setAttribute('aria-pressed', String(soundOn));
@@ -8033,6 +8044,13 @@ function liftDoorSound() {
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.18, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
   n.connect(hp); hp.connect(g); g.connect(master); n.start(t0, Math.random() * 2); n.stop(t0 + 0.75);
 }
+// the doors sealing before the car moves: a short low thunk (roadmap 3)
+function liftSealSound() {
+  if (!AC || !soundOn) return; const t0 = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine';
+  o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.18);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.22, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+  o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3);
+}
 function liftRideSound(dur, down) {
   if (!AC || !soundOn || !noiseBuf) return; const t0 = AC.currentTime, t1 = t0 + dur;
   const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(48, t0); o.frequency.linearRampToValueAtTime(down ? 62 : 78, t0 + dur * 0.4); o.frequency.linearRampToValueAtTime(48, t1);
@@ -8080,13 +8098,15 @@ function liftUpdate(dt) {
     if (LIFT.hiss) { LIFT.hiss = false; liftDoorSound(); }
     if (LIFT.door < 0.02 && LIFT.t > 0.6) {
       LIFT.phase = 'moving'; LIFT.t = 0; LIFT.dur = Math.min(5, 2.2 + 0.55 * Math.abs(LIFT.to - LIFT.from));
+      LIFT.dip = 0; liftSealSound(); // the doors seal: a low thunk and the car's lights dip for a moment (roadmap 3)
       liftSetDeck(LIFT.to); liftRideSound(LIFT.dur, LIFT.to > LIFT.from);
     }
   } else if (LIFT.phase === 'moving') {
     const a = clamp(LIFT.t / LIFT.dur, 0, 1), dir = LIFT.to > LIFT.from ? 1 : -1;
     // a little lift when the car starts down (and a sink when it starts up), easing out as it settles
-    if (!reduceMotion) LIFT.shake = 0.03 * dir * Math.sin(Math.PI * a) * (1 - a) + 0.0025 * Math.sin(LIFT.t * 43) * Math.sin(Math.PI * a);
-    const e = a * a * (3 - 2 * a); LIFT.root.position.y = deckY(LIFT.from) + (deckY(LIFT.to) - deckY(LIFT.from)) * e;
+    // and a slow, slight sway on the way (roadmap 3)
+    if (!reduceMotion) LIFT.shake = 0.03 * dir * Math.sin(Math.PI * a) * (1 - a) + 0.0025 * Math.sin(LIFT.t * 43) * Math.sin(Math.PI * a) + 0.005 * Math.sin(LIFT.t * 5.3) * Math.sin(Math.PI * a);
+    const e = a * a * a * (a * (6 * a - 15) + 10); // smootherstep: starts and stops more gently than smoothstep LIFT.root.position.y = deckY(LIFT.from) + (deckY(LIFT.to) - deckY(LIFT.from)) * e;
     if (inside) player.y = LIFT.root.position.y + EYE;
     if (a >= 1) {
       LIFT.root.position.y = deckY(LIFT.to);
@@ -8095,12 +8115,14 @@ function liftUpdate(dt) {
     }
   } else if (LIFT.phase === 'opening') {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
+    if (!reduceMotion && LIFT.t < 0.45) LIFT.shake = -0.012 * Math.sin(Math.PI * LIFT.t / 0.45) * (1 - LIFT.t / 0.45); // the car settles as it stops
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
   [LIFT.stubDoor, ...Object.values(DECKS).map((d) => d.door && d.door())].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (each deck's exist once it is built)
   LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
-  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
+  let k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
+  if (LIFT.dip !== undefined && LIFT.dip < 0.6) { LIFT.dip += dt; k *= 1 - 0.35 * Math.sin(Math.PI * Math.min(1, LIFT.dip / 0.6)); if (LIFT.dip >= 0.6) k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1); }
   if (k !== LIFT.k) { LIFT.k = k; LIFT.mats.forEach((m) => { m.lightMapIntensity = m.userData.lmBase * k; }); LUM.forEach((m) => m.color.setHex(state.alert === 'red' ? 0xffb0a0 : 0xffffff).multiplyScalar(LIFT.lum * Math.min(1, 0.4 + 0.6 * k))); }
   CAR_SLOT.color.copy(SLOT.color).multiplyScalar(0.22);
   const key = liftPanelKey(); LIFT.panels.forEach((p) => { if (p.key !== key) liftPanelDraw(p); });
@@ -8452,6 +8474,17 @@ const clock = { last: performance.now(), getDelta() { const n = performance.now(
 const _scrPM = new THREE.Matrix4(), _scrFr = new THREE.Frustum();
 let wasWarp = false, rr = 0, rrTimer = 0, panelTimer = 0, ovTimer = 0, bobT = 0, bobAmp = 0;
 const standV = new THREE.Vector3();
+// walking state (roadmap 3): velocity, distance walked (drives the bob and footsteps), the last footfall, turn rate
+const walk = { vx: 0, vz: 0, dist: 0, step: -1, yaw: null, yr: 0 }, STRIDE = 0.75;
+// what's underfoot, from where you are (checked once a step): deck plate in working spaces and the lift car, tile in
+// sickbay, the lab and the heads, carpet everywhere else
+function surfaceUnder() {
+  if (LIFT.inside) return 'plate'; const loc = typeof liftLocation === 'function' ? liftLocation() : '';
+  if (/Sickbay|lab|morgue/i.test(loc)) return 'tile';
+  if (/shield|core|magazine|damage control|Lift 2/i.test(loc)) return 'plate';
+  if (LIFT.deck === 3 && D3.cabins) { const L = D3.headLights || []; if (L.some(([x, , z]) => Math.hypot(player.x - x, player.z - z) < 0.75)) return 'tile'; }
+  return 'carpet';
+}
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 
 let simLast = performance.now(), livePanelT = 0;
@@ -8471,10 +8504,14 @@ function frame() {
     if (keys.ArrowLeft) player.yaw += 1.9 * dt; if (keys.ArrowRight) player.yaw -= 1.9 * dt;
     if (stick.active) { f += -stick.dy; s += stick.dx; }
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
-    if (len > 0.02) {
-      const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw), sp = 2.2;
-      [player.x, player.z] = collide(player.x + (-sy * f + cy * s) * sp * dt, player.z + (-cy * f - sy * s) * sp * dt);
-    }
+    // walking feel (roadmap 3): you speed up at about 6 m/s² and stop at about 9 m/s² instead of jumping to full speed;
+    // when a wall stops you, so does your speed. Distance walked drives the bob and the footsteps.
+    { const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw), sp = 2.2, tx = (-sy * f + cy * s) * sp, tz = (-cy * f - sy * s) * sp;
+      const dx = tx - walk.vx, dz = tz - walk.vz, dl = Math.hypot(dx, dz), a = (len > 0.02 ? 6 : 9) * dt;
+      if (dl > a) { walk.vx += dx / dl * a; walk.vz += dz / dl * a; } else { walk.vx = tx; walk.vz = tz; }
+      if (Math.hypot(walk.vx, walk.vz) > 1e-3) { const ox = player.x, oz = player.z; [player.x, player.z] = collide(player.x + walk.vx * dt, player.z + walk.vz * dt);
+        const mx = (player.x - ox) / dt, mz = (player.z - oz) / dt; if (Math.hypot(mx, mz) < Math.hypot(walk.vx, walk.vz)) { walk.vx = mx; walk.vz = mz; }
+        walk.dist += Math.hypot(player.x - ox, player.z - oz); } }
     player.y += (floorH(player.x, player.z) + EYE - player.y) * Math.min(1, dt * 10);
   } else if (sitBlend < 0.995) {
     const k = 1 - Math.exp(-dt * 5); player.yaw += wrapA(0 - player.yaw) * k; player.pitch += (-0.04 - player.pitch) * k;
@@ -8482,9 +8519,13 @@ function frame() {
   sitBlend = clamp(sitBlend + (state.sitting ? dt : -dt) * 1.6, 0, 1);
   const eb = sitBlend * sitBlend * (3 - 2 * sitBlend);
   standV.set(player.x, player.y, player.z);
-  const moving = !state.sitting && (stick.active || keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD || keys.ArrowUp || keys.ArrowDown);
-  bobAmp += ((moving && !reduceMotion ? 1 : 0) - bobAmp) * Math.min(1, dt * 6); bobT += dt * 8.5 * bobAmp;
-  standV.y += Math.sin(bobT) * 0.018 * bobAmp;
+  // the bob follows your steps (a stride of 0.75 m: the head dips at each footfall), its size your speed; a footstep sound
+  // on each footfall, by what you walk on. A slight roll lags your turns (under 0.6°). Reduced motion: no bob or roll.
+  { const spd = state.sitting ? 0 : Math.hypot(walk.vx, walk.vz); bobAmp += ((reduceMotion ? 0 : Math.min(1, spd / 2.2)) - bobAmp) * Math.min(1, dt * 6);
+    bobT = walk.dist / STRIDE * Math.PI * 2; const step = Math.floor(walk.dist / STRIDE);
+    if (step !== walk.step) { if (walk.step >= 0 && spd > 0.5 && typeof footstep === 'function') footstep(surfaceUnder(), Math.min(1, spd / 2.2)); walk.step = step; }
+    const yr = walk.yaw === null ? 0 : clamp(wrapA(player.yaw - walk.yaw) / Math.max(dt, 1e-3), -4, 4); walk.yaw = player.yaw; walk.yr += (yr - walk.yr) * Math.min(1, dt * 4); }
+  standV.y -= (1 + Math.cos(bobT)) * 0.5 * 0.022 * bobAmp; // lowest as each foot lands
   if (heroCam) {
     camera.position.copy(heroCam.p); camera.lookAt(heroCam.t);
   } else if (attract && !$('intro').hidden) {
@@ -8496,7 +8537,7 @@ function frame() {
   } else {
     if (attract) { attract = false; }
     camera.position.copy(standV).lerp(SEAT, eb); camera.position.y += LIFT.shake;
-    camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp, 'YXZ');
+    camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp + (reduceMotion ? 0 : clamp(walk.yr * 0.004, -0.0105, 0.0105)), 'YXZ');
   }
   camera.updateMatrixWorld();
 

@@ -259,6 +259,13 @@ function liftDoorSound() {
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.18, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
   n.connect(hp); hp.connect(g); g.connect(master); n.start(t0, Math.random() * 2); n.stop(t0 + 0.75);
 }
+// the doors sealing before the car moves: a short low thunk (roadmap 3)
+function liftSealSound() {
+  if (!AC || !soundOn) return; const t0 = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine';
+  o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.18);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.22, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+  o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3);
+}
 function liftRideSound(dur, down) {
   if (!AC || !soundOn || !noiseBuf) return; const t0 = AC.currentTime, t1 = t0 + dur;
   const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(48, t0); o.frequency.linearRampToValueAtTime(down ? 62 : 78, t0 + dur * 0.4); o.frequency.linearRampToValueAtTime(48, t1);
@@ -306,13 +313,15 @@ function liftUpdate(dt) {
     if (LIFT.hiss) { LIFT.hiss = false; liftDoorSound(); }
     if (LIFT.door < 0.02 && LIFT.t > 0.6) {
       LIFT.phase = 'moving'; LIFT.t = 0; LIFT.dur = Math.min(5, 2.2 + 0.55 * Math.abs(LIFT.to - LIFT.from));
+      LIFT.dip = 0; liftSealSound(); // the doors seal: a low thunk and the car's lights dip for a moment (roadmap 3)
       liftSetDeck(LIFT.to); liftRideSound(LIFT.dur, LIFT.to > LIFT.from);
     }
   } else if (LIFT.phase === 'moving') {
     const a = clamp(LIFT.t / LIFT.dur, 0, 1), dir = LIFT.to > LIFT.from ? 1 : -1;
     // a little lift when the car starts down (and a sink when it starts up), easing out as it settles
-    if (!reduceMotion) LIFT.shake = 0.03 * dir * Math.sin(Math.PI * a) * (1 - a) + 0.0025 * Math.sin(LIFT.t * 43) * Math.sin(Math.PI * a);
-    const e = a * a * (3 - 2 * a); LIFT.root.position.y = deckY(LIFT.from) + (deckY(LIFT.to) - deckY(LIFT.from)) * e;
+    // and a slow, slight sway on the way (roadmap 3)
+    if (!reduceMotion) LIFT.shake = 0.03 * dir * Math.sin(Math.PI * a) * (1 - a) + 0.0025 * Math.sin(LIFT.t * 43) * Math.sin(Math.PI * a) + 0.005 * Math.sin(LIFT.t * 5.3) * Math.sin(Math.PI * a);
+    const e = a * a * a * (a * (6 * a - 15) + 10); // smootherstep: starts and stops more gently than smoothstep LIFT.root.position.y = deckY(LIFT.from) + (deckY(LIFT.to) - deckY(LIFT.from)) * e;
     if (inside) player.y = LIFT.root.position.y + EYE;
     if (a >= 1) {
       LIFT.root.position.y = deckY(LIFT.to);
@@ -321,12 +330,14 @@ function liftUpdate(dt) {
     }
   } else if (LIFT.phase === 'opening') {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
+    if (!reduceMotion && LIFT.t < 0.45) LIFT.shake = -0.012 * Math.sin(Math.PI * LIFT.t / 0.45) * (1 - LIFT.t / 0.45); // the car settles as it stops
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
   [LIFT.stubDoor, ...Object.values(DECKS).map((d) => d.door && d.door())].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (each deck's exist once it is built)
   LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
-  const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
+  let k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
+  if (LIFT.dip !== undefined && LIFT.dip < 0.6) { LIFT.dip += dt; k *= 1 - 0.35 * Math.sin(Math.PI * Math.min(1, LIFT.dip / 0.6)); if (LIFT.dip >= 0.6) k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1); }
   if (k !== LIFT.k) { LIFT.k = k; LIFT.mats.forEach((m) => { m.lightMapIntensity = m.userData.lmBase * k; }); LUM.forEach((m) => m.color.setHex(state.alert === 'red' ? 0xffb0a0 : 0xffffff).multiplyScalar(LIFT.lum * Math.min(1, 0.4 + 0.6 * k))); }
   CAR_SLOT.color.copy(SLOT.color).multiplyScalar(0.22);
   const key = liftPanelKey(); LIFT.panels.forEach((p) => { if (p.key !== key) liftPanelDraw(p); });

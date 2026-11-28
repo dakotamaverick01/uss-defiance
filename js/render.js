@@ -133,6 +133,17 @@ const clock = { last: performance.now(), getDelta() { const n = performance.now(
 const _scrPM = new THREE.Matrix4(), _scrFr = new THREE.Frustum();
 let wasWarp = false, rr = 0, rrTimer = 0, panelTimer = 0, ovTimer = 0, bobT = 0, bobAmp = 0;
 const standV = new THREE.Vector3();
+// walking state (roadmap 3): velocity, distance walked (drives the bob and footsteps), the last footfall, turn rate
+const walk = { vx: 0, vz: 0, dist: 0, step: -1, yaw: null, yr: 0 }, STRIDE = 0.75;
+// what's underfoot, from where you are (checked once a step): deck plate in working spaces and the lift car, tile in
+// sickbay, the lab and the heads, carpet everywhere else
+function surfaceUnder() {
+  if (LIFT.inside) return 'plate'; const loc = typeof liftLocation === 'function' ? liftLocation() : '';
+  if (/Sickbay|lab|morgue/i.test(loc)) return 'tile';
+  if (/shield|core|magazine|damage control|Lift 2/i.test(loc)) return 'plate';
+  if (LIFT.deck === 3 && D3.cabins) { const L = D3.headLights || []; if (L.some(([x, , z]) => Math.hypot(player.x - x, player.z - z) < 0.75)) return 'tile'; }
+  return 'carpet';
+}
 function wrapA(a) { return ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; }
 
 let simLast = performance.now(), livePanelT = 0;
@@ -152,10 +163,14 @@ function frame() {
     if (keys.ArrowLeft) player.yaw += 1.9 * dt; if (keys.ArrowRight) player.yaw -= 1.9 * dt;
     if (stick.active) { f += -stick.dy; s += stick.dx; }
     const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
-    if (len > 0.02) {
-      const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw), sp = 2.2;
-      [player.x, player.z] = collide(player.x + (-sy * f + cy * s) * sp * dt, player.z + (-cy * f - sy * s) * sp * dt);
-    }
+    // walking feel (roadmap 3): you speed up at about 6 m/s² and stop at about 9 m/s² instead of jumping to full speed;
+    // when a wall stops you, so does your speed. Distance walked drives the bob and the footsteps.
+    { const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw), sp = 2.2, tx = (-sy * f + cy * s) * sp, tz = (-cy * f - sy * s) * sp;
+      const dx = tx - walk.vx, dz = tz - walk.vz, dl = Math.hypot(dx, dz), a = (len > 0.02 ? 6 : 9) * dt;
+      if (dl > a) { walk.vx += dx / dl * a; walk.vz += dz / dl * a; } else { walk.vx = tx; walk.vz = tz; }
+      if (Math.hypot(walk.vx, walk.vz) > 1e-3) { const ox = player.x, oz = player.z; [player.x, player.z] = collide(player.x + walk.vx * dt, player.z + walk.vz * dt);
+        const mx = (player.x - ox) / dt, mz = (player.z - oz) / dt; if (Math.hypot(mx, mz) < Math.hypot(walk.vx, walk.vz)) { walk.vx = mx; walk.vz = mz; }
+        walk.dist += Math.hypot(player.x - ox, player.z - oz); } }
     player.y += (floorH(player.x, player.z) + EYE - player.y) * Math.min(1, dt * 10);
   } else if (sitBlend < 0.995) {
     const k = 1 - Math.exp(-dt * 5); player.yaw += wrapA(0 - player.yaw) * k; player.pitch += (-0.04 - player.pitch) * k;
@@ -163,9 +178,13 @@ function frame() {
   sitBlend = clamp(sitBlend + (state.sitting ? dt : -dt) * 1.6, 0, 1);
   const eb = sitBlend * sitBlend * (3 - 2 * sitBlend);
   standV.set(player.x, player.y, player.z);
-  const moving = !state.sitting && (stick.active || keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD || keys.ArrowUp || keys.ArrowDown);
-  bobAmp += ((moving && !reduceMotion ? 1 : 0) - bobAmp) * Math.min(1, dt * 6); bobT += dt * 8.5 * bobAmp;
-  standV.y += Math.sin(bobT) * 0.018 * bobAmp;
+  // the bob follows your steps (a stride of 0.75 m: the head dips at each footfall), its size your speed; a footstep sound
+  // on each footfall, by what you walk on. A slight roll lags your turns (under 0.6°). Reduced motion: no bob or roll.
+  { const spd = state.sitting ? 0 : Math.hypot(walk.vx, walk.vz); bobAmp += ((reduceMotion ? 0 : Math.min(1, spd / 2.2)) - bobAmp) * Math.min(1, dt * 6);
+    bobT = walk.dist / STRIDE * Math.PI * 2; const step = Math.floor(walk.dist / STRIDE);
+    if (step !== walk.step) { if (walk.step >= 0 && spd > 0.5 && typeof footstep === 'function') footstep(surfaceUnder(), Math.min(1, spd / 2.2)); walk.step = step; }
+    const yr = walk.yaw === null ? 0 : clamp(wrapA(player.yaw - walk.yaw) / Math.max(dt, 1e-3), -4, 4); walk.yaw = player.yaw; walk.yr += (yr - walk.yr) * Math.min(1, dt * 4); }
+  standV.y -= (1 + Math.cos(bobT)) * 0.5 * 0.022 * bobAmp; // lowest as each foot lands
   if (heroCam) {
     camera.position.copy(heroCam.p); camera.lookAt(heroCam.t);
   } else if (attract && !$('intro').hidden) {
@@ -177,7 +196,7 @@ function frame() {
   } else {
     if (attract) { attract = false; }
     camera.position.copy(standV).lerp(SEAT, eb); camera.position.y += LIFT.shake;
-    camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp, 'YXZ');
+    camera.rotation.set(player.pitch, player.yaw, Math.sin(bobT * 0.5) * 0.004 * bobAmp + (reduceMotion ? 0 : clamp(walk.yr * 0.004, -0.0105, 0.0105)), 'YXZ');
   }
   camera.updateMatrixWorld();
 

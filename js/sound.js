@@ -34,6 +34,17 @@ function whoosh(up) {
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.5, t0 + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
   n.connect(bp); bp.connect(g); g.connect(master); n.start(t0); n.stop(t0 + 1.7);
 }
+// a footstep (roadmap 3): a soft low thud on carpet, a short bright tap on tile, a dull ring on deck plate; k is how
+// fast you were walking (0..1). Quiet, and a little different each time.
+function footstep(kind, k) {
+  if (!AC || !soundOn || !noiseBuf) return; const t0 = AC.currentTime, v = (0.5 + 0.5 * k) * (0.85 + Math.random() * 0.3);
+  const S = { carpet: [180, 0.8, 0.09, 0.06], tile: [2300, 1.4, 0.05, 0.035], plate: [700, 6, 0.06, 0.12] }[kind] || [180, 0.8, 0.09, 0.06];
+  const n = AC.createBufferSource(); n.buffer = noiseBuf; const bp = AC.createBiquadFilter(); bp.type = kind === 'carpet' ? 'lowpass' : 'bandpass'; bp.frequency.value = S[0] * (0.9 + Math.random() * 0.2); bp.Q.value = S[1];
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(S[2] * v * 4, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + S[3] + 0.02);
+  n.connect(bp); bp.connect(g); g.connect(master); n.start(t0, Math.random() * 3); n.stop(t0 + S[3] + 0.05);
+  if (kind === 'plate') { const o = AC.createOscillator(), og = AC.createGain(); o.type = 'triangle'; o.frequency.value = 310 + Math.random() * 40;
+    og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.012 * v, t0 + 0.004); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18); o.connect(og); og.connect(master); o.start(t0); o.stop(t0 + 0.2); }
+}
 $('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn; if (master) master.gain.value = soundOn ? 0.7 : 0;
   $('sound-btn').setAttribute('aria-pressed', String(soundOn));
