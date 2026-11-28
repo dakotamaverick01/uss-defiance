@@ -312,17 +312,18 @@ function d3Cabins(Lt) {
   const shell = (s, floorMat, wMat) => {
     const dd = D3.doors.find((q) => q.s === s), wp = insetPoly(s.poly.map(W2), I), n = wp.length;
     const cx = wp.reduce((a, p) => a + p[0] / n, 0), cz = wp.reduce((a, p) => a + p[1] / n, 0);
-    // floor and ceiling
-    const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), []);
-    [[floorMat, 0.003, 1], [MAT.ceiling, RH, -1]].forEach(([mat, y, up]) => { const pos = [], nor = [], uv = [];
-      tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = wp[a], B = wp[b], C = wp[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
-        t.forEach((k) => { pos.push(wp[k][0], y, wp[k][1]); nor.push(0, up, 0); uv.push(wp[k][0] / (up > 0 ? 1 : 1.2), wp[k][1] / (up > 0 ? 1 : 1.2)); }); });
+    let a2 = 0; wp.forEach((p, i) => { const q = wp[(i + 1) % n]; a2 += p[0] * q[1] - q[0] * p[1]; }); const sg = a2 > 0 ? 1 : -1; // winding: which side of a wall is in
+    // floor and ceiling (a window nook's light well is a hole in the ceiling)
+    const hole = s.nookAt && s.nookAt.win ? s.nookAt.win.q.map(W2) : null;
+    [[floorMat, 0.003, 1, null], [MAT.ceiling, RH, -1, hole]].forEach(([mat, y, up, h]) => { const pos = [], nor = [], uv = [], pts = h ? wp.concat(h) : wp;
+      const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), h ? [h.map(([x, z]) => new THREE.Vector2(x, z))] : []);
+      tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = pts[a], B = pts[b], C = pts[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
+        t.forEach((k) => { pos.push(pts[k][0], y, pts[k][1]); nor.push(0, up, 0); uv.push(pts[k][0] / (up > 0 ? 1 : 1.2), pts[k][1] / (up > 0 ? 1 : 1.2)); }); });
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); put(mat, g); });
     // walls, the door's opening on the wall nearest the door
     let de = -1, dt = 0, bd = 1e9; wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), t = ((dd.x - A[0]) * (B[0] - A[0]) + (dd.z - A[1]) * (B[1] - A[1])) / (L * L), tc = Math.max(0, Math.min(1, t));
       const d = Math.hypot(A[0] + tc * (B[0] - A[0]) - dd.x, A[1] + tc * (B[1] - A[1]) - dd.z); if (d < bd) { bd = d; de = i; dt = t * L; } });
-    wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L]; let nn = [-u[1], u[0]];
-      if ((cx - A[0]) * nn[0] + (cz - A[1]) * nn[1] < 0) nn = [-nn[0], -nn[1]];
+    wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], nn = [-u[1] * sg, u[0] * sg];
       wall(wMat, A, B, nn, i === de ? [{ a: dt - 0.6, b: dt + 0.6, y1: 2.3 }] : null); });
     return { dd, wp, n, cx, cz };
   };
@@ -330,6 +331,21 @@ function d3Cabins(Lt) {
   Lt.F.spaces.forEach((s) => {
     const Lay = shipRoomLayout(s); if (!Lay) return;
     const { dd, wp, n } = shell(s, MAT.roomCarpet, wallMat);
+    // window nook (ring cabins; John chose these, Nov 28): the bed lies in an alcove off the far wall (the shell above
+    // builds its walls) under a window in the hull's top: a light well from the ceiling up to the glass, which sits
+    // 10 cm under the skin and so follows its slight slope; a dark frame round the glass and a bar across its middle
+    let nookLight = null;
+    if (s.nookAt && s.nookAt.win) { const Wn = s.nookAt.win, Q = Wn.q.map(W2), top = Wn.q.map(([m, x]) => 3.5 * 3 - shipSkinTop(m, x) - 0.1), fr = 0.06;
+      let q2 = 0; Q.forEach((p, i) => { const r = Q[(i + 1) % 4]; q2 += p[0] * r[1] - r[0] * p[1]; }); const qs = q2 > 0 ? 1 : -1;
+      Q.forEach((A, i) => { const j = (i + 1) % 4, B = Q[j], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], nn = [-u[1] * qs, 0, u[0] * qs];
+        put(MAT.ceiling, kitQuad([[A[0], RH - 0.01, A[1]], [B[0], RH - 0.01, B[1]], [B[0], top[j] - fr, B[1]], [A[0], top[i] - fr, A[1]]], [[0, 0], [L, 0], [L, 0.5], [0, 0.5]], nn));
+        put(MAT.gunDark, kitQuad([[A[0], top[i] - fr, A[1]], [B[0], top[j] - fr, B[1]], [B[0], top[j] + 0.005, B[1]], [A[0], top[i] + 0.005, A[1]]], [[0, 0], [1, 0], [1, 1], [0, 1]], nn)); });
+      const glass = CKIT.skyGlass || (CKIT.skyGlass = Object.assign(GLASS.clone(), { side: THREE.DoubleSide, opacity: 0.08 }));
+      put(glass, kitQuad(Q.map((p, i) => [p[0], top[i], p[1]]), [[0, 0], [0, 1], [1, 1], [1, 0]], [0, -1, 0]));
+      { const mid = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], h = (a, b, t) => a + (b - a) * t, w = 0.025 / Math.hypot(Q[1][0] - Q[0][0], Q[1][1] - Q[0][1]);
+        const P4 = [[0, 1, 0.5 - w], [3, 2, 0.5 - w], [3, 2, 0.5 + w], [0, 1, 0.5 + w]].map(([a, b, t]) => { const p = mid(Q[a], Q[b], t); return [p[0], h(top[a], top[b], t) - 0.02, p[1]]; });
+        put(MAT.gunDark, kitQuad(P4, [[0, 0], [1, 0], [1, 1], [0, 1]], [0, -1, 0])); }
+      const c = Q.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]); nookLight = [c[0], RH - 0.05, c[1], 0.45]; }
     // the room's frame in world terms
     const at = (u, v) => W2(Lay.at(u, v)), ux = [Lay.ux[1], Lay.ux[0]], uy = [Lay.uy[1], Lay.uy[0]], mid = (i) => at((i.u0 + i.u1) / 2, (i.v0 + i.v1) / 2), neg = (v) => [-v[0], -v[1]];
     Lay.items.forEach((it) => {
@@ -357,7 +373,7 @@ function d3Cabins(Lt) {
     const lp = at(Lay.w * 0.4, Math.max(1.2, Lay.d - 3.0)); place('cabinlight', lp[0], lp[1], uy, RH);
     const hd = Lay.items.find((i) => i.k === 'head'), hl = at((hd.u0 + hd.u1) / 2, (hd.v0 + hd.v1) / 2);
     const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]);
-    D3.cabins.push({ s, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights: [[lp[0], RH - 0.05, lp[1], 1.5], [hl[0], RH - 0.05, hl[1], 0.7]] });
+    D3.cabins.push({ s, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights: [[lp[0], RH - 0.05, lp[1], 1.5], [hl[0], RH - 0.05, hl[1], 0.7]].concat(nookLight ? [nookLight] : []) });
     // its door opens now, and its panel says what's inside
     const door = DOORS.find((q) => q.station === 'd3:' + s.id); if (door) door.auto = true;
     const beds = Lay.items.filter((i) => i.k === 'bed').length;

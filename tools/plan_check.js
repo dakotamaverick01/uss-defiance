@@ -83,6 +83,20 @@ for (const n of Object.keys(G.SHIPGEO.plans).map(Number)) {
         if (a.v0 < 0.85) bad.push(`${id} ${a.k} in the door strip`);
         L.items.forEach((b, j) => { if (j > i && a.u0 < b.u1 - 0.01 && b.u0 < a.u1 - 0.01 && a.v0 < b.v1 - 0.01 && b.v0 < a.v1 - 0.01) bad.push(`${id} ${a.k}/${b.k} overlap`); }); }); });
     ok(D + `every cabin laid out: own head, a bed per berth, furniture inside and clear of the door (${cabs.length})`, !bad.length, bad.slice(0, 6).join('; ')); }
+  // 7. window nooks (ring cabins, Nov 28): every cabin on a ring row with a nook has its alcove, its bed(s) in it, clear of
+  // the head; a window over it with only the hull's top skin overhead (deeper than the deck above's floor) and room for a
+  // light well above the ceiling, sampled on a 20 cm grid
+  { const want = rooms.filter((s) => s.nook), bad = []; let wins = 0;
+    want.forEach((s) => { const N = s.nookAt, id = s.id; if (!N) { bad.push(id + ' no nook'); return; }
+      const L = G.shipRoomLayout(s), hd = L.items.find((i) => i.k === 'head'), beds = L.items.filter((i) => i.k === 'bed' || i.k === 'bunk');
+      if (!beds.every((b) => b.u0 >= N.u0 && b.u1 <= N.u1 && b.v1 <= N.v1 - 0.05 && b.v1 > N.v0 + 1)) bad.push(id + ' bed not in its nook');
+      if (N.u1 > hd.u0) bad.push(id + ' nook reaches the head');
+      if (!N.q.every(([m, x]) => s.poly.some(([a, b]) => Math.hypot(a - m, b - x) < 1e-6))) bad.push(id + ' nook corners not in the outline');
+      const W = N.win; if (!W) { bad.push(id + ' no window'); return; } wins++;
+      for (let u = W.u0; u <= W.u1 + 1e-6; u += 0.2) for (let v = W.v0; v <= W.v1 + 1e-6; v += 0.2) { const [m, x] = L.at(u, v), k = G.shipSkinTop(m, x);
+        if (!inPoly(s.poly, m, x)) { bad.push(`${id} window outside the room at ${u.toFixed(1)},${v.toFixed(1)}`); return; }
+        if (k <= 3.5 * (F.n - 1) || k >= 3.5 * F.n - F.P.room - 0.15) { bad.push(`${id} window under ${k.toFixed(2)} at ${u.toFixed(1)},${v.toFixed(1)}`); return; } } });
+    ok(D + `window nooks: ${want.length} ring cabins, each bed in its alcove under a window in the hull's top (${wins} windows)`, want.length >= 16 && !bad.length, bad.slice(0, 6).join('; ')); }
 }
 // sickbay's fittings (shipSickbayLayout): eight ward beds, three glass rooms; everything inside the room and off the walls'
 // line, nothing overlapping (except what sits inside a glass room), and a clear walk (0.3 m either side of you) from the

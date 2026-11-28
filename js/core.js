@@ -111,10 +111,12 @@ function space(o) { o.layers.set(1); return o; }
 function shapeXZ(pts, flip) { const s = new THREE.Shape(); pts.forEach(([x, z], i) => { const y = flip ? -z : z; i ? s.lineTo(x, y) : s.moveTo(x, y); }); s.closePath(); return s; }
 function pathXZ(pts, flip) { const s = new THREE.Path(); pts.forEach(([x, z], i) => { const y = flip ? -z : z; i ? s.lineTo(x, y) : s.moveTo(x, y); }); s.closePath(); return s; }
 function insetPoly(P, d) {
-  const n = P.length, cx = P.reduce((a, p) => a + p[0], 0) / n, cz = P.reduce((a, p) => a + p[1], 0) / n;
+  // inward is told by the outline's winding (signed area), so concave outlines (sickbay's alcove, a cabin's window nook)
+  // inset every wall the right way; the old test against the centre got some of their walls backwards
+  const n = P.length; let a2 = 0; P.forEach((p, i) => { const q = P[(i + 1) % n]; a2 += p[0] * q[1] - q[0] * p[1]; }); const sg = a2 > 0 ? 1 : -1;
   const L = P.map((A, i) => {
     const B = P[(i + 1) % n]; let dx = B[0] - A[0], dz = B[1] - A[1]; const len = Math.hypot(dx, dz); dx /= len; dz /= len;
-    let nx = -dz, nz = dx; if ((cx - A[0]) * nx + (cz - A[1]) * nz < 0) { nx = -nx; nz = -nz; }
+    const nx = -dz * sg, nz = dx * sg;
     return { px: A[0] + nx * d, pz: A[1] + nz * d, dx, dz };
   });
   return L.map((l, i) => { const m = L[(i - 1 + n) % n]; const den = m.dx * l.dz - m.dz * l.dx; const t = ((l.px - m.px) * l.dz - (l.pz - m.pz) * l.dx) / den; return [m.px + m.dx * t, m.pz + m.dz * t]; });

@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `71d0090`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `637e8d8`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -793,10 +793,12 @@ function space(o) { o.layers.set(1); return o; }
 function shapeXZ(pts, flip) { const s = new THREE.Shape(); pts.forEach(([x, z], i) => { const y = flip ? -z : z; i ? s.lineTo(x, y) : s.moveTo(x, y); }); s.closePath(); return s; }
 function pathXZ(pts, flip) { const s = new THREE.Path(); pts.forEach(([x, z], i) => { const y = flip ? -z : z; i ? s.lineTo(x, y) : s.moveTo(x, y); }); s.closePath(); return s; }
 function insetPoly(P, d) {
-  const n = P.length, cx = P.reduce((a, p) => a + p[0], 0) / n, cz = P.reduce((a, p) => a + p[1], 0) / n;
+  // inward is told by the outline's winding (signed area), so concave outlines (sickbay's alcove, a cabin's window nook)
+  // inset every wall the right way; the old test against the centre got some of their walls backwards
+  const n = P.length; let a2 = 0; P.forEach((p, i) => { const q = P[(i + 1) % n]; a2 += p[0] * q[1] - q[0] * p[1]; }); const sg = a2 > 0 ? 1 : -1;
   const L = P.map((A, i) => {
     const B = P[(i + 1) % n]; let dx = B[0] - A[0], dz = B[1] - A[1]; const len = Math.hypot(dx, dz); dx /= len; dz /= len;
-    let nx = -dz, nz = dx; if ((cx - A[0]) * nx + (cz - A[1]) * nz < 0) { nx = -nx; nz = -nz; }
+    const nx = -dz * sg, nz = dx * sg;
     return { px: A[0] + nx * d, pz: A[1] + nz * d, dx, dz };
   });
   return L.map((l, i) => { const m = L[(i - 1 + n) % n]; const den = m.dx * l.dz - m.dz * l.dx; const t = ((l.px - m.px) * l.dz - (l.pz - m.pz) * l.dx) / den; return [m.px + m.dx * t, m.pz + m.dz * t]; });
@@ -1012,6 +1014,8 @@ const SHIPGEO = {
   //   { poly: [points] }, a point being [m, x] or { r, a: [from, to] } (an arc about c). Rows of cabins:
   //   { ring: [r0, r1, quadrant angle, offset from the spokes, [widths]] } along a ring's outer wall (doors onto the ring);
   //   { spoke: [angle, offset0, offset1, [radii]] } along a spoke (doors onto the spoke); b: berths per cabin.
+  //   nook: on a ring row, each cabin's bed moves into an alcove this deep off its far wall, under a window in the hull's
+  //   top (the window nooks, John's choice, Nov 28: shipFloorPlan adds the alcove, shipRoomLayout puts the bed in it).
   plans: {
     3: { c: [58, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: [18, 2.2], spokes: [[0, 92.2], [90, 24.0], [180, 28.4], [270, 24.0]],
       spaces: [
@@ -1022,10 +1026,10 @@ const SHIPGEO = {
         { n: 'Medical lab and morgue', k: 'l', s: { arc: [0, 16.8, [0, 1.2], [90, -1.2]] }, d: [68.2, 1.2] },
         { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [90, 1.2], [180, -1.2]] }, d: [56.8, 8] },
         { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [180, 1.2], [270, -1.2]] }, d: [56.8, -8] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 0, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 90, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 180, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 270, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 0, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] , nook: 2.35 },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 90, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] , nook: 2.35 },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 180, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] , nook: 2.35 },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 270, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] , nook: 2.35 },
         { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, 1.2, 6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
         { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, -1.2, -6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
         { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, 1.2, 6.2, [19.2, 23.6]] }, b: [1] },
@@ -1192,7 +1196,7 @@ function shipFloorPlan(n) {
   };
   const shape = (s) => s.box ? [[s.box[0], s.box[2]], [s.box[1], s.box[2]], [s.box[1], s.box[3]], [s.box[0], s.box[3]]]
     : s.arc ? arcShape(s.arc) : s.poly.flatMap((q) => Array.isArray(q) ? [q] : arcPts(q.r, q.a[0], q.a[1]));
-  const add = (sp, poly, door, b) => out.push({ n: sp.n, k: sp.k, t: sp.t || '', poly, door: door || null, b: b || 0, id: sp.t ? '' : n + '-' + String(++cab.n).padStart(2, '0') });
+  const add = (sp, poly, door, b) => out.push({ n: sp.n, k: sp.k, t: sp.t || '', poly, door: door || null, b: b || 0, id: sp.t ? '' : n + '-' + String(++cab.n).padStart(2, '0') , nook: sp.nook || 0 });
   for (const sp of P.spaces) {
     const s = sp.s;
     if (s.ring) { const [r0, r1, q, o, ws] = s.ring, rm = (r0 + r1) / 2, A0 = bA([q, o], rm), A1 = bA([q + 90, -o], rm), tot = ws.reduce((x, y) => x + y, 0);
@@ -1205,6 +1209,34 @@ function shipFloorPlan(n) {
         add(sp, arcShape([r0, r1, lo, hi]), [cm + u[0] * along + v[0] * o0, cx + u[1] * along + v[1] * o0], (sp.b || [])[i]); }
     } else add(sp, shape(s), sp.d, sp.b);
   }
+  // window nooks: each such cabin's outer wall gets an alcove for its bed(s). Worked out in the room's own frame (as
+  // shipRoomLayout: u along the door's wall, v into the room): from the furniture's far edge d out to d + nook, from just
+  // inside the left wall (u -0.1) to past the bed(s) (and short of the head). The outer wall's points between the alcove's
+  // sides are replaced by its four corners. Kept: poly0 (the room without it, which the layout's clear rectangle comes from)
+  // and nookAt { q: [baseL, backL, backR, baseR] as plan [m, x], i: their indices in poly, u0, u1, v0, v1 }.
+  const n0 = n, P0 = P; out.forEach((s) => { if (!s.nook || !s.b) return; const L = shipRoomLayout(s); if (!L) return;
+    const hd = L.items.find((i) => i.k === 'head'), u0 = -0.1, u1 = s.b > 1 ? hd.u0 - 0.02 : 1.25, vb = L.d + s.nook, P = s.poly, n = P.length;
+    const Q = P.map((p) => [(p[0] - L.o[0]) * L.ux[0] + (p[1] - L.o[1]) * L.ux[1], (p[0] - L.o[0]) * L.uy[0] + (p[1] - L.o[1]) * L.uy[1]]);
+    const cross = (us) => { let best = null; Q.forEach((a, i) => { const b = Q[(i + 1) % n]; if ((a[0] - us) * (b[0] - us) < 0) { const v = a[1] + (b[1] - a[1]) * (us - a[0]) / (b[0] - a[0]); if (!best || v > best.v) best = { i, v }; } }); return best; };
+    const cl = cross(u0), cr = cross(u1); if (!cl || !cr) return;
+    const run = (a, b) => { const r = []; for (let k = (a + 1) % n; k !== (b + 1) % n; k = (k + 1) % n) r.push(k); return r; };
+    const fwd = cl.i === cr.i ? Q[(cl.i + 1) % n][0] > Q[cl.i][0] : run(cl.i, cr.i).every((k) => Q[k][0] > u0 && Q[k][0] < u1);
+    const bL = L.at(u0, cl.v), kL = L.at(u0, vb), kR = L.at(u1, vb), bR = L.at(u1, cr.v), np = [];
+    const [from, to] = fwd ? [cr.i, cl.i] : [cl.i, cr.i]; for (let k = (from + 1) % n; ; k = (k + 1) % n) { np.push(P[k]); if (k === to) break; }
+    const at = np.length; np.push(...(fwd ? [bL, kL, kR, bR] : [bR, kR, kL, bL]));
+    // the window: a rectangle inside the alcove (12 cm off its walls) where nothing but the hull's top skin is overhead
+    // (deeper than the deck above's floor) with room for a light well over the ceiling; narrowed away from the spine
+    const okAt = (u, v) => { const [m, x] = L.at(u, v), k = shipSkinTop(m, x); return k > 3.5 * (n0 - 1) + 0.05 && k < floorD - P0.room - 0.2; };
+    const side = (u, a, b) => [0, 1, 2, 3].every((j) => okAt(u, a + (b - a) * j / 3));
+    let a = u0 + 0.12, b = u1 - 0.12; const c0 = L.d + 0.15, c1 = vb - 0.12;
+    for (let k = 0; k < 60 && b - a > 0.6; k++) { const l = side(a, c0, c1), r = side(b, c0, c1); if (l && r) break; if (!l) a += 0.05; if (!r) b -= 0.05; }
+    let R = b - a > 0.6 && side(a, c0, c1) && side(b, c0, c1) && side((a + b) / 2, c0, c1) ? [a, b, c0, c1] : null;
+    // where the spine cuts across the alcove (cabin 3-20), the largest clear rectangle on a 10 cm grid instead
+    if (!R) { const U0 = u0 + 0.12, U1 = u1 - 0.12, g = []; for (let u = U0; u <= U1 + 1e-6; u += 0.1) { const col = []; for (let v = c0; v <= c1 + 1e-6; v += 0.1) col.push(okAt(u, v)); g.push(col); }
+      let best = 0; for (let i = 0; i < g.length; i++) for (let j = i + 5; j < g.length; j++) for (let k = 0; k < g[0].length; k++) for (let l = k + 5; l < g[0].length; l++) {
+        const A = (j - i) * (l - k); if (A <= best) continue; let ok = true; for (let x = i; x <= j && ok; x++) for (let y = k; y <= l && ok; y++) ok = g[x][y]; if (ok) { best = A; R = [U0 + i * 0.1, U0 + j * 0.1, c0 + k * 0.1, c0 + l * 0.1]; } } }
+    const win = R ? { u0: R[0], u1: R[1], v0: R[2], v1: R[3], q: [L.at(R[0], R[2]), L.at(R[0], R[3]), L.at(R[1], R[3]), L.at(R[1], R[2])] } : null;
+    s.poly0 = P; s.poly = np; s.nookAt = { q: [bL, kL, kR, bR], i: fwd ? [at, at + 1, at + 2, at + 3] : [at + 3, at + 2, at + 1, at], u0, u1, v0: L.d, v1: vb, win }; });
   // corridors: the ring (an annulus), and each spoke as a straight run from the centre
   const [Rr, Rw] = P.ring, h = P.w / 2, corr = { ring: [Rr - Rw / 2, Rr + Rw / 2], runs: P.spokes.map(([a, r]) => {
     const u = [Math.cos(a * rad), Math.sin(a * rad)], v = [-u[1], u[0]], e = [cm + u[0] * r, cx + u[1] * r];
@@ -1225,7 +1257,7 @@ function shipFloorPlan(n) {
 // wardrobe on the right. Returns { o, ux, uy (plan vectors), w, d, items: [{ k, u0, u1, v0, v1 }], at(u, v) -> [m, x] }.
 function shipRoomLayout(sp) {
   if (!sp || !sp.door || !sp.b) return null;
-  const P = sp.poly, dr = sp.door, n = P.length; let best = null;
+  const P = sp.poly0 || sp.poly, dr = sp.door, n = P.length; let best = null;
   P.forEach((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.3) return;
     const t = Math.max(0, Math.min(1, ((dr[0] - a[0]) * (b[0] - a[0]) + (dr[1] - a[1]) * (b[1] - a[1])) / (L * L))), d = Math.hypot(a[0] + t * (b[0] - a[0]) - dr[0], a[1] + t * (b[1] - a[1]) - dr[1]);
     if (!best || d < best.d) best = { d, ux: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] }; });
@@ -1240,8 +1272,9 @@ function shipRoomLayout(sp) {
   const w = xb - xa, o = [dr[0] + ux[0] * xa + uy[0] * I, dr[1] + ux[1] * xa + uy[1] * I]; d -= I;
   const items = [], it = (k, u0, u1, v0, v1) => items.push({ k, u0, u1, v0, v1 });
   const hw = Math.max(1.3, Math.min(1.6, w - (sp.b > 1 ? 2.6 : 2.15))); it('head', w - hw, w, d - 2.0, d);
-  if (sp.b > 1 && w - hw >= 2.55) { it('bed', 0, 0.95, d - 2.1, d); it('bed', 1.6, 2.55, d - 2.1, d); }
-  else it(sp.b > 1 ? 'bunk' : 'bed', 0, 0.95, d - 2.1, d);
+  const nk = sp.nookAt, bv0 = nk ? d + 0.15 : d - 2.1, bv1 = bv0 + 2.1; // a window nook takes the bed(s) (shipFloorPlan)
+  if (sp.b > 1 && w - hw >= 2.55) { it('bed', 0, 0.95, bv0, bv1); const u = nk ? nk.u1 - 1.05 : 1.6; it('bed', u, u + 0.95, bv0, bv1); }
+  else it(sp.b > 1 ? 'bunk' : 'bed', 0, 0.95, bv0, bv1);
   const dl = Math.min(1.3, d - 3.05); if (dl >= 0.8) { it('desk', 0, 0.62, 0.9, 0.9 + dl); it('chair', 0.75, 1.25, 0.9 + dl / 2 - 0.25, 0.9 + dl / 2 + 0.25); }
   if (d - 2.0 - 0.9 >= 0.7) it('wardrobe', w - 0.62, w, 0.9, Math.min(2.1, d - 2.05));
   // span(v): where the room's real walls are at depth v, as [left, right] in u (the clear rectangle can sit inside a
@@ -5331,17 +5364,18 @@ function d3Cabins(Lt) {
   const shell = (s, floorMat, wMat) => {
     const dd = D3.doors.find((q) => q.s === s), wp = insetPoly(s.poly.map(W2), I), n = wp.length;
     const cx = wp.reduce((a, p) => a + p[0] / n, 0), cz = wp.reduce((a, p) => a + p[1] / n, 0);
-    // floor and ceiling
-    const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), []);
-    [[floorMat, 0.003, 1], [MAT.ceiling, RH, -1]].forEach(([mat, y, up]) => { const pos = [], nor = [], uv = [];
-      tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = wp[a], B = wp[b], C = wp[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
-        t.forEach((k) => { pos.push(wp[k][0], y, wp[k][1]); nor.push(0, up, 0); uv.push(wp[k][0] / (up > 0 ? 1 : 1.2), wp[k][1] / (up > 0 ? 1 : 1.2)); }); });
+    let a2 = 0; wp.forEach((p, i) => { const q = wp[(i + 1) % n]; a2 += p[0] * q[1] - q[0] * p[1]; }); const sg = a2 > 0 ? 1 : -1; // winding: which side of a wall is in
+    // floor and ceiling (a window nook's light well is a hole in the ceiling)
+    const hole = s.nookAt && s.nookAt.win ? s.nookAt.win.q.map(W2) : null;
+    [[floorMat, 0.003, 1, null], [MAT.ceiling, RH, -1, hole]].forEach(([mat, y, up, h]) => { const pos = [], nor = [], uv = [], pts = h ? wp.concat(h) : wp;
+      const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), h ? [h.map(([x, z]) => new THREE.Vector2(x, z))] : []);
+      tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = pts[a], B = pts[b], C = pts[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
+        t.forEach((k) => { pos.push(pts[k][0], y, pts[k][1]); nor.push(0, up, 0); uv.push(pts[k][0] / (up > 0 ? 1 : 1.2), pts[k][1] / (up > 0 ? 1 : 1.2)); }); });
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); put(mat, g); });
     // walls, the door's opening on the wall nearest the door
     let de = -1, dt = 0, bd = 1e9; wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), t = ((dd.x - A[0]) * (B[0] - A[0]) + (dd.z - A[1]) * (B[1] - A[1])) / (L * L), tc = Math.max(0, Math.min(1, t));
       const d = Math.hypot(A[0] + tc * (B[0] - A[0]) - dd.x, A[1] + tc * (B[1] - A[1]) - dd.z); if (d < bd) { bd = d; de = i; dt = t * L; } });
-    wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L]; let nn = [-u[1], u[0]];
-      if ((cx - A[0]) * nn[0] + (cz - A[1]) * nn[1] < 0) nn = [-nn[0], -nn[1]];
+    wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], nn = [-u[1] * sg, u[0] * sg];
       wall(wMat, A, B, nn, i === de ? [{ a: dt - 0.6, b: dt + 0.6, y1: 2.3 }] : null); });
     return { dd, wp, n, cx, cz };
   };
@@ -5349,6 +5383,21 @@ function d3Cabins(Lt) {
   Lt.F.spaces.forEach((s) => {
     const Lay = shipRoomLayout(s); if (!Lay) return;
     const { dd, wp, n } = shell(s, MAT.roomCarpet, wallMat);
+    // window nook (ring cabins; John chose these, Nov 28): the bed lies in an alcove off the far wall (the shell above
+    // builds its walls) under a window in the hull's top: a light well from the ceiling up to the glass, which sits
+    // 10 cm under the skin and so follows its slight slope; a dark frame round the glass and a bar across its middle
+    let nookLight = null;
+    if (s.nookAt && s.nookAt.win) { const Wn = s.nookAt.win, Q = Wn.q.map(W2), top = Wn.q.map(([m, x]) => 3.5 * 3 - shipSkinTop(m, x) - 0.1), fr = 0.06;
+      let q2 = 0; Q.forEach((p, i) => { const r = Q[(i + 1) % 4]; q2 += p[0] * r[1] - r[0] * p[1]; }); const qs = q2 > 0 ? 1 : -1;
+      Q.forEach((A, i) => { const j = (i + 1) % 4, B = Q[j], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], nn = [-u[1] * qs, 0, u[0] * qs];
+        put(MAT.ceiling, kitQuad([[A[0], RH - 0.01, A[1]], [B[0], RH - 0.01, B[1]], [B[0], top[j] - fr, B[1]], [A[0], top[i] - fr, A[1]]], [[0, 0], [L, 0], [L, 0.5], [0, 0.5]], nn));
+        put(MAT.gunDark, kitQuad([[A[0], top[i] - fr, A[1]], [B[0], top[j] - fr, B[1]], [B[0], top[j] + 0.005, B[1]], [A[0], top[i] + 0.005, A[1]]], [[0, 0], [1, 0], [1, 1], [0, 1]], nn)); });
+      const glass = CKIT.skyGlass || (CKIT.skyGlass = Object.assign(GLASS.clone(), { side: THREE.DoubleSide, opacity: 0.08 }));
+      put(glass, kitQuad(Q.map((p, i) => [p[0], top[i], p[1]]), [[0, 0], [0, 1], [1, 1], [1, 0]], [0, -1, 0]));
+      { const mid = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], h = (a, b, t) => a + (b - a) * t, w = 0.025 / Math.hypot(Q[1][0] - Q[0][0], Q[1][1] - Q[0][1]);
+        const P4 = [[0, 1, 0.5 - w], [3, 2, 0.5 - w], [3, 2, 0.5 + w], [0, 1, 0.5 + w]].map(([a, b, t]) => { const p = mid(Q[a], Q[b], t); return [p[0], h(top[a], top[b], t) - 0.02, p[1]]; });
+        put(MAT.gunDark, kitQuad(P4, [[0, 0], [1, 0], [1, 1], [0, 1]], [0, -1, 0])); }
+      const c = Q.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]); nookLight = [c[0], RH - 0.05, c[1], 0.45]; }
     // the room's frame in world terms
     const at = (u, v) => W2(Lay.at(u, v)), ux = [Lay.ux[1], Lay.ux[0]], uy = [Lay.uy[1], Lay.uy[0]], mid = (i) => at((i.u0 + i.u1) / 2, (i.v0 + i.v1) / 2), neg = (v) => [-v[0], -v[1]];
     Lay.items.forEach((it) => {
@@ -5376,7 +5425,7 @@ function d3Cabins(Lt) {
     const lp = at(Lay.w * 0.4, Math.max(1.2, Lay.d - 3.0)); place('cabinlight', lp[0], lp[1], uy, RH);
     const hd = Lay.items.find((i) => i.k === 'head'), hl = at((hd.u0 + hd.u1) / 2, (hd.v0 + hd.v1) / 2);
     const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]);
-    D3.cabins.push({ s, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights: [[lp[0], RH - 0.05, lp[1], 1.5], [hl[0], RH - 0.05, hl[1], 0.7]] });
+    D3.cabins.push({ s, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights: [[lp[0], RH - 0.05, lp[1], 1.5], [hl[0], RH - 0.05, hl[1], 0.7]].concat(nookLight ? [nookLight] : []) });
     // its door opens now, and its panel says what's inside
     const door = DOORS.find((q) => q.station === 'd3:' + s.id); if (door) door.auto = true;
     const beds = Lay.items.filter((i) => i.k === 'bed').length;

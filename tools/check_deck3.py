@@ -89,7 +89,17 @@ CHECK_JS = r"""() => {
       else { player.x = tx; player.z = tz; if (!/cabin/i.test(liftLocation())) bad.push(s.id + ' readout ' + liftLocation()); } });
     DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
     ok('walk into every cabin through its door; the readout names it', !bad.length, bad.slice(0, 6).join('; '));
-    ok('cabins lit by their own lights (one light space each)', D3.cabins.every((c) => c.lights.length === 2)); }
+    ok('cabins lit by their own lights (one light space each)', D3.cabins.every((c) => c.lights.length === (c.s.nookAt && c.s.nookAt.win ? 3 : 2))); }
+  // window nooks (Nov 28): 16 ring cabins with the bed in an alcove; the window between the ceiling and the hull's top
+  // skin; walk from the door to the foot of the bed
+  { const nk = D3.cabins.filter((c) => c.s.nookAt), bad = [], RH = STD.room.h;
+    nk.forEach((c) => { const N = c.s.nookAt, W = N.win, id = c.s.id; if (!W) { bad.push(id + ' no window'); return; }
+      W.q.forEach(([m, x]) => { const sk = shipSkinTop(m, x), top = 10.5 - sk - 0.1; if (top < RH + 0.2 || top > 10.5 - sk) bad.push(`${id} glass at ${top.toFixed(2)} (skin ${sk.toFixed(2)})`); });
+      const L = shipRoomLayout(c.s), bed = L.items.find((i) => i.k === 'bed' || i.k === 'bunk'), d = D3.doors.find((q) => q.s === c.s), n = [Math.sin(d.rot), Math.cos(d.rot)], W2 = (p) => [p[1], p[0] - 64];
+      const pts = [[d.x - n[0] * 1.0, d.z - n[1] * 1.0], W2(L.at(1.5, L.d - 1.0)), W2(L.at((bed.u0 + bed.u1) / 2, N.v0 - 0.25))]; let [x, z] = pts[0];
+      for (const [tx, tz] of pts.slice(1)) { for (let k = 0; k < 200; k++) { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz); if (l < 0.03) break; [x, z] = collide(x + dx / l * Math.min(0.04, l), z + dz / l * Math.min(0.04, l)); }
+        if (Math.hypot(tx - x, tz - z) > 0.1) { bad.push(`${id} stuck at ${x.toFixed(2)},${z.toFixed(2)}`); break; } } });
+    ok(`window nooks: ${nk.length} cabins, bed in the alcove, window under the hull's skin, walk to the bed`, nk.length === 16 && !bad.length, bad.slice(0, 6).join('; ')); }
   // C2: the other ordinary rooms fitted (lab, shield bays, core, magazine, damage control): their fittings, lights, an
   // opening door you can walk through; sickbay (step D) and Lift 2 stay sealed
   { const want = ['Medical lab and morgue', 'Forward shield generator', 'Computer core, upper', 'Pod feeds and torpedo magazine', 'Damage control station'];
