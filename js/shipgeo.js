@@ -270,4 +270,35 @@ function shipFloorPlan(n) {
     fit.push([m, halfAt(m, (x) => shipSkinTop(m, x) <= lim)]); }
   return (SHIPPLAN[n] = { n, P, spaces: out, corr, floor, fit, lim, limCorr: floorD - P.corr - P.clear });
 }
+// A cabin's furniture layout (roadmap C), from its plan space (shipFloorPlan: poly, door, b berths): the same for the
+// deck-plan page, the checks and the 3D builder. The room's frame: u along the door's wall (from the left end of the
+// clear rectangle), v from that wall into the room. A clear strip along the door's wall (v < 0.85), so the door can sit
+// anywhere on it; the head (shower, toilet, basin) in the far right corner; beds along the left wall, headboards to the
+// far wall (two singles side by side when there is room, else a bunk); a desk on the left wall nearer the door, a
+// wardrobe on the right. Returns { o, ux, uy (plan vectors), w, d, items: [{ k, u0, u1, v0, v1 }], at(u, v) -> [m, x] }.
+function shipRoomLayout(sp) {
+  if (!sp || !sp.door || !sp.b) return null;
+  const P = sp.poly, dr = sp.door, n = P.length; let best = null;
+  P.forEach((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.3) return;
+    const t = Math.max(0, Math.min(1, ((dr[0] - a[0]) * (b[0] - a[0]) + (dr[1] - a[1]) * (b[1] - a[1])) / (L * L))), d = Math.hypot(a[0] + t * (b[0] - a[0]) - dr[0], a[1] + t * (b[1] - a[1]) - dr[1]);
+    if (!best || d < best.d) best = { d, ux: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] }; });
+  const c = P.reduce((q, p) => [q[0] + p[0] / n, q[1] + p[1] / n], [0, 0]); let ux = best.ux, uy = [-ux[1], ux[0]];
+  if ((c[0] - dr[0]) * uy[0] + (c[1] - dr[1]) * uy[1] < 0) uy = [-uy[0], -uy[1]];
+  const L = P.map(([m, x]) => [(m - dr[0]) * ux[0] + (x - dr[1]) * ux[1], (m - dr[0]) * uy[0] + (x - dr[1]) * uy[1]]);
+  // the polygon's x interval at height v
+  const span = (v) => { const xs = []; L.forEach((a, i) => { const b = L[(i + 1) % n]; if ((a[1] - v) * (b[1] - v) <= 0 && a[1] !== b[1]) xs.push(a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1])); });
+    const l = xs.filter((x) => x <= 0), r = xs.filter((x) => x >= 0); return l.length && r.length ? [Math.max(...l), Math.min(...r)] : null; };
+  const I = 0.1, top = Math.max(...L.map((p) => p[1])); let xa = -1e9, xb = 1e9, d = 0.15;
+  for (let v = 0.15; v <= top - I; v += 0.05) { const s = span(v); if (!s) break; const a = Math.max(xa, s[0] + I), b = Math.min(xb, s[1] - I); if (b - a < 3.2) break; xa = a; xb = b; d = v; }
+  const w = xb - xa, o = [dr[0] + ux[0] * xa + uy[0] * I, dr[1] + ux[1] * xa + uy[1] * I]; d -= I;
+  const items = [], it = (k, u0, u1, v0, v1) => items.push({ k, u0, u1, v0, v1 });
+  const hw = Math.max(1.3, Math.min(1.6, w - (sp.b > 1 ? 2.6 : 2.15))); it('head', w - hw, w, d - 2.0, d);
+  if (sp.b > 1 && w - hw >= 2.55) { it('bed', 0, 0.95, d - 2.1, d); it('bed', 1.6, 2.55, d - 2.1, d); }
+  else it(sp.b > 1 ? 'bunk' : 'bed', 0, 0.95, d - 2.1, d);
+  const dl = Math.min(1.3, d - 3.05); if (dl >= 0.8) { it('desk', 0, 0.62, 0.9, 0.9 + dl); it('chair', 0.75, 1.25, 0.9 + dl / 2 - 0.25, 0.9 + dl / 2 + 0.25); }
+  if (d - 2.0 - 0.9 >= 0.7) it('wardrobe', w - 0.62, w, 0.9, Math.min(2.1, d - 2.05));
+  // span(v): where the room's real walls are at depth v, as [left, right] in u (the clear rectangle can sit inside a
+  // room that widens, so partitions run on to the real wall)
+  return { o, ux, uy, w, d, items, at: (u, v) => [o[0] + ux[0] * u + uy[0] * v, o[1] + ux[1] * u + uy[1] * v], span: (v) => { const q = span(v + I); return q ? [q[0] - xa, q[1] - xa] : [0, w]; } };
+}
 // SHIPGEO-END

@@ -2,7 +2,7 @@
 // plan and prints [{ name, ok, info }] as JSON. See check_plan.py for what each check means.
 'use strict';
 const src = require('fs').readFileSync(0, 'utf8'), STD = JSON.parse(process.argv[2]);
-const G = new Function(src + '\nreturn { SHIPGEO, shipFloorPlan, shipSkinTop, shipTopAt, shipHull };')();
+const G = new Function(src + '\nreturn { SHIPGEO, shipFloorPlan, shipSkinTop, shipTopAt, shipHull, shipRoomLayout };')();
 const res = [], ok = (name, cond, info) => res.push({ name, ok: !!cond, info: cond ? '' : info || '' });
 const inPoly = (P, m, x) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [am, ax] = P[i], [bm, bx] = P[j]; if ((ax > x) !== (bx > x) && m < (bm - am) * (x - ax) / (bx - ax) + am) c = !c; } return c; };
 const bbox = (P) => P.reduce((b, [m, x]) => [Math.min(b[0], m), Math.max(b[1], m), Math.min(b[2], x), Math.max(b[3], x)], [1e9, -1e9, 1e9, -1e9]);
@@ -72,6 +72,17 @@ for (const n of Object.keys(G.SHIPGEO.plans).map(Number)) {
   const cabs = rooms.filter((s) => s.b), one = cabs.filter((s) => s.b === 1).map((s) => area(s.poly)), two = cabs.filter((s) => s.b > 1).map((s) => area(s.poly));
   ok(D + `cabins: ${one.length} singles (${Math.min(...one).toFixed(0)}-${Math.max(...one).toFixed(0)} m²), ${two.length} doubles (${Math.min(...two).toFixed(0)}-${Math.max(...two).toFixed(0)} m²)`,
     Math.min(...one) >= 18 && (!two.length || Math.min(...two) >= 20), 'a single under 18 m² or a double under 20 m²');
+  // 6. cabin layouts (shipRoomLayout): every cabin has a head at least 1.3 x 2.0 m and a bed per berth, every piece
+  // inside the room's walls (10 cm in), no two pieces overlapping, the strip along the door's wall clear
+  { const bad = [];
+    cabs.forEach((s) => { const L = G.shipRoomLayout(s), id = s.id; if (!L) { bad.push(id + ' no layout'); return; }
+      const head = L.items.find((i) => i.k === 'head'), beds = L.items.filter((i) => i.k === 'bed').length + 2 * L.items.filter((i) => i.k === 'bunk').length;
+      if (!head || head.u1 - head.u0 < 1.29 || head.v1 - head.v0 < 1.99) bad.push(id + ' head size');
+      if (beds < s.b) bad.push(`${id} ${beds} beds for ${s.b} berths`);
+      L.items.forEach((a, i) => { for (const [u, v] of [[a.u0, a.v0], [a.u1, a.v0], [a.u1, a.v1], [a.u0, a.v1]]) { const [m, x] = L.at(u, v); if (!inPoly(s.poly, m, x)) { bad.push(`${id} ${a.k} outside`); break; } }
+        if (a.v0 < 0.85) bad.push(`${id} ${a.k} in the door strip`);
+        L.items.forEach((b, j) => { if (j > i && a.u0 < b.u1 - 0.01 && b.u0 < a.u1 - 0.01 && a.v0 < b.v1 - 0.01 && b.v0 < a.v1 - 0.01) bad.push(`${id} ${a.k}/${b.k} overlap`); }); }); });
+    ok(D + `every cabin laid out: own head, a bed per berth, furniture inside and clear of the door (${cabs.length})`, !bad.length, bad.slice(0, 6).join('; ')); }
 }
 // the saucer's top stays below Deck 2's floor (depth 7.0) under Deck 2's rooms, so its skin never shows inside them
 { let worst = 99, at = ''; for (let m = 54.5; m <= 95; m += 0.5) for (let x = 0; x <= 7.5; x += 0.5) { const H = G.shipHull(m); if (x < H.w) { const t = G.shipTopAt(m, x); if (t < worst) { worst = t; at = `m ${m}, x ${x}`; } } }

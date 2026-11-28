@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `4023d47`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `e18f5ff`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -1216,6 +1216,37 @@ function shipFloorPlan(n) {
     floor.push([m, halfAt(m, (x) => { const an = Math.atan2(floorD - H.dc, x); return Math.hypot(x, floorD - H.dc) <= H.r(an); })]);
     fit.push([m, halfAt(m, (x) => shipSkinTop(m, x) <= lim)]); }
   return (SHIPPLAN[n] = { n, P, spaces: out, corr, floor, fit, lim, limCorr: floorD - P.corr - P.clear });
+}
+// A cabin's furniture layout (roadmap C), from its plan space (shipFloorPlan: poly, door, b berths): the same for the
+// deck-plan page, the checks and the 3D builder. The room's frame: u along the door's wall (from the left end of the
+// clear rectangle), v from that wall into the room. A clear strip along the door's wall (v < 0.85), so the door can sit
+// anywhere on it; the head (shower, toilet, basin) in the far right corner; beds along the left wall, headboards to the
+// far wall (two singles side by side when there is room, else a bunk); a desk on the left wall nearer the door, a
+// wardrobe on the right. Returns { o, ux, uy (plan vectors), w, d, items: [{ k, u0, u1, v0, v1 }], at(u, v) -> [m, x] }.
+function shipRoomLayout(sp) {
+  if (!sp || !sp.door || !sp.b) return null;
+  const P = sp.poly, dr = sp.door, n = P.length; let best = null;
+  P.forEach((a, i) => { const b = P[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.3) return;
+    const t = Math.max(0, Math.min(1, ((dr[0] - a[0]) * (b[0] - a[0]) + (dr[1] - a[1]) * (b[1] - a[1])) / (L * L))), d = Math.hypot(a[0] + t * (b[0] - a[0]) - dr[0], a[1] + t * (b[1] - a[1]) - dr[1]);
+    if (!best || d < best.d) best = { d, ux: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] }; });
+  const c = P.reduce((q, p) => [q[0] + p[0] / n, q[1] + p[1] / n], [0, 0]); let ux = best.ux, uy = [-ux[1], ux[0]];
+  if ((c[0] - dr[0]) * uy[0] + (c[1] - dr[1]) * uy[1] < 0) uy = [-uy[0], -uy[1]];
+  const L = P.map(([m, x]) => [(m - dr[0]) * ux[0] + (x - dr[1]) * ux[1], (m - dr[0]) * uy[0] + (x - dr[1]) * uy[1]]);
+  // the polygon's x interval at height v
+  const span = (v) => { const xs = []; L.forEach((a, i) => { const b = L[(i + 1) % n]; if ((a[1] - v) * (b[1] - v) <= 0 && a[1] !== b[1]) xs.push(a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1])); });
+    const l = xs.filter((x) => x <= 0), r = xs.filter((x) => x >= 0); return l.length && r.length ? [Math.max(...l), Math.min(...r)] : null; };
+  const I = 0.1, top = Math.max(...L.map((p) => p[1])); let xa = -1e9, xb = 1e9, d = 0.15;
+  for (let v = 0.15; v <= top - I; v += 0.05) { const s = span(v); if (!s) break; const a = Math.max(xa, s[0] + I), b = Math.min(xb, s[1] - I); if (b - a < 3.2) break; xa = a; xb = b; d = v; }
+  const w = xb - xa, o = [dr[0] + ux[0] * xa + uy[0] * I, dr[1] + ux[1] * xa + uy[1] * I]; d -= I;
+  const items = [], it = (k, u0, u1, v0, v1) => items.push({ k, u0, u1, v0, v1 });
+  const hw = Math.max(1.3, Math.min(1.6, w - (sp.b > 1 ? 2.6 : 2.15))); it('head', w - hw, w, d - 2.0, d);
+  if (sp.b > 1 && w - hw >= 2.55) { it('bed', 0, 0.95, d - 2.1, d); it('bed', 1.6, 2.55, d - 2.1, d); }
+  else it(sp.b > 1 ? 'bunk' : 'bed', 0, 0.95, d - 2.1, d);
+  const dl = Math.min(1.3, d - 3.05); if (dl >= 0.8) { it('desk', 0, 0.62, 0.9, 0.9 + dl); it('chair', 0.75, 1.25, 0.9 + dl / 2 - 0.25, 0.9 + dl / 2 + 0.25); }
+  if (d - 2.0 - 0.9 >= 0.7) it('wardrobe', w - 0.62, w, 0.9, Math.min(2.1, d - 2.05));
+  // span(v): where the room's real walls are at depth v, as [left, right] in u (the clear rectangle can sit inside a
+  // room that widens, so partitions run on to the real wall)
+  return { o, ux, uy, w, d, items, at: (u, v) => [o[0] + ux[0] * u + uy[0] * v, o[1] + ux[1] * u + uy[1] * v], span: (v) => { const q = span(v + I); return q ? [q[0] - xa, q[1] - xa] : [0, w]; } };
 }
 // SHIPGEO-END
 
@@ -5057,6 +5088,7 @@ function buildDeck3() {
   D3.doors = all;
 
   d3Dress(Lt);
+  d3Cabins(Lt);
   // the whole deck is lit by its computed probes (d3Light), none of it by a light map
   DECK3.traverse((o) => { if (o.isMesh) o.userData.probeLit = true; });
 
@@ -5162,9 +5194,14 @@ function d3Dress(Lt) {
 // the corridors are narrow and far apart, so light reaching a room's side of a wall doesn't show.
 function d3Light() {
   const Lt = D3.layout, H = D3C, W = Lt.W, step = 0.5, y0 = D3Y + 0.15, lights = [], coves = [];
-  Lt.mods.forEach((d) => { lights.push([d.x, D3Y + H - 0.05, d.z, d.sz < 0.5 ? 0.5 : 1]);
+  Lt.mods.forEach((d) => { lights.push([d.x, D3Y + H - 0.05, d.z, d.sz < 0.5 ? 0.5 : 1, 0]);
     [[-1, d.L], [1, d.R]].forEach(([sd, k]) => { if (k === 'o') return; for (let u = -0.75; u <= 0.75; u += 0.5) { const p = d3ModPt(d, sd * (W - 0.15), 0, u); coves.push([p[0], D3Y + H - 0.28, p[2]]); } }); });
-  D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { lights.push([(r.x0 + r.x1 - STD.corridor.w) / 2, D3Y + H - 0.01, (r.z0 + r.z1) / 2, 1.3], [LIFT_DX, D3Y + H - 0.01, r.z1 - 1.0, 1.1]); });
+  D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { lights.push([(r.x0 + r.x1 - STD.corridor.w) / 2, D3Y + H - 0.01, (r.z0 + r.z1) / 2, 1.3, 0], [LIFT_DX, D3Y + H - 0.01, r.z1 - 1.0, 1.1, 0]); });
+  // fitted rooms: their own lights, which light only their own room (space k: a room's light doesn't reach the
+  // corridor or the next room, and the corridor's doesn't reach in)
+  const rooms = (D3.cabins || []); rooms.forEach((c, i) => c.lights.forEach(([x, y, z, k]) => lights.push([x, D3Y + y, z, k, i + 1])));
+  const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
+  const spaceAt = (x, z) => { for (let i = 0; i < rooms.length; i++) { const b = rooms[i].bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3] && inP(rooms[i].wpoly, x, z)) return i + 1; } return 0; };
   const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
   const X = Math.ceil((Math.max(...xs) + 3 - x0) / step) + 1, Z = Math.ceil((Math.max(...zs) + 3 - z0) / step) + 1, Y = Math.floor((H - 0.4) / step) + 1; // layers stay below the ceiling (it samples the top one)
   // spatial hash, 4 m cells
@@ -5173,7 +5210,7 @@ function d3Light() {
   const PW = 2.4, PS = 0.3, IP = 2.3, IC = 0.035, COL = [1.0, 0.93, 0.84], N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
   const data = new Uint8Array(6 * X * Y * Z * 4), E = new Float32Array(6), S = new Float32Array(6);
   for (let iz = 0; iz < Z; iz++) for (let ix = 0; ix < X; ix++) {
-    const px = x0 + ix * step, pz = z0 + iz * step, LL = near(HL, px, pz), CC = near(HC, px, pz);
+    const px = x0 + ix * step, pz = z0 + iz * step, sp = spaceAt(px, pz), LL = near(HL, px, pz).filter((l) => l[4] === sp), CC = sp ? [] : near(HC, px, pz);
     const direct = (py) => { E.fill(0); LL.forEach(([lx, ly, lz, k]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 49) return;
       const r = Math.sqrt(r2), cl = Math.max(0, dy / r), a = IP * k * Math.pow(cl, 1.5) / (r2 + 0.35);
       N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) E[f] += a * c; }); }); };
@@ -5192,6 +5229,96 @@ function d3Light() {
     }
   }
   return { origin: [x0, y0, z0], step, dims: [X, Y, Z], data, pr_max: [PW, PS], lm: 140 };
+}
+
+// ---------- standard rooms (roadmap C): the cabins ----------
+// Every cabin from its shared layout (shipRoomLayout): its shell (floor, ceiling, walls with the door's opening), a head
+// (tiled partition with an open sliding door; shower, toilet, basin and mirror), bed or beds, desk and chair, wardrobe,
+// a ceiling light. Shells are merged deck-wide per material; furniture and fittings are instanced (kitProps), so all
+// 38 cabins cost a few dozen draws. Their doors open as you walk up.
+function d3Cabins(Lt) {
+  const RH = STD.room.h, I = STD.inset, W2 = (p) => [p[1], p[0] - 64], wallMat = roomWallMat(RH, 'fabric'), tileMat = roomWallMat(RH, 'tile');
+  const geo = new Map(), put = (mat, g) => { if (!geo.has(mat)) geo.set(mat, []); geo.get(mat).push([g, null]); };
+  const props = {}, place = (k, x, z, dir, y) => (props[k] = props[k] || []).push({ x, z, y: y || 0, ry: Math.atan2(dir[0], dir[1]) });
+  const wq = (mat, A, B, y0, y1, n, uo) => { const L = Math.hypot(B[0] - A[0], B[1] - A[1]); put(mat, kitQuad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]],
+    [[uo / 1.2, y0 / RH], [(uo + L) / 1.2, y0 / RH], [(uo + L) / 1.2, y1 / RH], [uo / 1.2, y1 / RH]], [n[0], 0, n[1]])); };
+  // a wall from A to B facing n, with openings [{ a, b, y1 }] along it (metres from A), and its collision line
+  const wall = (mat, A, B, n, holes) => { const L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], P = (t) => [A[0] + u[0] * t, A[1] + u[1] * t]; let t = 0;
+    (holes || []).slice().sort((p, q) => p.a - q.a).forEach((h) => { if (h.a > t) { wq(mat, P(t), P(h.a), 0, RH, n, t); kitSeg(D3, ...P(t), ...P(h.a), 0.2); }
+      wq(mat, P(h.a), P(h.b), h.y1, RH, n, h.a); t = h.b; });
+    if (L > t) { wq(mat, P(t), P(L), 0, RH, n, t); kitSeg(D3, ...P(t), ...P(L), 0.2); } };
+  D3.cabins = [];
+  Lt.F.spaces.forEach((s) => {
+    const Lay = shipRoomLayout(s); if (!Lay) return;
+    const dd = D3.doors.find((q) => q.s === s), wp = insetPoly(s.poly.map(W2), I), n = wp.length;
+    const cx = wp.reduce((a, p) => a + p[0] / n, 0), cz = wp.reduce((a, p) => a + p[1] / n, 0);
+    // floor and ceiling
+    const tri = THREE.ShapeUtils.triangulateShape(wp.map(([x, z]) => new THREE.Vector2(x, z)), []);
+    [[MAT.roomCarpet, 0.003, 1], [MAT.ceiling, RH, -1]].forEach(([mat, y, up]) => { const pos = [], nor = [], uv = [];
+      tri.forEach(([a, b, c]) => { let t = [a, b, c]; const A = wp[a], B = wp[b], C = wp[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if ((cr < 0) !== (up > 0)) t = [a, c, b];
+        t.forEach((k) => { pos.push(wp[k][0], y, wp[k][1]); nor.push(0, up, 0); uv.push(wp[k][0] / (up > 0 ? 1 : 1.2), wp[k][1] / (up > 0 ? 1 : 1.2)); }); });
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); put(mat, g); });
+    // walls, the door's opening on the wall nearest the door
+    let de = -1, dt = 0, bd = 1e9; wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), t = ((dd.x - A[0]) * (B[0] - A[0]) + (dd.z - A[1]) * (B[1] - A[1])) / (L * L), tc = Math.max(0, Math.min(1, t));
+      const d = Math.hypot(A[0] + tc * (B[0] - A[0]) - dd.x, A[1] + tc * (B[1] - A[1]) - dd.z); if (d < bd) { bd = d; de = i; dt = t * L; } });
+    wp.forEach((A, i) => { const B = wp[(i + 1) % n], L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L]; let nn = [-u[1], u[0]];
+      if ((cx - A[0]) * nn[0] + (cz - A[1]) * nn[1] < 0) nn = [-nn[0], -nn[1]];
+      wall(wallMat, A, B, nn, i === de ? [{ a: dt - 0.6, b: dt + 0.6, y1: 2.3 }] : null); });
+    // the room's frame in world terms
+    const at = (u, v) => W2(Lay.at(u, v)), ux = [Lay.ux[1], Lay.ux[0]], uy = [Lay.uy[1], Lay.uy[0]], mid = (i) => at((i.u0 + i.u1) / 2, (i.v0 + i.v1) / 2), neg = (v) => [-v[0], -v[1]];
+    Lay.items.forEach((it) => {
+      const c = mid(it);
+      if (it.k === 'bed' || it.k === 'bunk') { place(it.k, c[0], c[1], neg(uy)); [-0.5, 0.5].forEach((o) => kitObs(D3, c[0] + uy[0] * o, c[1] + uy[1] * o, 0.5)); }
+      if (it.k === 'desk') { place('desk', c[0], c[1], ux); kitObs(D3, c[0], c[1], 0.4); }
+      if (it.k === 'chair') place('chair', c[0], c[1], neg(ux));
+      if (it.k === 'wardrobe') { place('wardrobe', c[0], c[1], neg(ux)); kitObs(D3, c[0], c[1], 0.4); }
+      if (it.k === 'head') {
+        // partition: the front wall (door opening near its left end) and the left wall, tiled on both faces
+        // (the front wall runs on to the room's real right-hand wall, which can lie beyond the clear rectangle)
+        const ur = Math.max(it.u1, Lay.span(it.v0)[1] - I), A = at(it.u0, it.v0), B = at(ur, it.v0), C = at(it.u0, it.v1), t = 0.04, off = (P, v, k) => [P[0] + v[0] * k, P[1] + v[1] * k];
+        wall(tileMat, off(A, uy, -t), off(B, uy, -t), neg(uy), [{ a: 0.15, b: 0.85, y1: 2.1 }]); wall(tileMat, off(B, uy, t), off(A, uy, t), uy, [{ a: ur - it.u0 - 0.85, b: ur - it.u0 - 0.15, y1: 2.1 }]);
+        wall(tileMat, off(A, ux, -t), off(C, ux, -t), neg(ux)); wall(tileMat, off(C, ux, t), off(A, ux, t), ux);
+        const hp = (u, v) => at(it.u0 + u, it.v0 + v), hw = it.u1 - it.u0;
+        { const p = hp(0.5 + 0.3, -0.07); place('sliding', p[0], p[1], neg(uy)); } // the sliding door, half open over the wall
+        { const p = hp(hw / 2, 1.0); place('headfloor', p[0], p[1], uy); }
+        { const p = hp(hw - 0.33, 0.95); place('toilet', p[0], p[1], neg(ux)); kitObs(D3, p[0], p[1], 0.3); }
+        { const p = hp(hw - 0.25, 0.3); place('basin', p[0], p[1], neg(ux)); }
+        { const p = hp(hw / 2, 2.0 - 0.45); place('shower', p[0], p[1], neg(uy)); const g0 = hp(0.05, 2.0 - 0.92), g1 = hp(hw - 0.62, 2.0 - 0.92); kitSeg(D3, g0[0], g0[1], g1[0], g1[1], 0.2); }
+        { const p = hp(hw / 2, 1.0); D3.headLights = (D3.headLights || []).concat([[p[0], RH - 0.01, p[1]]]); }
+      }
+    });
+    // ceiling light over the room's open floor, and where the light sits for d3Light
+    const lp = at(Lay.w * 0.4, Math.max(1.2, Lay.d - 3.0)); place('cabinlight', lp[0], lp[1], uy, RH);
+    const hd = Lay.items.find((i) => i.k === 'head'), hl = at((hd.u0 + hd.u1) / 2, (hd.v0 + hd.v1) / 2);
+    const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]);
+    D3.cabins.push({ s, wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights: [[lp[0], RH - 0.05, lp[1], 1.5], [hl[0], RH - 0.05, hl[1], 0.7]] });
+    // its door opens now, and its panel says what's inside
+    const door = DOORS.find((q) => q.station === 'd3:' + s.id); if (door) door.auto = true;
+    const beds = Lay.items.filter((i) => i.k === 'bed').length;
+    STATIONS['d3:' + s.id] = { title: (s.n === 'Crew quarters' ? 'Crew cabin ' : 'Officer’s cabin ') + s.id, role: 'Deck 3',
+      panel: () => ({ read: [['Berths', s.b > 1 ? 'Two' : 'One'], ['Inside', (Lay.items.some((i) => i.k === 'bunk') ? 'Bunk' : beds > 1 ? 'Two beds' : 'Bed') + ', desk, wardrobe, own head (shower, toilet, basin)']],
+        note: 'Walk up to the door to go in.', acts: [] }) };
+    D3.rooms.unshift({ label: (s.n === 'Crew quarters' ? 'Crew cabin ' : 'Cabin ') + s.id, test: (x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const [ax, az] = wp[i], [bx, bz] = wp[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; } });
+  });
+  geo.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, DECK3); m.name = 'Deck 3 cabins'; });
+  // the fittings, each drawn as instances; local frames: +z faces into the room (beds: +z toward the foot)
+  const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
+  const bedParts = (y) => [P(RBOX(0.95, 0.3, 2.05, 0.03), WOOD, 0, y + 0.15, 0), P(RBOX(0.88, 0.18, 1.95, 0.05), CERAMIC, 0, y + 0.39, 0), P(RBOX(0.92, 0.05, 1.3, 0.02), FABRIC, 0, y + 0.5, 0.32), P(RBOX(0.6, 0.1, 0.34, 0.04), CERAMIC, 0, y + 0.53, -0.76)];
+  const KIT = {
+    bed: bedParts(0).concat([P(RBOX(0.95, 1.0, 0.08, 0.02), MAT.leatherDark, 0, 0.62, -1.03)]),
+    bunk: bedParts(0).concat(bedParts(1.15), [-1, 1].flatMap((sx) => [-1, 1].map((sz) => P(CYL(0.025, 0.025, 1.85, 8), MAT.steel, sx * 0.45, 0.92, sz * 1.0)))),
+    desk: [P(RBOX(0.9, 0.04, 0.6, 0.012), WOOD, 0, 0.74, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, -0.42, 0.36, 0), P(RBOX(0.04, 0.72, 0.56, 0.01), WOOD, 0.42, 0.36, 0),
+      P(RBOX(0.5, 0.32, 0.03, 0.01), MAT.gunDark, 0, 1.0, -0.22), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0, 1.0, -0.204)],
+    chair: [P(RBOX(0.46, 0.06, 0.46, 0.02), MAT.leather, 0, 0.46, 0), P(RBOX(0.46, 0.5, 0.06, 0.02), MAT.leather, 0, 0.75, -0.22), P(CYL(0.03, 0.03, 0.42, 8), MAT.steel, 0, 0.22, 0), P(CYL(0.24, 0.24, 0.03, 16), MAT.steel, 0, 0.02, 0)],
+    wardrobe: [P(RBOX(0.8, 2.05, 0.58, 0.02), WOOD, 0, 1.025, 0), P(BOX(0.012, 1.7, 0.012), MAT.steel, 0, 1.025, 0.295)],
+    sliding: [P(RBOX(0.72, 2.1, 0.03, 0.01), MAT.panel, 0, 1.05, 0)],
+    headfloor: [P((() => { const g = new THREE.PlaneGeometry(1.2, 1.9); g.rotateX(-Math.PI / 2); return g; })(), CERAMIC, 0, 0.006, 0)],
+    toilet: [P(RBOX(0.38, 0.4, 0.5, 0.08), CERAMIC, 0, 0.2, 0.05), P(RBOX(0.38, 0.36, 0.17, 0.03), CERAMIC, 0, 0.58, -0.22), P(RBOX(0.4, 0.03, 0.46, 0.03), CERAMIC, 0, 0.42, 0.06)],
+    basin: [P(RBOX(0.46, 0.06, 0.42, 0.02), WOOD, 0, 0.82, 0), P(RBOX(0.36, 0.1, 0.3, 0.04), CERAMIC, 0, 0.88, 0.02), P(new THREE.PlaneGeometry(0.46, 0.6), MIR, 0, 1.45, -0.205), P(CYL(0.012, 0.012, 0.16, 8), MAT.steel, 0, 0.98, -0.14)],
+    shower: [P(RBOX(1.2, 0.06, 0.86, 0.02), CERAMIC, 0, 0.03, 0), P(RBOX(0.62, 1.9, 0.012, 0.004), GLASS, -0.27, 1.0, 0.45), P(CYL(0.07, 0.07, 0.02, 16), MAT.steel, 0, 2.1, -0.35)],
+    cabinlight: [P(RBOX(0.9, 0.04, 0.5, 0.015), MAT.steel, 0, -0.02, 0), P((() => { const g = new THREE.PlaneGeometry(0.78, 0.38); g.rotateX(Math.PI / 2); return g; })(), downlightMat, 0, -0.045, 0)],
+  };
+  D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); });
 }
 
 ````

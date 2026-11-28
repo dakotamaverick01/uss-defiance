@@ -36,7 +36,7 @@ CHECK_JS = r"""() => {
     want.forEach((s) => { const d = D3.doors.find((q) => q.s === s); if (!d) { bad.push((s.id || s.n) + ' missing'); return; }
       const n = [Math.sin(d.rot), Math.cos(d.rot)], t = [n[1], -n[0]];
       [-0.55, 0, 0.55].forEach((u) => { const x = d.x - n[0] * 0.35 + t[0] * u, z = d.z - n[1] * 0.35 + t[1] * u; if (!inPoly(s.poly, ...w2p(x, z))) bad.push(`${s.id || s.n} opening at ${u}`); });
-      const dd = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); if (!dd || dd.auto || dd.deck !== 3) bad.push((s.id || s.n) + ' door object');
+      const dd = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); if (!dd || dd.deck !== 3 || dd.auto !== !!s.b) bad.push((s.id || s.n) + ' door object'); // fitted cabins open, other rooms stay sealed
       const st = STATIONS['d3:' + (s.id || s.n)]; try { if (!st || !st.panel().read.length) bad.push((s.id || s.n) + ' station'); } catch (e) { bad.push((s.id || s.n) + ' panel ' + e.message); }
       if (d.moved > 1.3) far.push(`${s.id || s.n} ${d.moved.toFixed(2)} m`); });
     ok(`every room has its door in its own wall (${want.length} doors)`, !bad.length, bad.slice(0, 6).join('; '));
@@ -73,6 +73,23 @@ CHECK_JS = r"""() => {
     const L = d3Light(), [X, Y] = L.dims, d = Lt.mods.find((m) => m.spoke === 0 && m.full), ix = Math.round((d.x - L.origin[0]) / L.step), iz = Math.round((d.z - L.origin[2]) / L.step);
     const v = (iy, f) => L.data[((iz * Y + iy) * 6 * X + f * X + ix) * 4 + 1];
     ok('floor under a panel brighter than the ceiling, the ceiling lit', v(0, 2) > v(Y - 1, 3) && v(Y - 1, 3) > 20, `floor ${v(0, 2)}, ceiling ${v(Y - 1, 3)}`); }
+  // C: cabins fitted out: every cabin has its shell, its fittings (a bed per berth, its head), a ceiling light, an
+  // opening door, and you can walk in through it
+  { const cabs = F.spaces.filter((s) => s.b), bad = [];
+    const count = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
+    ok(`all ${cabs.length} cabins fitted`, D3.cabins.length === cabs.length, D3.cabins.length);
+    const beds = count('bed') + 2 * count('bunk'), berths = cabs.reduce((a, s) => a + s.b, 0);
+    ok(`a bed for every berth (${berths}), a head, desk, wardrobe and light in every cabin`, beds >= berths && ['toilet', 'basin', 'shower', 'sliding', 'cabinlight', 'wardrobe'].every((k) => count(k) === cabs.length) && count('desk') >= cabs.length - 2,
+      `beds ${beds}, toilets ${count('toilet')}, lights ${count('cabinlight')}, desks ${count('desk')}`);
+    DOORS.forEach((d) => { if (d.deck === 3 && d.auto) d.open = 1; });
+    cabs.forEach((s) => { const d = D3.doors.find((q) => q.s === s), dd = DOORS.find((q) => q.station === 'd3:' + s.id); if (!dd || !dd.auto) { bad.push(s.id + ' door shut'); return; }
+      const n = [Math.sin(d.rot), Math.cos(d.rot)]; let x = d.x + n[0] * 0.75, z = d.z + n[1] * 0.75; const tx = d.x - n[0] * 1.2, tz = d.z - n[1] * 1.2;
+      for (let k = 0; k < 80; k++) { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz); if (l < 0.03) break; [x, z] = collide(x + dx / l * Math.min(0.04, l), z + dz / l * Math.min(0.04, l)); }
+      if (Math.hypot(tx - x, tz - z) > 0.08) bad.push(`${s.id} stuck at ${x.toFixed(2)},${z.toFixed(2)}`);
+      else { player.x = tx; player.z = tz; if (!/cabin/i.test(liftLocation())) bad.push(s.id + ' readout ' + liftLocation()); } });
+    DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
+    ok('walk into every cabin through its door; the readout names it', !bad.length, bad.slice(0, 6).join('; '));
+    ok('cabins lit by their own lights (one light space each)', D3.cabins.every((c) => c.lights.length === 2)); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
