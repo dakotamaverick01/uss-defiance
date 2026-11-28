@@ -168,6 +168,18 @@ async function bakeFetch(n) {
   BKD[n] = { meta, lmW: bakeTex(lw), lmS: bakeTex(ls), pr: pt };
   return BKD[n];
 }
+// A deck with no bake files yet (a new deck being built) gets an even, provisional light instead: a one-sample probe
+// grid and a flat light map at about the brightness of a lit room, so it can be walked and judged before it is baked.
+function bakeProvisional(n) {
+  const B = BAKE.decks[n], ref = BKD[1]; if (!B || !ref || BKD[n]) return;
+  const tex = (v, ch) => { const t = new THREE.DataTexture(new Uint8Array(ch === 1 ? [v, v, v, 255] : [v, v, v, 255]), 1, 1); t.needsUpdate = true; return t; };
+  const d = new Uint8Array(6 * 4).fill(55); for (let f = 0; f < 6; f++) d[f * 4 + 3] = 0; // six faces, light from every side
+  const pr = new THREE.Data3DTexture(d, 6, 1, 1); pr.minFilter = pr.magFilter = THREE.LinearFilter; pr.unpackAlignment = 1; pr.needsUpdate = true;
+  const m = ref.meta, y = deckY(n);
+  BKD[n] = { provisional: true, lmW: tex(140), lmS: tex(0), pr,
+    meta: Object.assign({}, m, { deck: n, atlas: B.atlas, grid: { origin: [0, y + 1.4, 0], step: 1000, dims: [1, 1, 1] } }) };
+  console.warn('Deck ' + n + ' has no light bake yet: using provisional light (bake it with tools/bake_export.py . <work> ' + n + ')');
+}
 // Point the shared uniforms at deck n's bake (on arrival; lift.js). False if that deck has no bake applied.
 function bakeUse(n) {
   const D = BKD[n]; if (!D || !BAKE.decks[n] || !BAKE.decks[n].ok) return false;
@@ -182,6 +194,7 @@ function bakeUse(n) {
 // the light map, every other lit interior material the probes. A material used both ways is copied for the other use.
 // Returns true when the deck's bake is in place (batch.js then merges its light-mapped surfaces).
 function bakeApply(n) {
+  if (BAKE.ok && !BKD[n]) bakeProvisional(n); // after start-up, a deck without files gets the provisional light
   const B = BAKE.decks[n], D = BKD[n]; if (!B || !D || B.ok) return false;
   const A = D.meta.atlas;
   if (A.w !== B.atlas.w || A.h !== B.atlas.h || A.sig !== B.atlas.sig) { console.warn('Deck ' + n + ': bake does not match the deck; re-run its bake (see README)'); return false; }
