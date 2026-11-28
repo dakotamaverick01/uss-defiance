@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `b27596e`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `0215035`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -3971,6 +3971,14 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = 'rgba(255,255,255,0.18)'; [0, 96].forEach((x) => g.fillRect(x + 2, 0, 1, Hp));
     g.fillStyle = '#5d6062'; g.fillRect(0, Y(0.9), Wd, Y(0.12) - Y(0.9)); g.fillStyle = '#3c3f41'; g.fillRect(0, 0, Wd, Y(H - 0.22));
     g.fillStyle = '#b8873a'; g.fillRect(0, Y(1.35), Wd, 6); g.fillStyle = '#222'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
+  } else if (kind === 'bath') { // cabin heads: large warm-white tiles laid staggered, fine pale grout, a slim stone band
+    g.fillStyle = '#cfcac2'; g.fillRect(0, 0, Wd, Hp);
+    const r = mulberry(19), tw = 96, th = 48;
+    for (let row = 0, y = Hp - Math.round(0.1 * 160); y > -th; row++, y -= th) for (let x = (row % 2) * -48; x < Wd; x += tw) {
+      const v = 228 + Math.round(r() * 10); const gr = g.createLinearGradient(0, y - th, 0, y); gr.addColorStop(0, `rgb(${v + 6},${v + 4},${v})`); gr.addColorStop(1, `rgb(${v - 4},${v - 6},${v - 10})`);
+      g.fillStyle = gr; g.fillRect(x + 1, y - th + 1, tw - 2, th - 2); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 1, y - th + 1, tw - 2, 1); }
+    g.fillStyle = '#8f9a97'; g.fillRect(0, Y(1.16), Wd, Y(1.1) - Y(1.16)); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(0, Y(1.16), Wd, 1);
+    g.fillStyle = '#7d827f'; g.fillRect(0, Y(0.1), Wd, Hp - Y(0.1));
   } else if (kind === 'med') { // sickbay: white wall panels, a teal band at hand height, a teal kick band
     g.fillStyle = '#e2e6e5'; g.fillRect(0, 0, Wd, Hp);
     const r = mulberry(53);
@@ -3993,13 +4001,13 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = '#211e1b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   }
   ge.fillStyle = '#000'; ge.fillRect(0, 0, Wd, Hp);
-  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : kind === 'bulk' || kind === 'med' ? 0.22 : 0.26)) - 2, Wd, 3);
+  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' || kind === 'bath' ? 0.18 : kind === 'bulk' || kind === 'med' ? 0.22 : 0.26)) - 2, Wd, 3);
   return [c, e];
 }
 function roomWallMat(H, kind) {
   const [c, e] = roomWallCanvases(H, kind); const map = tex(c), em = tex(e); map.wrapS = em.wrapS = THREE.RepeatWrapping;
-  const nm = normalTex(c, kind === 'tile' ? 4 : kind === 'bulk' ? 3 : 2.5); nm.wrapS = THREE.RepeatWrapping;
-  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.3 });
+  const nm = normalTex(c, kind === 'tile' || kind === 'bath' ? 2 : kind === 'bulk' ? 3 : 2.5); nm.wrapS = THREE.RepeatWrapping;
+  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: kind === 'bath' ? 0.3 : 0.9, metalness: 0.02, envMapIntensity: 0.3 });
   ROOM_WALL_MATS.push(m); return m;
 }
 // dark hardwood (ambientCG Wood018, recoloured), world-mapped so the grain runs evenly over every piece of furniture
@@ -5302,7 +5310,7 @@ function d3Light() {
 // a ceiling light. Shells are merged deck-wide per material; furniture and fittings are instanced (kitProps), so all
 // 38 cabins cost a few dozen draws. Their doors open as you walk up.
 function d3Cabins(Lt) {
-  const RH = STD.room.h, I = STD.inset, W2 = (p) => [p[1], p[0] - 64], wallMat = roomWallMat(RH, 'fabric'), tileMat = roomWallMat(RH, 'tile');
+  const RH = STD.room.h, I = STD.inset, W2 = (p) => [p[1], p[0] - 64], wallMat = roomWallMat(RH, 'fabric'), tileMat = CKIT.bathWall || (CKIT.bathWall = roomWallMat(RH, 'bath'));
   const geo = new Map(), put = (mat, g) => { if (!geo.has(mat)) geo.set(mat, []); geo.get(mat).push([g, null]); };
   const props = {}, place = (k, x, z, dir, y) => (props[k] = props[k] || []).push({ x, z, y: y || 0, ry: Math.atan2(dir[0], dir[1]) });
   const wq = (mat, A, B, y0, y1, n, uo) => { const L = Math.hypot(B[0] - A[0], B[1] - A[1]); put(mat, kitQuad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]],
@@ -5385,7 +5393,10 @@ function d3Cabins(Lt) {
     chair: [P(RBOX(0.46, 0.06, 0.46, 0.02), MAT.leather, 0, 0.46, 0), P(RBOX(0.46, 0.5, 0.06, 0.02), MAT.leather, 0, 0.75, -0.22), P(CYL(0.03, 0.03, 0.42, 8), MAT.steel, 0, 0.22, 0), P(CYL(0.24, 0.24, 0.03, 16), MAT.steel, 0, 0.02, 0)],
     wardrobe: [P(RBOX(0.8, 2.05, 0.58, 0.02), WOOD, 0, 1.025, 0), P(BOX(0.012, 1.7, 0.012), MAT.steel, 0, 1.025, 0.295)],
     sliding: [P(RBOX(0.72, 2.1, 0.03, 0.01), MAT.panel, 0, 1.05, 0)],
-    headfloor: [P((() => { const g = new THREE.PlaneGeometry(1.2, 1.9); g.rotateX(-Math.PI / 2); return g; })(), CERAMIC, 0, 0.006, 0)],
+    headfloor: [P((() => { const g = new THREE.PlaneGeometry(1.2, 1.9); g.rotateX(-Math.PI / 2); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 1.2, uv.getY(i) * 1.9); return g; })(),
+      CKIT.bathFloor || (CKIT.bathFloor = (() => { const c = cnv(128, 128), g = c.getContext('2d'), r = mulberry(71); g.fillStyle = '#b9bcb8'; g.fillRect(0, 0, 128, 128);
+        for (let y = 0; y < 128; y += 32) for (let x = 0; x < 128; x += 32) { const v = 178 + Math.round(r() * 14); g.fillStyle = `rgb(${v},${v + 2},${v})`; g.fillRect(x + 1, y + 1, 30, 30); }
+        const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.35, envMapIntensity: 0.6 }); })()), 0, 0.006, 0)],
     toilet: [P(RBOX(0.38, 0.4, 0.5, 0.08), CERAMIC, 0, 0.2, 0.05), P(RBOX(0.38, 0.36, 0.17, 0.03), CERAMIC, 0, 0.58, -0.22), P(RBOX(0.4, 0.03, 0.46, 0.03), CERAMIC, 0, 0.42, 0.06)],
     basin: [P(RBOX(0.46, 0.06, 0.42, 0.02), WOOD, 0, 0.82, 0), P(RBOX(0.36, 0.1, 0.3, 0.04), CERAMIC, 0, 0.88, 0.02), P(new THREE.PlaneGeometry(0.46, 0.6), MIR, 0, 1.45, -0.205), P(CYL(0.012, 0.012, 0.16, 8), MAT.steel, 0, 0.98, -0.14)],
     shower: [P(RBOX(1.2, 0.06, 0.86, 0.02), CERAMIC, 0, 0.03, 0), P(RBOX(0.62, 1.9, 0.012, 0.004), GLASS, -0.27, 1.0, 0.45), P(CYL(0.07, 0.07, 0.02, 16), MAT.steel, 0, 2.1, -0.35)],
@@ -5499,21 +5510,37 @@ function d3Rooms(Lt, C) {
   const red = CKIT.red || (CKIT.red = new THREE.MeshStandardMaterial({ color: 0xa8322c, metalness: 0.3, roughness: 0.4 }));
   const caseMat = CKIT.caseMat || (CKIT.caseMat = new THREE.MeshStandardMaterial({ color: 0xb88a3a, metalness: 0.2, roughness: 0.5 }));
   const face = (w, h, draw) => { const c = cnv(w, h), g = c.getContext('2d'); draw(g, w, h); return new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }); };
-  const rackFace = CKIT.rackFace || (CKIT.rackFace = face(128, 256, (g, w, h) => { g.fillStyle = '#0b0c0e'; g.fillRect(0, 0, w, h); const r = mulberry(5);
-    for (let y = 10; y < h - 10; y += 14) { g.fillStyle = '#16191c'; g.fillRect(8, y, w - 16, 10); for (let x = 14; x < w - 20; x += 10) if (r() < 0.45) { g.fillStyle = ['#7FB6E8', '#8DBF84', '#B693C4', '#F2C88F'][(r() * 4) | 0]; g.fillRect(x, y + 3, 4, 4); } } }));
+  const rackFace = CKIT.rackFace2 || (CKIT.rackFace2 = face(128, 320, (g, w, h) => { g.fillStyle = '#05070b'; g.fillRect(0, 0, w, h); const r = mulberry(5);
+    for (let y = 8; y < h - 8; y += 26) { g.fillStyle = '#121822'; g.fillRect(6, y, w - 12, 22); g.fillStyle = '#1b2433'; g.fillRect(8, y + 2, 60, 18);
+      for (let x = 10; x < 64; x += 7) { g.fillStyle = ['#7FB6E8', '#B693C4', '#8DBF84', '#F2C88F', '#2a3a55'][(r() * 5) | 0]; g.fillRect(x, y + 5, 4, 12); }
+      g.fillStyle = r() < 0.8 ? '#7FB6E8' : '#F0B44C'; g.fillRect(76, y + 8, 6, 6); g.fillStyle = '#2b3a52'; g.fillRect(88, y + 9, 26, 4); }
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#8fb8ff'); gr.addColorStop(1, '#b693c4'); g.fillStyle = gr; g.fillRect(w - 6, 6, 3, h - 12); }));
   const morgueFace = CKIT.morgue || (CKIT.morgue = face(256, 64, (g, w, h) => { g.fillStyle = '#d8d6d0'; g.fillRect(0, 0, w, h); g.fillStyle = '#7E5C8E'; g.fillRect(8, 8, 60, 10); g.fillStyle = '#222'; g.font = `600 22px ${DISP}`; g.fillText('MORGUE', 80, 40); }));
   const dcFace = CKIT.dcBoard || (CKIT.dcBoard = face(512, 288, (g, w, h) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, h); elbow(g, 10, 10, 50, 14, 220, 22, true, '#E05A50');
     g.fillStyle = '#E05A50'; g.font = `600 30px ${DISP}`; g.fillText('DAMAGE CONTROL · DECK 3', 72, 36);
     g.strokeStyle = '#D9B07E'; g.lineWidth = 6; g.beginPath(); g.arc(180, 160, 80, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(80, 160); g.lineTo(470, 160); g.moveTo(180, 60); g.lineTo(180, 260); g.stroke();
     [['FWD SHIELDS', 'NOMINAL', '#8DBF84'], ['HULL', 'NOMINAL', '#8DBF84'], ['LIFT 2', 'OFFLINE', '#F0B44C']].forEach(([a, b, c], i) => { g.fillStyle = '#D9B07E'; g.font = `500 22px ${DISP}`; g.fillText(a, 300, 214 + i * 26); g.fillStyle = c; g.fillText(b, 420, 214 + i * 26); }); }));
   const padFace = CKIT.pad || (CKIT.pad = face(64, 96, (g, w, h) => { g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h); g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 30, 8); g.fillStyle = '#B693C4'; for (let y = 22; y < 86; y += 10) g.fillRect(8, y, 20 + ((y * 7) % 26), 4); }));
-  const torp = (y) => [P(R(CYL(0.26, 0.26, 1.9, 18), 0, 0, Math.PI / 2), casing, -0.1, y, 0), P(R(CYL(0.0, 0.26, 0.42, 18), 0, 0, -Math.PI / 2), casing, 1.06, y, 0), P(R(CYL(0.27, 0.27, 0.08, 18), 0, 0, Math.PI / 2), MAT.hazard, 0.7, y, 0)];
+  // a photon torpedo: a turned casing (lathe) lying along x, nose to +x, a lit warhead band, four tail fins, a hazard ring
+  const torpGeo = CKIT.torpGeo || (CKIT.torpGeo = (() => { const pts = [[0.0, -1.0], [0.1, -0.99], [0.15, -0.9], [0.19, -0.86], [0.23, -0.7], [0.25, -0.5], [0.25, 0.45], [0.235, 0.62], [0.19, 0.8], [0.11, 0.94], [0.0, 1.0]].map(([r, y]) => new THREE.Vector2(r, y));
+    const g = new THREE.LatheGeometry(pts, 28); g.rotateZ(-Math.PI / 2); return g; })());
+  const torpCase = CKIT.torpCase || (CKIT.torpCase = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.025, 0.03, 0.036), metalness: 0.5, roughness: 0.45, envMapIntensity: 0.6 }));
+  const torpGlow = CKIT.torpGlow || (CKIT.torpGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(1.0, 0.42, 0.22), toneMapped: false }));
+  const torp = (y) => [P(torpGeo, torpCase, 0, y, 0), P(R(CYL(0.255, 0.255, 0.05, 28), 0, 0, Math.PI / 2), torpGlow, 0.52, y, 0), P(R(CYL(0.255, 0.255, 0.03, 28), 0, 0, Math.PI / 2), torpGlow, 0.62, y, 0),
+    P(R(CYL(0.252, 0.252, 0.08, 28), 0, 0, Math.PI / 2), MAT.hazard, -0.55, y, 0), P(R(CYL(0.2, 0.2, 0.06, 20), 0, 0, Math.PI / 2), MAT.gunDark, -0.97, y, 0)]
+    .concat([0, 1, 2, 3].map((k) => P(R(BOX(0.34, 0.02, 0.2), k * Math.PI / 2 + Math.PI / 4, 0, 0).translate(0, Math.cos(k * Math.PI / 2 + Math.PI / 4) * 0.2, Math.sin(k * Math.PI / 2 + Math.PI / 4) * 0.2), MAT.gun, -0.8, y, 0)));
   return {
     shgen: [P(CYL(2.0, 2.1, 0.2, 40), MAT.gunDark, 0, 0.1, 0), P(CYL(1.5, 1.5, 1.85, 40), MAT.panel, 0, 1.12, 0), P(CYL(1.53, 1.53, 0.32, 40), glow, 0, 1.3, 0), P(CYL(1.15, 1.5, 0.3, 40), MAT.gunDark, 0, 2.2, 0)]
       .concat([0, 1, 2, 3, 4, 5].map((i) => { const a = i * Math.PI / 3; return P(BOX(0.14, 1.85, 0.22), MAT.gunDark, Math.sin(a) * 1.55, 1.12, Math.cos(a) * 1.55); })),
     console: [P(BOX(1.2, 0.85, 0.6), MAT.gunDark, 0, 0.425, 0), P(R(BOX(1.2, 0.05, 0.55), -0.45), MAT.gun, 0, 0.96, 0.02), P(R(new THREE.PlaneGeometry(1.0, 0.42), -Math.PI / 2 - 0.45), D3.screenMat, 0, 0.99, 0.03)],
-    rack: [P(BOX(1.2, 2.2, 0.7), MAT.gunDark, 0, 1.1, 0), P(new THREE.PlaneGeometry(1.08, 2.0), rackFace, 0, 1.1, 0.352)],
-    torprack: [P(BOX(0.1, 1.9, 0.62), MAT.gunDark, -1.25, 0.95, 0), P(BOX(0.1, 1.9, 0.62), MAT.gunDark, 1.25, 0.95, 0), P(BOX(2.5, 0.06, 0.55), MAT.gunDark, 0, 0.42, 0), P(BOX(2.5, 0.06, 0.55), MAT.gunDark, 0, 1.12, 0)].concat(torp(0.72), torp(1.42)),
+    rack: [P(BOX(1.2, 2.45, 0.6), MAT.gunDark, 0, 1.225, -0.06), P(new THREE.PlaneGeometry(1.0, 2.1), rackFace, 0, 1.2, 0.245),
+      P(BOX(1.2, 0.05, 0.05), CKIT.rackGlow || (CKIT.rackGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.55, 0.45, 1.0), toneMapped: false })), 0, 2.38, 0.36),
+      P(BOX(1.2, 0.04, 0.05), CKIT.rackGlow, 0, 0.08, 0.36), P(BOX(1.24, 0.08, 0.76), MAT.gun, 0, 2.49, 0), P(BOX(0.05, 2.3, 0.05), MAT.gun, -0.58, 1.2, 0.36), P(BOX(0.05, 2.3, 0.05), MAT.gun, 0.58, 1.2, 0.36),
+      P(BOX(1.1, 0.008, 0.06), CKIT.rackGlow, 0, 0.004, 0.62)],
+    torprack: [P(BOX(0.12, 2.0, 0.66), MAT.gunDark, -1.28, 1.0, 0), P(BOX(0.12, 2.0, 0.66), MAT.gunDark, 1.28, 1.0, 0), P(BOX(2.6, 0.1, 0.66), MAT.gunDark, 0, 2.0, 0), P(BOX(2.5, 0.04, 0.5), MAT.gun, 0, 0.05, 0.02),
+      P(BOX(0.02, 1.7, 0.02), torpGlow, -1.22, 1.0, 0.33), P(BOX(0.02, 1.7, 0.02), torpGlow, 1.22, 1.0, 0.33), P(BOX(2.3, 0.02, 0.02), CKIT.rackGlow || (CKIT.rackGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.55, 0.45, 1.0), toneMapped: false })), 0, 1.94, 0.33)]
+      .concat([0.48, 1.18].flatMap((y) => [-0.6, 0.6].flatMap((x) => [P(BOX(0.16, 0.2, 0.56), MAT.gun, x, y, 0), P(R(new THREE.TorusGeometry(0.27, 0.025, 6, 20, Math.PI), 0, Math.PI / 2, Math.PI), MAT.steel, x, y + 0.34, 0)])),
+        [0.48, 1.18].map((y) => P(BOX(2.44, 0.05, 0.12), MAT.gunDark, 0, y - 0.1, -0.24)), torp(0.82), torp(1.52)),
     hoist: [P(BOX(0.4, 0.28, 0.5), MAT.gunDark, 0, RH - 0.32, 0), P(CYL(0.01, 0.01, 0.6, 6), MAT.steel, 0, RH - 0.76, 0), P(BOX(0.3, 0.06, 0.06), MAT.hazard, 0, RH - 1.08, 0)],
     feed: [P(CYL(0.6, 0.6, RH, 24), MAT.gun, 0, RH / 2, 0), P(CYL(0.72, 0.72, 0.14, 24), MAT.hazard, 0, 0.07, 0), P(BOX(0.5, 0.7, 0.04), MAT.gunDark, 0, 1.3, 0.6)],
     locker: [P(BOX(0.6, 2.0, 0.5), MAT.panel, 0, 1.0, 0), P(BOX(0.01, 1.8, 0.01), MAT.gunDark, 0, 1.0, 0.252), ...[1.6, 1.68, 1.76].map((y) => P(BOX(0.36, 0.015, 0.01), MAT.gunDark, 0, y, 0.252)), P(BOX(0.04, 0.12, 0.03), MAT.steel, 0.2, 1.05, 0.26)],
@@ -5614,7 +5641,8 @@ function d3Sickbay(Lt, C) {
   { const c = W(Lay.items.find((q) => q.k === 'surgery').c); lights.push([c[0], RH - 0.5, c[1], 2.4]); }
   // a light band hung round the ward, following the curved wall over the foot of the beds
   { const r = 14.2, t0 = 18, t1 = 84, n = 22; for (let i = 0; i < n; i++) { const A = W(Lay.at(r, t0 + (t1 - t0) * i / n)), B = W(Lay.at(r, t0 + (t1 - t0) * (i + 1) / n)), M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], u = [B[0] - A[0], B[1] - A[1]], l = Math.hypot(...u);
-    bar(white, M, u, l + 0.01, RH - 0.06, 0.06, 0.26); bar(downlightMat, M, u, l + 0.01, RH - 0.075, 0.015, 0.18); bar(glow, M, u, l + 0.01, RH - 0.1, 0.012, 0.03); } }
+    bar(white, M, u, l + 0.01, RH - 0.06, 0.06, 0.26); bar(downlightMat, M, u, l + 0.01, RH - 0.075, 0.015, 0.18); bar(glow, M, u, l + 0.01, RH - 0.1, 0.012, 0.03);
+    if (i % 2) lights.push([M[0], RH - 0.1, M[1], 0.45]); } } // the band lights the bed feet
   // ---------- the room in the deck's lists: a light space, the readout, its door open, its panel
   const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]), entry = { s, kind: 'sickbay', wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights, glassRooms };
   D3.fitted.push(entry); D3.sickbay = entry;

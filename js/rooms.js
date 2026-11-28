@@ -35,6 +35,14 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = 'rgba(255,255,255,0.18)'; [0, 96].forEach((x) => g.fillRect(x + 2, 0, 1, Hp));
     g.fillStyle = '#5d6062'; g.fillRect(0, Y(0.9), Wd, Y(0.12) - Y(0.9)); g.fillStyle = '#3c3f41'; g.fillRect(0, 0, Wd, Y(H - 0.22));
     g.fillStyle = '#b8873a'; g.fillRect(0, Y(1.35), Wd, 6); g.fillStyle = '#222'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
+  } else if (kind === 'bath') { // cabin heads: large warm-white tiles laid staggered, fine pale grout, a slim stone band
+    g.fillStyle = '#cfcac2'; g.fillRect(0, 0, Wd, Hp);
+    const r = mulberry(19), tw = 96, th = 48;
+    for (let row = 0, y = Hp - Math.round(0.1 * 160); y > -th; row++, y -= th) for (let x = (row % 2) * -48; x < Wd; x += tw) {
+      const v = 228 + Math.round(r() * 10); const gr = g.createLinearGradient(0, y - th, 0, y); gr.addColorStop(0, `rgb(${v + 6},${v + 4},${v})`); gr.addColorStop(1, `rgb(${v - 4},${v - 6},${v - 10})`);
+      g.fillStyle = gr; g.fillRect(x + 1, y - th + 1, tw - 2, th - 2); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 1, y - th + 1, tw - 2, 1); }
+    g.fillStyle = '#8f9a97'; g.fillRect(0, Y(1.16), Wd, Y(1.1) - Y(1.16)); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(0, Y(1.16), Wd, 1);
+    g.fillStyle = '#7d827f'; g.fillRect(0, Y(0.1), Wd, Hp - Y(0.1));
   } else if (kind === 'med') { // sickbay: white wall panels, a teal band at hand height, a teal kick band
     g.fillStyle = '#e2e6e5'; g.fillRect(0, 0, Wd, Hp);
     const r = mulberry(53);
@@ -57,13 +65,13 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = '#211e1b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   }
   ge.fillStyle = '#000'; ge.fillRect(0, 0, Wd, Hp);
-  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : kind === 'bulk' || kind === 'med' ? 0.22 : 0.26)) - 2, Wd, 3);
+  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' || kind === 'bath' ? 0.18 : kind === 'bulk' || kind === 'med' ? 0.22 : 0.26)) - 2, Wd, 3);
   return [c, e];
 }
 function roomWallMat(H, kind) {
   const [c, e] = roomWallCanvases(H, kind); const map = tex(c), em = tex(e); map.wrapS = em.wrapS = THREE.RepeatWrapping;
-  const nm = normalTex(c, kind === 'tile' ? 4 : kind === 'bulk' ? 3 : 2.5); nm.wrapS = THREE.RepeatWrapping;
-  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.3 });
+  const nm = normalTex(c, kind === 'tile' || kind === 'bath' ? 2 : kind === 'bulk' ? 3 : 2.5); nm.wrapS = THREE.RepeatWrapping;
+  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: new THREE.Color(ALERTS.green.slot), emissiveIntensity: 0.65, normalMap: nm, roughness: kind === 'bath' ? 0.3 : 0.9, metalness: 0.02, envMapIntensity: 0.3 });
   ROOM_WALL_MATS.push(m); return m;
 }
 // dark hardwood (ambientCG Wood018, recoloured), world-mapped so the grain runs evenly over every piece of furniture
