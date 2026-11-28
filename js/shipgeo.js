@@ -46,9 +46,9 @@ const SHIPGEO = {
     [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Pod capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the weapons pod.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Where the officers dine; double doors aft open into the observation lounge.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The officers’ lounge and bar at the aft end of the spine: a 10 m window looking back over the ship’s back to the rollbar and its weapons pod, with a nacelle out to either side.']],
     [[30.2, 39, 'Officers’ quarters', 'p', 'l', '', 'Junior officers’ cabins (singles about 4 x 5 m, a few doubles about 5.5 x 5.5 m) round the ring and along the spokes.'], [41.4, 56.8, 'Forward shield generator', 'p', 's', '', 'Twin generator bays either side of the forward spoke; feeds the forward shield arc.'], [59.2, 66.2, 'Sickbay', 'p', 'l', 'p', 'Eight beds, surgery and an isolation ward, under the captain’s quarters; its doors open off the Lift 1 lobby so casualties reach it fast.'], [66.3, 70.2, 'Lift 1 lobby', 'p', 'w', 'p', 'Where Lift 1 opens, on the aft spoke, between sickbay and the medical lab.'], [70.2, 72.5, 'Lift 1', 'p', 's', 'p', ''], [59.2, 74.6, 'Medical lab and morgue', 'p', 'l', 's', 'Across the lift lobby from sickbay: the lab, medical stores and the morgue.'], [77, 90.5, 'Officers’ quarters', 'p', 'l', '', ''], [100.2, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110.1, 124, 'Computer core, upper', 'p', 's', '', ''], [124.1, 129, 'Damage control station', 'p', 's', 'p', 'Repair crews’ lockers and the deck’s damage control panel, opposite Lift 2.'], [124.6, 128.4, 'Lift 2', 'p', 's', 's', 'Aft lift. Runs Decks 3 to 10.'], [129.1, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140.1, 150, 'Crew quarters', 'p', 'l', '', '']],
     [[10, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge in the saucer’s forward edge.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 92, 'Docking port, port', 'p', 's', 'p', 'Airlock and docking ring in the saucer rim, with a guide-light array round it.'], [86, 92, 'Docking port, starboard', 'p', 's', 's', 'The starboard twin of the port docking ring, joined to it by a cross corridor.'], [92, 106, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 176, 'Life support, air and water', 'p', 's', '', 'Environmental plant and water reclamation.']],
-    [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo bay and cargo transporter', 'p', 's', '', 'The main cargo hold (moved up from Deck 6 when the fighter hangar took its space), with the cargo transporter.'], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
-    [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Fighter hangar', 'p', 'x', '', 'Four tactical fighters on launch cradles. They drop clear through doors in the saucer’s belly.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
-    [[102, 112, 'Navigational deflector', 'p', 's', '', 'The dish on the engineering hull’s nose, under the saucer.'], [112, 124, 'Combat information center', 'p', 'x', '', 'Deep in the engineering hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering and warp core', 'p', 'e', '', 'The ship’s power plant.'], [166, 199, 'Shuttlebay, gallery level', 'p', 's', '', 'The upper half of the two-deck bay: the flight control booth and a catwalk round the walls.']],
+    [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo bay and cargo transporter', 'p', 's', '', 'The main cargo hold (moved up from Deck 6 when the fighter hangar took its space), with the cargo transporter.'], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129.5, 'Lift 2 lobby', 'n', 'w', 'p', 'Lift 2’s landing, opening aft into engineering.'], [124.6, 128.4, 'Lift 2', 'n', 's', 's', ''], [129.5, 136, 'Engineering offices', 'n', 'e', '', 'Two offices either side of a short passage to the upper gallery.'], [136, 156, 'Main engineering, upper gallery', 'n', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
+    [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Fighter hangar', 'p', 'x', '', 'Four tactical fighters on launch cradles. They drop clear through doors in the saucer’s belly.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129.5, 'Lift 2 lobby', 'n', 'w', 'p', 'Lift 2’s landing, opening aft into engineering.'], [124.6, 128.4, 'Lift 2', 'n', 's', 's', ''], [129.5, 166, 'Main engineering', 'n', 'e', '', 'The gallery level round the atrium: the warp core rises through the opening in its floor.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
+    [[102, 112, 'Navigational deflector', 'p', 's', '', 'The dish on the engineering hull’s nose, under the saucer.'], [112, 124, 'Combat information center', 'p', 'x', '', 'Deep in the engineering hull: the room that tracks every contact, with a big plot table and weapons and sensor operators. Lift 2 is next door.'], [124, 129.5, 'Lift 2 lobby', 'n', 'w', 'p', 'Lift 2’s landing, opening aft into engineering.'], [124.6, 128.4, 'Lift 2', 'n', 's', 's', ''], [129.5, 166, 'Main engineering and warp core', 'n', 'e', '', 'The main floor: the warp core stands in a three-level atrium, the ship’s power plant.'], [166, 199, 'Shuttlebay, gallery level', 'p', 's', '', 'The upper half of the two-deck bay: the flight control booth and a catwalk round the walls.']],
     [[106, 124, 'Ventral beam array and capacitors', 'p', 'x', '', 'The ship’s lower beam weapon and its power banks.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Matter injection', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 166, 'Nacelle field control', 'p', 'e', '', 'Port and starboard warp field coils are run from here.'], [166, 199, 'Shuttlebay', 'p', 's', '', 'Two decks tall: a runabout and two utility shuttles on the Deck 8 floor. Clamshell doors in the stern, opened from the Flight panel.']],
     [[112, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 174, 'Engineering workshops and spares', 'p', 'e', '', ''], [174, 192, 'Shuttle maintenance', 'p', 's', '', 'Under the shuttlebay, with a cargo lift up to its floor.']],
     [[118, 124, 'Docking collar and fuel transfer', 'p', 's', '', 'The ventral docking collar under the keel, beside Lift 2. Supply ships dock here to pass fuel and stores.'], [124, 129, 'Lift 2', 'p', 's', '', 'Lowest stop.'], [129, 140, 'Tractor beam and keel sensors', 'p', 's', '', ''], [140, 152, 'Warp core base', 'p', 'e', '', 'Where the antimatter feed enters the core.'], [152, 182, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods, with the ejection system beneath.']]
@@ -68,6 +68,31 @@ const SHIPGEO = {
   //   nook: on a ring row, each cabin's bed moves into an alcove this deep off its far wall, under a window in the hull's
   //   top (the window nooks, John's choice, Nov 28: shipFloorPlan adds the alcove, shipRoomLayout puts the bed in it).
   plans: {
+    // Main engineering (John, Nov 28): a tall atrium round the warp core, the whole space round it engineering on three
+    // levels: Deck 7 the main floor, Deck 6 a gallery and Deck 5 an upper gallery round the same opening (the well),
+    // stairs between them; Lift 2 lobbies on each. These decks are only planned aft of the computer core (span: the
+    // plan's m range; the checks keep to it). Fittings and the shape of the opening: shipEngineeringLayout.
+    5: { c: [146, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: null, spokes: [], span: [124, 156],
+      spaces: [
+        { n: 'Lift 2 lobby', k: 'w', t: 'c', s: { box: [124, 129.5, -2.8, 1.2] } },
+        { n: 'Lift 2', k: 's', t: 'lift', s: { box: [124.6, 128.4, 1.2, 4.0] }, d: [126.5, 1.2] },
+        { n: 'Engineering passage', k: 'w', t: 'c', s: { box: [129.5, 136, -1.1, 1.1] } },
+        { n: 'Engineering offices', k: 'e', s: { box: [129.6, 135.9, 1.2, 12.0] }, d: [132.7, 1.2] },
+        { n: 'Engineering offices', k: 'e', s: { box: [129.6, 135.9, -12.0, -1.2] }, d: [132.7, -1.2] },
+        { n: 'Main engineering, upper gallery', k: 'e', s: { poly: [[136, -12.2], [136, 12.2], [156, 12.1], [156, -12.1]] }, d: [136, 0] },
+      ] },
+    6: { c: [146, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: null, spokes: [], span: [124, 166],
+      spaces: [
+        { n: 'Lift 2 lobby', k: 'w', t: 'c', s: { box: [124, 129.5, -2.8, 1.2] } },
+        { n: 'Lift 2', k: 's', t: 'lift', s: { box: [124.6, 128.4, 1.2, 4.0] }, d: [126.5, 1.2] },
+        { n: 'Main engineering', k: 'e', s: { poly: [[129.5, -11.9], [129.5, 11.9], [160, 11.8], [166, 11.5], [166, -11.5], [160, -11.8]] }, d: [129.5, -0.8] },
+      ] },
+    7: { c: [146, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: null, spokes: [], span: [124, 166],
+      spaces: [
+        { n: 'Lift 2 lobby', k: 'w', t: 'c', s: { box: [124, 129.5, -2.8, 1.2] } },
+        { n: 'Lift 2', k: 's', t: 'lift', s: { box: [124.6, 128.4, 1.2, 4.0] }, d: [126.5, 1.2] },
+        { n: 'Main engineering and warp core', k: 'e', s: { poly: [[129.5, -11.2], [129.5, 11.2], [160, 11.1], [166, 10.8], [166, -10.8], [160, -11.1]] }, d: [129.5, -0.8] },
+      ] },
     3: { c: [58, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: [18, 2.2], spokes: [[0, 92.2], [90, 24.0], [180, 28.4], [270, 24.0]],
       spaces: [
         { n: 'Lift 1 lobby', k: 'w', t: 'c', s: { box: [66.3, 70.2, -4.7, -1.1] } },
@@ -289,7 +314,7 @@ function shipFloorPlan(n) {
     const win = R ? { u0: R[0], u1: R[1], v0: R[2], v1: R[3], q: [L.at(R[0], R[2]), L.at(R[0], R[3]), L.at(R[1], R[3]), L.at(R[1], R[2])] } : null;
     s.poly0 = P; s.poly = np; s.nookAt = { q: [bL, kL, kR, bR], i: fwd ? [at, at + 1, at + 2, at + 3] : [at + 3, at + 2, at + 1, at], u0, u1, v0: L.d, v1: vb, win }; });
   // corridors: the ring (an annulus), and each spoke as a straight run from the centre
-  const [Rr, Rw] = P.ring, h = P.w / 2, corr = { ring: [Rr - Rw / 2, Rr + Rw / 2], runs: P.spokes.map(([a, r]) => {
+  const [Rr, Rw] = P.ring || [0, 0], h = P.w / 2, corr = { ring: P.ring ? [Rr - Rw / 2, Rr + Rw / 2] : null, runs: (P.spokes || []).map(([a, r]) => {
     const u = [Math.cos(a * rad), Math.sin(a * rad)], v = [-u[1], u[0]], e = [cm + u[0] * r, cx + u[1] * r];
     return [[cm + v[0] * h, cx + v[1] * h], [e[0] + v[0] * h, e[1] + v[1] * h], [e[0] - v[0] * h, e[1] - v[1] * h], [cm - v[0] * h, cx - v[1] * h]]; }) };
   // outlines: half-widths every metre where the hull reaches the floor, and where a room has its full headroom
@@ -331,6 +356,54 @@ function shipRoomLayout(sp) {
   // span(v): where the room's real walls are at depth v, as [left, right] in u (the clear rectangle can sit inside a
   // room that widens, so partitions run on to the real wall)
   return { o, ux, uy, w, d, items, at: (u, v) => [o[0] + ux[0] * u + uy[0] * v, o[1] + ux[1] * u + uy[1] * v], span: (v) => { const q = span(v + I); return q ? [q[0] - xa, q[1] - xa] : [0, w]; } };
+}
+// Main engineering (Decks 5-7, John's answers Nov 28): one layout for the deck-plan page, the checks and the 3D, in plan
+// [m, x]. The warp core stands at m 146 on the centreline; on Deck 7 (the main floor) a railed opening round it shows it
+// carrying on down through Decks 8-10; on Decks 6 and 5 the galleries ring the well, a rounded opening over the main
+// floor. Two stairs: Deck 7 up to Deck 6 along the port side, Deck 6 up to Deck 5 along the starboard side, each
+// climbing forward from m 146.2 to m 140. Items are rectangles { k, c, f (facing), w (across), d (deep), poly } as
+// sickbay's. Returns { core, well, holes (no floor on this deck), stairs (this deck's ends of each), rails, items }.
+function shipEngineeringLayout(n) {
+  if (n < 5 || n > 7) return null;
+  const core = { c: [146, 0], r: 1.7, hole: 2.9 }, W = { m0: 138.5, m1: 153.5, x: 5.0, r: 2.2 };
+  const rrect = (m0, m1, x0, x1, r) => { const o = []; [[m1 - r, x1 - r, 0], [m0 + r, x1 - r, 90], [m0 + r, x0 + r, 180], [m1 - r, x0 + r, 270]].forEach(([cm, cx, a0]) => {
+    for (let k = 0; k <= 4; k++) { const a = (a0 + k * 22.5) * Math.PI / 180; o.push([cm + r * Math.cos(a), cx + r * Math.sin(a)]); } }); return o; };
+  const circle = (c, r, k) => Array.from({ length: k || 24 }, (_, i) => [c[0] + r * Math.cos(i / (k || 24) * Math.PI * 2), c[1] + r * Math.sin(i / (k || 24) * Math.PI * 2)]);
+  const box = (m0, m1, x0, x1) => [[m0, x0], [m1, x0], [m1, x1], [m0, x1]];
+  const well = rrect(W.m0, W.m1, -W.x, W.x, W.r);
+  const STAIRS = [{ lo: 7, hi: 6, x: [-9.9, -8.5] }, { lo: 6, hi: 5, x: [8.5, 9.9] }].map((q) => Object.assign(q, { m0: 140, m1: 146.2, poly: box(140, 146.2, q.x[0], q.x[1]),
+    foot: [146.7, (q.x[0] + q.x[1]) / 2], head: [139.5, (q.x[0] + q.x[1]) / 2] }));
+  const items = [], it = (k, c, f, w, d, x) => { const ux = [-f[1], f[0]], P = [[-w / 2, 0], [w / 2, 0], [w / 2, d], [-w / 2, d]].map(([a, b]) => [c[0] + ux[0] * a - f[0] * b + f[0] * d / 2, c[1] + ux[1] * a - f[1] * b + f[1] * d / 2]);
+    items.push(Object.assign({ k, c, f, w, d, poly: P }, x || {})); };
+  const holes = [], rails = [];
+  if (n === 7) {
+    holes.push(circle(core.c, core.hole)); rails.push({ poly: circle(core.c, core.hole + 0.05), closed: true });
+    // the master systems display: a long table forward of the atrium, under the gallery's edge, facing aft to the core
+    it('msd', [133.6, 0], [1, 0], 3.2, 1.5);
+    // four consoles round the core under the open well, each facing it
+    [45, 135, 225, 315].forEach((a) => { const r = 4.4, t = a * Math.PI / 180, c = [146 + r * Math.cos(t), r * Math.sin(t)]; it('corecon', c, [-Math.cos(t), -Math.sin(t)], 1.4, 0.7); });
+    // stations along the walls (clear of the port stair and its foot), the injector control aft
+    [131.5, 134.5].forEach((m) => it('wallcon', [m, -10.5], [0, 1], 2.2, 0.7));
+    [149.5, 152.5, 155.5].forEach((m) => it('wallcon', [m, -10.5], [0, 1], 2.2, 0.7));
+    [131.5, 134.5, 140, 143, 146, 149, 152, 155.5].forEach((m) => it('wallcon', [m, 10.5], [0, -1], 2.2, 0.7));
+    it('injector', [162.5, 0], [-1, 0], 5.0, 1.6);
+    [-1, 1].forEach((sd) => it('conduit', [161, sd * 8.2], [-1, 0], 2.2, 2.2));
+  } else {
+    holes.push(well); rails.push({ poly: well, closed: true });
+    const st = STAIRS.find((q) => q.hi === n); if (st) { holes.push(st.poly); rails.push({ poly: [[140, st.x[0] < 0 ? st.x[1] : st.x[0]], [146.2, st.x[0] < 0 ? st.x[1] : st.x[0]], [146.2, st.x[0] < 0 ? st.x[0] : st.x[1]]], closed: false }); }
+    const sx = n === 6 ? 1 : -1; // the side without a stair coming up
+    if (n === 6) {
+      [140, 143.5, 147, 150.5].forEach((m) => it('wallcon', [m, sx * 11.0], [0, -sx], 2.2, 0.7));
+      [149.5, 153].forEach((m) => it('wallcon', [m, -sx * 11.0], [0, sx], 2.2, 0.7));
+      [131.5, 134.5].forEach((m) => { it('wallcon', [m, 11.0], [0, -1], 2.2, 0.7); it('wallcon', [m, -11.0], [0, 1], 2.2, 0.7); });
+      it('injector', [162.5, 0], [-1, 0], 5.0, 1.6, { upper: true });
+    } else {
+      [143.5, 147, 150.5].forEach((m) => it('wallcon', [m, -11.2], [0, 1], 2.2, 0.7));
+      [149.5, 153].forEach((m) => it('wallcon', [m, 11.2], [0, -1], 2.2, 0.7));
+    }
+  }
+  const stairs = STAIRS.filter((q) => q.lo === n || q.hi === n).map((q) => Object.assign({ end: q.lo === n ? 'foot' : 'head' }, q));
+  return { n, core, well: n === 7 ? null : well, holes, stairs, rails, items };
 }
 // Sickbay's fittings (Deck 3): eight biobeds in an arc against the curved wall (the ring corridor's inner wall), heads to
 // the wall; a glass-walled surgery in the middle of the ward, its door toward the entrance; the isolation room closing the
