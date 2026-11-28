@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `c218c6d`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `849a487`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -959,7 +959,7 @@ const SHIPGEO = {
   // shape (top): a broad, nearly flat back so Deck 3 has full headroom out to about 30 m from the centre (Nov 27): half-
   // thickness up, cross-section exponent n, and along the length (1 - q^qa)^ge (q = 0 at the centre, 1 at the bow or the
   // aft edge). Its centre stays below Deck 2's floor (depth 7.0), so the spine still sits on it.
-  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15, top: { up: 7.45, n: 4, qa: 5, ge: 0.35 } },
+  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15, top: { up: 7.45, n: 3.5, qa: 6, ge: 0.8 } },
   // the engineering body: half-beam, top depth and bottom depth along the ship (smooth curves); n shapes its section
   eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.9], [200, 8.4]], t: [[90, 15], [95, 10.2], [100, 7.6], [104, 6.8], [150, 6.8], [200, 15.5]],
     b: [[90, 15], [94.5, 23.5], [100.5, 29.5], [112, 33.2], [182, 34.5], [194, 33.4], [200, 30.5]], n: 2.4 },
@@ -987,7 +987,7 @@ const SHIPGEO = {
   rooms: [
     [[58, 70.2, 'Main bridge', 'w', 'w', '', 'Command chair, flight, ops, tactical, science, engineering and comms stations, the situation table and the viewscreen.'], [70.2, 72.5, 'Turbolift 1', 'w', 's', '', 'Forward lift. Runs Decks 1 to 6.'], [72.5, 77, 'Conference room', 'w', 'w', '', 'Senior staff briefings and battle honors, aft of the bridge.'], [77, 80, 'Ready room and head', 'w', 'w', '', 'The captain’s office off the bridge’s starboard aft corner; the head is to port.']],
     [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Pod capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the weapons pod.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Where the officers dine; double doors aft open into the observation lounge.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The officers’ lounge and bar at the aft end of the spine: a 10 m window looking back over the ship’s back to the rollbar and its weapons pod, with a nacelle out to either side.']],
-    [[24.7, 39, 'Officers’ quarters', 'p', 'l', '', 'Junior officers’ cabins (singles about 4 x 5 m, some doubles) round the ring and along the spokes.'], [41.4, 56.8, 'Forward shield generator', 'p', 's', '', 'Twin generator bays either side of the forward spoke; feeds the forward shield arc.'], [59.2, 66.2, 'Sickbay', 'p', 'l', 'p', 'Eight beds, surgery and an isolation ward, under the captain’s quarters; its doors open off the Lift 1 lobby so casualties reach it fast.'], [66.3, 70.2, 'Lift 1 lobby', 'p', 'w', 'p', 'Where Lift 1 opens, on the aft spoke, between sickbay and the medical lab.'], [70.2, 72.5, 'Lift 1', 'p', 's', 'p', ''], [59.2, 74.6, 'Medical lab and morgue', 'p', 'l', 's', 'Across the lift lobby from sickbay: the lab, medical stores and the morgue.'], [77, 90.5, 'Officers’ quarters', 'p', 'l', '', ''], [100.2, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110.1, 124, 'Computer core, upper', 'p', 's', '', ''], [124.1, 129, 'Damage control station', 'p', 's', 'p', 'Repair crews’ lockers and the deck’s damage control panel, opposite Lift 2.'], [124.6, 128.4, 'Lift 2', 'p', 's', 's', 'Aft lift. Runs Decks 3 to 10.'], [129.1, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140.1, 150, 'Crew quarters', 'p', 'l', '', '']],
+    [[30.2, 39, 'Officers’ quarters', 'p', 'l', '', 'Junior officers’ cabins (singles about 4 x 5 m, a few doubles about 5.5 x 5.5 m) round the ring and along the spokes.'], [41.4, 56.8, 'Forward shield generator', 'p', 's', '', 'Twin generator bays either side of the forward spoke; feeds the forward shield arc.'], [59.2, 66.2, 'Sickbay', 'p', 'l', 'p', 'Eight beds, surgery and an isolation ward, under the captain’s quarters; its doors open off the Lift 1 lobby so casualties reach it fast.'], [66.3, 70.2, 'Lift 1 lobby', 'p', 'w', 'p', 'Where Lift 1 opens, on the aft spoke, between sickbay and the medical lab.'], [70.2, 72.5, 'Lift 1', 'p', 's', 'p', ''], [59.2, 74.6, 'Medical lab and morgue', 'p', 'l', 's', 'Across the lift lobby from sickbay: the lab, medical stores and the morgue.'], [77, 90.5, 'Officers’ quarters', 'p', 'l', '', ''], [100.2, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110.1, 124, 'Computer core, upper', 'p', 's', '', ''], [124.1, 129, 'Damage control station', 'p', 's', 'p', 'Repair crews’ lockers and the deck’s damage control panel, opposite Lift 2.'], [124.6, 128.4, 'Lift 2', 'p', 's', 's', 'Aft lift. Runs Decks 3 to 10.'], [129.1, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140.1, 150, 'Crew quarters', 'p', 'l', '', '']],
     [[10, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge in the saucer’s forward edge.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 92, 'Docking port, port', 'p', 's', 'p', 'Airlock and docking ring in the saucer rim, with a guide-light array round it.'], [86, 92, 'Docking port, starboard', 'p', 's', 's', 'The starboard twin of the port docking ring, joined to it by a cross corridor.'], [92, 106, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 176, 'Life support, air and water', 'p', 's', '', 'Environmental plant and water reclamation.']],
     [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo bay and cargo transporter', 'p', 's', '', 'The main cargo hold (moved up from Deck 6 when the fighter hangar took its space), with the cargo transporter.'], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
     [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Fighter hangar', 'p', 'x', '', 'Four tactical fighters on launch cradles. They drop clear through doors in the saucer’s belly.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
@@ -1009,7 +1009,7 @@ const SHIPGEO = {
   //   { ring: [r0, r1, quadrant angle, offset from the spokes, [widths]] } along a ring's outer wall (doors onto the ring);
   //   { spoke: [angle, offset0, offset1, [radii]] } along a spoke (doors onto the spoke); b: berths per cabin.
   plans: {
-    3: { c: [58, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: [18, 2.2], spokes: [[0, 92.2], [90, 29.4], [180, 33.6], [270, 29.4]],
+    3: { c: [58, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: [18, 2.2], spokes: [[0, 92.2], [90, 24.0], [180, 28.4], [270, 24.0]],
       spaces: [
         { n: 'Lift 1 lobby', k: 'w', t: 'c', s: { box: [66.3, 70.2, -4.7, -1.1] } },
         { n: 'Lift 1', k: 's', t: 'lift', s: { box: [70.2, 72.5, -4.7, -1.2] }, d: [70.2, -2.6] },
@@ -1018,18 +1018,18 @@ const SHIPGEO = {
         { n: 'Medical lab and morgue', k: 'l', s: { arc: [0, 16.8, [0, 1.2], [90, -1.2]] }, d: [68.2, 1.2] },
         { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [90, 1.2], [180, -1.2]] }, d: [56.8, 8] },
         { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [180, 1.2], [270, -1.2]] }, d: [56.8, -8] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 0, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 90, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 180, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
-        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 270, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 0, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 90, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 180, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 270, 6.3, [1, 1, 1, 1.4]] }, b: [1, 1, 1, 2] },
         { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, 1.2, 6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
         { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, -1.2, -6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, 1.2, 6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, -1.2, -6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, 1.2, 6.2, [19.2, 23.6, 28, 33.4]] }, b: [1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, -1.2, -6.2, [19.2, 23.6, 28, 33.4]] }, b: [1, 1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, 1.2, 6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
-        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, -1.2, -6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, 1.2, 6.2, [19.2, 23.6]] }, b: [1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, -1.2, -6.2, [19.2, 23.6]] }, b: [1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, 1.2, 6.2, [19.2, 23.6, 28]] }, b: [1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, -1.2, -6.2, [19.2, 23.6, 28]] }, b: [1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, 1.2, 6.2, [19.2, 23.6]] }, b: [1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, -1.2, -6.2, [19.2, 23.6]] }, b: [1] },
         // aft of the saucer the aft spoke carries on as the fore-aft corridor, with rooms either side
         { n: 'Officers’ quarters', k: 'l', s: { box: [100.2, 105, 1.2, 5.4] }, d: [102.6, 1.2], b: 1 },
         { n: 'Officers’ quarters', k: 'l', s: { box: [105.1, 110, 1.2, 5.4] }, d: [107.5, 1.2], b: 1 },
@@ -1757,14 +1757,19 @@ function buildExterior(opts) {
     line(g, sh(0.62), 36, 116, 0.7, HULL_PAINT.dark); line(h, sh(0.62), 36, 116, 0.7, 'rgb(120,120,120)'); line(g, sh(0.62), 37, 115, 0.16, 'rgba(111,182,230,0.35)'); line(ge, sh(0.62), 37, 115, 0.16, 'rgba(70,120,160,0.5)');
     line(g, (m) => arcAtD(m, Math.min(secAt(m).b - 0.3, 21.4)), 13, 30, 1.1, HULL_PAINT.dark);
     line(g, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, HULL_PAINT.dark); line(h, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, 'rgb(110,110,110)'); }
-  // windows: a black band per deck wherever a lived-in or command compartment meets a steep enough stretch of hull side
+  // windows: a black band per deck wherever a lived-in or command compartment meets a steep enough stretch of hull side.
+  // A deck with a floor plan (SHIPGEO.plans) is skipped: its rooms say where they meet the hull (Deck 3's stop short of
+  // the rim, which is service space), so its windows come from the plan in exterior stage 3.
   G.rooms.forEach((rooms, i) => {
-    const n = i + 1, dc = 3.5 * (n - 1) + 1.7; if (n < 3) return;
+    const n = i + 1, dc = 3.5 * (n - 1) + 1.7; if (n < 3 || (G.plans && G.plans[n])) return;
     rooms.forEach(([a, b, name, , kind]) => {
       if (/^Docking/.test(name)) return; // the docking ports' hardware stands there
       const lit = kind === 'l' || kind === 'w' ? 0.82 : kind === 's' ? 0.3 : -1; if (lit < 0) return;
       const row = [];
-      for (let m = a + 1.2; m <= b - 1.0; m += 2.2) { const S = secAt(m), hh = hullAtDepth(S, dc); if (!hh || Math.abs(hh.ny) > 0.62 || dc < S.t + 1 || dc > S.b - 1.2) continue; row.push([m, hh.arc]); }
+      for (let m = a + 1.2; m <= b - 1.0; m += 2.2) { const S = secAt(m), hh = hullAtDepth(S, dc); if (!hh || Math.abs(hh.ny) > 0.62 || dc < S.t + 1 || dc > S.b - 1.2) continue;
+        // skip where the hull side runs steeply across the ship (the saucer's forward rim): the atlas's squares shear into diamonds there
+        const h0 = hullAtDepth(secAt(m - 1), dc), h1 = hullAtDepth(secAt(m + 1), dc); if (!h0 || !h1 || Math.abs(h1.x - h0.x) / 2 > 0.35) continue;
+        row.push([m, hh.arc]); }
       if (!row.length) return;
       const f = (m) => { let best = null, bd = 9; row.forEach(([mm, arc]) => { if (Math.abs(mm - m) < bd) { bd = Math.abs(mm - m); best = arc; } }); return best; };
       band(g, (m) => { const q = f(m); return q == null ? null : q - 0.75; }, (m) => { const q = f(m); return q == null ? null : q + 0.75; }, row[0][0] - 1, row[row.length - 1][0] + 1, 'rgba(22,26,28,0.88)');

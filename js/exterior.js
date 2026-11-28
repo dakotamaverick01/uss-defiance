@@ -533,14 +533,19 @@ function buildExterior(opts) {
     line(g, sh(0.62), 36, 116, 0.7, HULL_PAINT.dark); line(h, sh(0.62), 36, 116, 0.7, 'rgb(120,120,120)'); line(g, sh(0.62), 37, 115, 0.16, 'rgba(111,182,230,0.35)'); line(ge, sh(0.62), 37, 115, 0.16, 'rgba(70,120,160,0.5)');
     line(g, (m) => arcAtD(m, Math.min(secAt(m).b - 0.3, 21.4)), 13, 30, 1.1, HULL_PAINT.dark);
     line(g, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, HULL_PAINT.dark); line(h, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, 'rgb(110,110,110)'); }
-  // windows: a black band per deck wherever a lived-in or command compartment meets a steep enough stretch of hull side
+  // windows: a black band per deck wherever a lived-in or command compartment meets a steep enough stretch of hull side.
+  // A deck with a floor plan (SHIPGEO.plans) is skipped: its rooms say where they meet the hull (Deck 3's stop short of
+  // the rim, which is service space), so its windows come from the plan in exterior stage 3.
   G.rooms.forEach((rooms, i) => {
-    const n = i + 1, dc = 3.5 * (n - 1) + 1.7; if (n < 3) return;
+    const n = i + 1, dc = 3.5 * (n - 1) + 1.7; if (n < 3 || (G.plans && G.plans[n])) return;
     rooms.forEach(([a, b, name, , kind]) => {
       if (/^Docking/.test(name)) return; // the docking ports' hardware stands there
       const lit = kind === 'l' || kind === 'w' ? 0.82 : kind === 's' ? 0.3 : -1; if (lit < 0) return;
       const row = [];
-      for (let m = a + 1.2; m <= b - 1.0; m += 2.2) { const S = secAt(m), hh = hullAtDepth(S, dc); if (!hh || Math.abs(hh.ny) > 0.62 || dc < S.t + 1 || dc > S.b - 1.2) continue; row.push([m, hh.arc]); }
+      for (let m = a + 1.2; m <= b - 1.0; m += 2.2) { const S = secAt(m), hh = hullAtDepth(S, dc); if (!hh || Math.abs(hh.ny) > 0.62 || dc < S.t + 1 || dc > S.b - 1.2) continue;
+        // skip where the hull side runs steeply across the ship (the saucer's forward rim): the atlas's squares shear into diamonds there
+        const h0 = hullAtDepth(secAt(m - 1), dc), h1 = hullAtDepth(secAt(m + 1), dc); if (!h0 || !h1 || Math.abs(h1.x - h0.x) / 2 > 0.35) continue;
+        row.push([m, hh.arc]); }
       if (!row.length) return;
       const f = (m) => { let best = null, bd = 9; row.forEach(([mm, arc]) => { if (Math.abs(mm - m) < bd) { bd = Math.abs(mm - m); best = arc; } }); return best; };
       band(g, (m) => { const q = f(m); return q == null ? null : q - 0.75; }, (m) => { const q = f(m); return q == null ? null : q + 0.75; }, row[0][0] - 1, row[row.length - 1][0] + 1, 'rgba(22,26,28,0.88)');
