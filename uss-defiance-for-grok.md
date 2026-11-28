@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `dfb096a`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `72e8c02`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -58,6 +58,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | File | What it covers |
   | --- | --- |
   | `core.js` | Constants, renderer, shared helpers, display palette, scene state |
+  | `decks.js` | The deck registry: each deck's group, collision, rooms and floor height, read by collision, the lift and the location readout |
   | `shipgeo.js` | The ship's shape in metres (`SHIPGEO`): the saucer and engineering body (`shipHull` works out the hull's cross-sections and outlines from them), spine, rollbar and weapons pod with its launchers, nacelles, pylons, every deck's compartments. An identical copy lives in the deck-plan page |
   | `exterior.js` | The exterior model, built from `SHIPGEO`, with its painted atlas and its own light |
   | `sim.js` | The ship model: power, shields by arc, weapons, eight damage zones, repair teams, combat drill. Runs on a fixed 10-per-second tick |
@@ -72,6 +73,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
+  | `kit.js` | The shared building kit for decks below the bridge (rooms, walls with openings, light panels, frames, handrails, signs, plants), built to the ship standards `STD` in core.js |
   | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, all the officers' quarters, wardroom, passage, observation lounge, and the exterior model seen through its windows |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |
@@ -641,7 +643,7 @@ html.alert-red { --ice: #5D7F92; }
 </script>
 <script type="module">
 // Loads three.js, then the ship's code files in order. The code files are plain scripts that share one scope.
-const FILES = ['core', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'deck2', 'lighting', 'bake', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render', 'perf'];
+const FILES = ['core', 'decks', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'kit', 'deck2', 'lighting', 'bake', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render', 'perf'];
 const fail = () => { window.DEFIANCE_FAILED = true; document.getElementById('nogl').hidden = false; document.getElementById('intro').hidden = true; };
 try {
   const [T, { EffectComposer }, { RenderPass }, { ShaderPass }, { UnrealBloomPass }, { GammaCorrectionShader }] = await Promise.all([
@@ -823,6 +825,20 @@ const SYSTEMS = [
   { star: 'Thessaly Drift', planet: 'Mira Vey', type: 'ice', cls: 'Ice-shelled moon', atm: 'Thin nitrogen, 0.02 atm', life: 'Microbial, under the ice', dist: '880,000 km', heading: '147 mark 30', planets: 3, featured: 2, starColor: 0xcfe0ff, halo: '190,225,255', seed: 37 },
   { star: 'Okonkwo-9', planet: 'Ashfall', type: 'lava', cls: 'Young volcanic world', atm: 'Sulfur dioxide, 4 atm', life: 'None detected', dist: '2.7 million km', heading: '302 mark 04', planets: 5, featured: 0, starColor: 0xffc890, halo: '255,140,90', seed: 41 },
 ];
+// Ship standards: the sizes every deck is built to (kit.js and the deck builders read these; see claude/roadmap.md F1).
+// The bridge (3.3 m) and its rooms (3.1 m) are named exceptions to the room height.
+const STD = {
+  deck: 3.5,                      // deck spacing: Deck n's floor is 3.5 (n - 1) m below the bridge's
+  corridor: { w: 2.2, h: 2.6 },   // clear width and ceiling of a corridor
+  room: { h: 2.75 },              // standard room ceiling
+  door: { w: 1.2, h: 2.3 },       // clear opening of a standard door
+  frame: 2.4,                     // structural frame spacing along a corridor
+  inset: 0.06,                    // walls stand this far inside a room's outline (back-to-back walls never share a plane)
+  mount: 0.08,                    // anything on a wall sits at least this far inside the outline
+  gap: 0.10,                      // the least gap between two partition walls
+};
+// each deck is 3.5 m below the one above; the lift car really travels between them
+function deckY(n) { return -(n - 1) * STD.deck; }
 const SPEEDS = {
   stop: { speed: 0, len: 0, name: 'All stop', screen: 'ALL STOP' },
   impulse: { speed: 12, len: 0.6, name: 'Impulse, one quarter', screen: 'IMPULSE ¼' },
@@ -859,6 +875,40 @@ const pal = () => {
   const ice = red ? C.lilacDim : C.lilac, tan = red ? '#B8665C' : C.tan, butter = red ? '#E9907A' : C.butter;
   return { acc, accDim: red ? '#7A2A2A' : C.amberDim, ice, sand: tan, tan, butter, rose: red ? '#A8443E' : C.rose, plum: red ? '#5A2C34' : C.plum, green: C.ok, yel: C.warn, red: C.bad, sec: ice, rust: C.bad, line: C.frame, bg: C.bg, dim: C.dim, txt: C.cream, key: a };
 };
+
+````
+
+---
+
+## `js/decks.js`
+
+````javascript
+// USS Defiance · decks.js
+// The deck registry: one entry per deck saying what the rest of the ship needs to know about it, so collision, the
+// floor height, deck switching and the location readout ask the registry instead of special-casing each deck.
+// Each entry's functions are read when called (the decks themselves are built by later files), so this loads early.
+//   n, y          deck number and floor height (deckY, core.js)
+//   built         false: the lift opens onto the sealed placeholder lobby (lift.js) instead of a deck of its own
+//   root()        the deck's group (shown only while you are on it), or null
+//   segs(), obs() collision lines and round obstacles on this deck
+//   rooms()       named rectangles { label, x0, x1, z0, z1 } for the location readout
+//   floor(x, z)   extra floor height at a point (the bridge's dais)
+// New decks register here (see claude/roadmap.md: F4 builds them when the lift heads their way).
+// Files share one global scope and load in order (see index.html).
+'use strict';
+
+const DECKS = {};
+function deckDef(n, o) {
+  DECKS[n] = Object.assign({ n, y: deckY(n), built: false, root: () => null, segs: () => LIFT.stubSegs, obs: () => [], rooms: () => [], floor: () => 0 }, o);
+}
+const deckOf = (n) => DECKS[n];
+// Deck 1, the bridge deck: its parts are gathered into one group the first time you leave it (lift.js)
+deckDef(1, { built: true, root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
+  floor: (x, z) => (Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0) });
+// Deck 2, the officers' deck (deck2.js)
+deckDef(2, { built: true, root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms });
+// Decks 3 to 10: not fitted out yet
+for (let n = 3; n <= 10; n++) deckDef(n, {});
 
 ````
 
@@ -4021,6 +4071,108 @@ let cupLiquid, cupGroup;
 
 ---
 
+## `js/kit.js`
+
+````javascript
+// USS Defiance · kit.js
+// The shared building kit for decks below the bridge: rooms, walls with door and window openings, collision lines,
+// downlights and light panels, structural frames, handrails, corridor signs and potted plants. Every helper takes a
+// deck context K = { root (the deck's group), segs, obs, rooms, rails, labels } as its first argument, so each deck
+// builds with the same parts and the same standard sizes (STD, core.js). Deck 2 calls these through its d2* wrappers.
+// Coordinates are the deck's own: x starboard, -z forward, y up from the deck floor.
+// Files share one global scope and load in order (see index.html).
+'use strict';
+
+function kitSeg(K, ax, az, bx, bz, r) { K.segs.push([ax, az, bx, bz, r === undefined ? 0.33 : r]); }
+
+function kitObs(K, x, z, r) { K.obs.push({ x, z, r }); }
+
+// a straight wall from A to B facing n, with openings measured along it: { a, b, y0, y1 } (y0 > 0 means a window)
+function kitWall(K, mat, A, B, n, H, holes) {
+  const len = Math.hypot(B[0] - A[0], B[1] - A[1]), dir = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], P = (s) => [A[0] + dir[0] * s, A[1] + dir[1] * s];
+  let s = 0; (holes || []).slice().sort((p, q) => p.a - q.a).forEach((h) => {
+    wallPiece(mat, A, dir, n, s, h.a, 0, H, H, 1.2, K.root);
+    if (h.y0 > 0.001) wallPiece(mat, A, dir, n, h.a, h.b, 0, h.y0, H, 1.2, K.root);
+    if (h.y1 < H - 0.001) wallPiece(mat, A, dir, n, h.a, h.b, h.y1, H, H, 1.2, K.root);
+    const p0 = P(s), p1 = P(h.a); kitSeg(K, p0[0], p0[1], p1[0], p1[1]);
+    if (h.y0 > 0.4) { const q0 = P(h.a), q1 = P(h.b); kitSeg(K, q0[0], q0[1], q1[0], q1[1]); }
+    s = h.b;
+  });
+  wallPiece(mat, A, dir, n, s, len, 0, H, H, 1.2, K.root);
+  const p0 = P(s), p1 = P(len); kitSeg(K, p0[0], p0[1], p1[0], p1[1]);
+}
+
+// a room: floor, ceiling, four walls facing in, a cove light and a dark crown under the ceiling
+function kitRoom(K, label, x0, x1, z0, z1, H, mat, floor, holes) {
+  const fw = x1 - x0, fd = z1 - z0;
+  const fg = new THREE.PlaneGeometry(fw, fd); { const uv = fg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * fw, uv.getY(i) * fd); }
+  const f = mesh(fg, floor, (x0 + x1) / 2, 0.002, (z0 + z1) / 2, K.root); f.rotation.x = -Math.PI / 2;
+  const c = mesh(fg.clone(), MAT.ceiling, (x0 + x1) / 2, H, (z0 + z1) / 2, K.root); c.rotation.x = Math.PI / 2;
+  // walls sit 6 cm inside the room's outline, so two rooms back to back never share one plane
+  // (coincident back-to-back walls shadow each other in the light bake and come out black)
+  const I = STD.inset, sh = (L) => (L || []).map((h) => Object.assign({}, h, { a: h.a - I, b: h.b - I }));
+  holes = holes || {};
+  kitWall(K, mat, [x0 + I, z0 + I], [x1 - I, z0 + I], [0, 1], H, sh(holes.n));
+  kitWall(K, mat, [x0 + I, z1 - I], [x1 - I, z1 - I], [0, -1], H, sh(holes.s));
+  kitWall(K, mat, [x0 + I, z0 + I], [x0 + I, z1 - I], [1, 0], H, sh(holes.w));
+  kitWall(K, mat, [x1 - I, z0 + I], [x1 - I, z1 - I], [-1, 0], H, sh(holes.e));
+  [[(x0 + x1) / 2, z0 + 0.13, fw - 0.3, 0], [(x0 + x1) / 2, z1 - 0.13, fw - 0.3, 0], [x0 + 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2], [x1 - 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2]].forEach(([x, z, L, ry]) => {
+    const cv = mesh(BOX(L, 0.03, 0.03), SLOT, x, H - 0.28, z, K.root); cv.rotation.y = ry;
+    const sh = mesh(RBOX(L + 0.1, 0.08, 0.12, 0.015), MAT.gunDark, x, H - 0.23, z, K.root); sh.rotation.y = ry;
+    const st = mesh(BOX(L - 0.2, 0.02, 0.02), STRIP, x, 0.06, z, K.root); st.rotation.y = ry;
+  });
+  K.rooms.push({ label, x0, x1, z0, z1 });
+}
+
+function kitDown(K, x, z, H) {
+  mesh(new THREE.CircleGeometry(0.1, 20), downlightMat, x, H - 0.004, z, K.root).rotation.x = Math.PI / 2;
+  mesh(new THREE.TorusGeometry(0.115, 0.016, 6, 20), MAT.steel, x, H - 0.008, z, K.root).rotation.x = Math.PI / 2;
+}
+
+function kitPanel(K, x, z, H, w, d) {
+  mesh(RBOX(w + 0.12, 0.04, d + 0.12, 0.015), MAT.steel, x, H - 0.02, z, K.root);
+  mesh(new THREE.PlaneGeometry(w, d), downlightMat, x, H - 0.045, z, K.root).rotation.x = Math.PI / 2;
+}
+
+// a potted plant kept inside the walls of the room it stands in (walls are inset 6 cm from each room's outline)
+function kitPlant(K, x, z, scale) {
+  const r = K.rooms.find((q) => x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1), I = STD.inset;
+  plantAt(K.root, x, z, scale, r && [r.x0 + I, r.x1 - I, r.z0 + I, r.z1 - I]); kitObs(K, x, z, 0.3);
+}
+
+// a handrail along a wall at x from z0 to z1, broken at each gap [za, zb] (doorways and openings), with end brackets
+function kitRail(K, x, z0, z1, gaps, side) {
+  let runs = [[z0, z1]];
+  (gaps || []).forEach(([a, b]) => { runs = runs.flatMap(([p, q]) => (b <= p || a >= q) ? [[p, q]] : [[p, a], [b, q]].filter(([u, v]) => v - u > 0.25)); });
+  runs.forEach(([p, q]) => {
+    const r = mesh(CYL(0.022, 0.022, q - p, 10), MAT.steel, x, 0.95, (p + q) / 2, K.root); r.rotation.x = Math.PI / 2; K.rails.push([x, p, q]);
+    [p + 0.06, q - 0.06].forEach((z) => mesh(BOX(0.07, 0.025, 0.025), MAT.steel, x - side * 0.035, 0.95, z, K.root));
+  });
+}
+
+function kitLabel(K, text, x, y, z, rot, w) {
+  const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
+  hexTab(g, 6, 10, 40, 60, true, false); g.fillStyle = '#E8A06A'; g.fill();
+  g.fillStyle = '#E8A06A'; g.font = `600 44px ${DISP}`; g.textBaseline = 'middle'; g.fillText(text, 60, 43);
+  const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, K.root); m.rotation.y = rot; K.labels.push(m); return m;
+}
+
+// ---------- officers' passage and observation lounge ----------
+// From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
+// sealed pod capacitor bank, to the observation lounge across the stern of the spine.
+function kitFrames(K, x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
+  const cx = (x0 + x1) / 2;
+  for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
+    [x0 + 0.05, x1 - 0.05].forEach((x) => mesh(RBOX(0.1, H - 0.05, 0.16, 0.02), MAT.gunDark, x, (H - 0.05) / 2, z, K.root));
+    mesh(RBOX(x1 - x0, 0.12, 0.16, 0.02), MAT.gunDark, cx, H - 0.06, z, K.root);
+    if (z + 1.2 < z1 - 0.5) kitPanel(K, cx, z + 1.2, H, 0.9, 0.36);
+  }
+}
+
+````
+
+---
+
 ## `js/deck2.js`
 
 ````javascript
@@ -4032,56 +4184,17 @@ let cupLiquid, cupGroup;
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
-const D2Y = -3.5, D2H = 2.75, D2C = 2.6; // floor height, room ceiling, corridor ceiling
+const D2Y = deckY(2), D2H = STD.room.h, D2C = STD.corridor.h; // floor height, room ceiling, corridor ceiling
 const DECK2 = group(0, D2Y, 0, 0); DECK2.name = 'Deck 2';
-const D2 = { segs: [], obs: [], rooms: [], door: null, labels: [], rails: [] };
+const D2 = { root: DECK2, segs: [], obs: [], rooms: [], door: null, labels: [], rails: [] };
 const d2RoomWall = roomWallMat(D2H, 'fabric'), d2CorrWall = roomWallMat(D2C, 'fabric');
 const [D2_LX] = onEdge(LIFT_GAP.edge, LIFT_GAP.t, 0); // the lift door's x; the doors open forward at z = 6.2
-function d2seg(ax, az, bx, bz, r) { D2.segs.push([ax, az, bx, bz, r === undefined ? 0.33 : r]); }
-function d2obs(x, z, r) { D2.obs.push({ x, z, r }); }
-// a straight wall from A to B facing n, with openings measured along it: { a, b, y0, y1 } (y0 > 0 means a window)
-function d2wall(mat, A, B, n, H, holes) {
-  const len = Math.hypot(B[0] - A[0], B[1] - A[1]), dir = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], P = (s) => [A[0] + dir[0] * s, A[1] + dir[1] * s];
-  let s = 0; (holes || []).slice().sort((p, q) => p.a - q.a).forEach((h) => {
-    wallPiece(mat, A, dir, n, s, h.a, 0, H, H, 1.2, DECK2);
-    if (h.y0 > 0.001) wallPiece(mat, A, dir, n, h.a, h.b, 0, h.y0, H, 1.2, DECK2);
-    if (h.y1 < H - 0.001) wallPiece(mat, A, dir, n, h.a, h.b, h.y1, H, H, 1.2, DECK2);
-    const p0 = P(s), p1 = P(h.a); d2seg(p0[0], p0[1], p1[0], p1[1]);
-    if (h.y0 > 0.4) { const q0 = P(h.a), q1 = P(h.b); d2seg(q0[0], q0[1], q1[0], q1[1]); }
-    s = h.b;
-  });
-  wallPiece(mat, A, dir, n, s, len, 0, H, H, 1.2, DECK2);
-  const p0 = P(s), p1 = P(len); d2seg(p0[0], p0[1], p1[0], p1[1]);
-}
-// a room: floor, ceiling, four walls facing in, a cove light and a dark crown under the ceiling
-function d2room(label, x0, x1, z0, z1, H, mat, floor, holes) {
-  const fw = x1 - x0, fd = z1 - z0;
-  const fg = new THREE.PlaneGeometry(fw, fd); { const uv = fg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * fw, uv.getY(i) * fd); }
-  const f = mesh(fg, floor, (x0 + x1) / 2, 0.002, (z0 + z1) / 2, DECK2); f.rotation.x = -Math.PI / 2;
-  const c = mesh(fg.clone(), MAT.ceiling, (x0 + x1) / 2, H, (z0 + z1) / 2, DECK2); c.rotation.x = Math.PI / 2;
-  // walls sit 6 cm inside the room's outline, so two rooms back to back never share one plane
-  // (coincident back-to-back walls shadow each other in the light bake and come out black)
-  const I = 0.06, sh = (L) => (L || []).map((h) => Object.assign({}, h, { a: h.a - I, b: h.b - I }));
-  holes = holes || {};
-  d2wall(mat, [x0 + I, z0 + I], [x1 - I, z0 + I], [0, 1], H, sh(holes.n));
-  d2wall(mat, [x0 + I, z1 - I], [x1 - I, z1 - I], [0, -1], H, sh(holes.s));
-  d2wall(mat, [x0 + I, z0 + I], [x0 + I, z1 - I], [1, 0], H, sh(holes.w));
-  d2wall(mat, [x1 - I, z0 + I], [x1 - I, z1 - I], [-1, 0], H, sh(holes.e));
-  [[(x0 + x1) / 2, z0 + 0.13, fw - 0.3, 0], [(x0 + x1) / 2, z1 - 0.13, fw - 0.3, 0], [x0 + 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2], [x1 - 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2]].forEach(([x, z, L, ry]) => {
-    const cv = mesh(BOX(L, 0.03, 0.03), SLOT, x, H - 0.28, z, DECK2); cv.rotation.y = ry;
-    const sh = mesh(RBOX(L + 0.1, 0.08, 0.12, 0.015), MAT.gunDark, x, H - 0.23, z, DECK2); sh.rotation.y = ry;
-    const st = mesh(BOX(L - 0.2, 0.02, 0.02), STRIP, x, 0.06, z, DECK2); st.rotation.y = ry;
-  });
-  D2.rooms.push({ label, x0, x1, z0, z1 });
-}
-function d2down(x, z, H) {
-  mesh(new THREE.CircleGeometry(0.1, 20), downlightMat, x, H - 0.004, z, DECK2).rotation.x = Math.PI / 2;
-  mesh(new THREE.TorusGeometry(0.115, 0.016, 6, 20), MAT.steel, x, H - 0.008, z, DECK2).rotation.x = Math.PI / 2;
-}
-function d2panel(x, z, H, w, d) {
-  mesh(RBOX(w + 0.12, 0.04, d + 0.12, 0.015), MAT.steel, x, H - 0.02, z, DECK2);
-  mesh(new THREE.PlaneGeometry(w, d), downlightMat, x, H - 0.045, z, DECK2).rotation.x = Math.PI / 2;
-}
+function d2seg(ax, az, bx, bz, r) { return kitSeg(D2, ax, az, bx, bz, r); }
+function d2obs(x, z, r) { return kitObs(D2, x, z, r); }
+function d2wall(mat, A, B, n, H, holes) { return kitWall(D2, mat, A, B, n, H, holes); }
+function d2room(label, x0, x1, z0, z1, H, mat, floor, holes) { return kitRoom(D2, label, x0, x1, z0, z1, H, mat, floor, holes); }
+function d2down(x, z, H) { return kitDown(D2, x, z, H); }
+function d2panel(x, z, H, w, d) { return kitPanel(D2, x, z, H, w, d); }
 // simple furniture pieces
 function d2chair(x, z, rot, mat, kind) {
   const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, kind || 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
@@ -4101,26 +4214,9 @@ function d2desk(parent, w, d, station, sub, title, code) {
   addHit(BOX(w, 1.0, d), { station }, g, 0, 0.6, 0);
   return g;
 }
-// a potted plant kept inside the walls of the room it stands in (walls are inset 6 cm from each room's outline)
-function d2plant(x, z, scale) {
-  const r = D2.rooms.find((q) => x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1), I = 0.06;
-  plantAt(DECK2, x, z, scale, r && [r.x0 + I, r.x1 - I, r.z0 + I, r.z1 - I]); d2obs(x, z, 0.3);
-}
-// a handrail along a wall at x from z0 to z1, broken at each gap [za, zb] (doorways and openings), with end brackets
-function d2rail(x, z0, z1, gaps, side) {
-  let runs = [[z0, z1]];
-  (gaps || []).forEach(([a, b]) => { runs = runs.flatMap(([p, q]) => (b <= p || a >= q) ? [[p, q]] : [[p, a], [b, q]].filter(([u, v]) => v - u > 0.25)); });
-  runs.forEach(([p, q]) => {
-    const r = mesh(CYL(0.022, 0.022, q - p, 10), MAT.steel, x, 0.95, (p + q) / 2, DECK2); r.rotation.x = Math.PI / 2; D2.rails.push([x, p, q]);
-    [p + 0.06, q - 0.06].forEach((z) => mesh(BOX(0.07, 0.025, 0.025), MAT.steel, x - side * 0.035, 0.95, z, DECK2));
-  });
-}
-function d2label(text, x, y, z, rot, w) {
-  const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
-  hexTab(g, 6, 10, 40, 60, true, false); g.fillStyle = '#E8A06A'; g.fill();
-  g.fillStyle = '#E8A06A'; g.font = `600 44px ${DISP}`; g.textBaseline = 'middle'; g.fillText(text, 60, 43);
-  const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; D2.labels.push(m); return m;
-}
+function d2plant(x, z, scale) { return kitPlant(D2, x, z, scale); }
+function d2rail(x, z0, z1, gaps, side) { return kitRail(D2, x, z0, z1, gaps, side); }
+function d2label(text, x, y, z, rot, w) { return kitLabel(D2, text, x, y, z, rot, w); }
 
 // a bed with its headboard to local -x: frame, mattress, cover, pillows, headboard; bedside tables at local z +-(wid/2 + 0.32)
 function d2bed(parent, x, z, rot, wid, sides) {
@@ -4452,17 +4548,7 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
   d2plant(W2.x0 + 0.5, W2.z1 - 0.5, 1.1); d2plant(W2.x1 - 0.5, W2.z1 - 0.5, 1.1);
 }
 
-// ---------- officers' passage and observation lounge ----------
-// From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
-// sealed pod capacitor bank, to the observation lounge across the stern of the spine.
-function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
-  const cx = (x0 + x1) / 2;
-  for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
-    [x0 + 0.05, x1 - 0.05].forEach((x) => mesh(RBOX(0.1, H - 0.05, 0.16, 0.02), MAT.gunDark, x, (H - 0.05) / 2, z, DECK2));
-    mesh(RBOX(x1 - x0, 0.12, 0.16, 0.02), MAT.gunDark, cx, H - 0.06, z, DECK2);
-    if (z + 1.2 < z1 - 0.5) d2panel(cx, z + 1.2, H, 0.9, 0.36);
-  }
-}
+function d2frames(x0, x1, z0, z1, H) { return kitFrames(D2, x0, x1, z0, z1, H); }
 {
   const P = D2_PAS, H = D2C, op = [{ a: 0.12, b: 1.88, y0: 0, y1: 2.35 }];
   d2room('Officers’ passage', P.ax1, 0.2, P.z0, P.z1, H, d2CorrWall, MAT.floorCarpet, { e: [{ a: 0.2, b: 1.6, y0: 0, y1: 2.35 }], w: op });
@@ -4767,7 +4853,7 @@ function pushSeg(x, z, ax, az, bx, bz, r) {
 }
 // Only the deck you are on collides (lift.js swaps decks); the Lift 1 car is there on every deck.
 function collide(x, z) {
-  const d1 = LIFT.deck === 1, segs = d1 ? WALL_SEGS : LIFT.deck === 2 ? D2.segs : LIFT.stubSegs, obs = d1 ? obstacles : LIFT.deck === 2 ? D2.obs : [], ds = LIFT.doorSeg;
+  const D = deckOf(LIFT.deck), segs = D.segs(), obs = D.obs(), ds = LIFT.doorSeg;
   for (let it = 0; it < 4; it++) {
     for (const o of obs) { const dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), m = o.r + PR; if (d < m && d > 1e-5) { x = o.x + dx / d * m; z = o.z + dz / d * m; } }
     for (const sg of segs) [x, z] = pushSeg(x, z, sg[0], sg[1], sg[2], sg[3], sg[4]);
@@ -4778,7 +4864,7 @@ function collide(x, z) {
   return [x, z];
 }
 // the floor under you: the lift car's (it moves), the dais on the bridge, otherwise the deck you're on
-const floorH = (x, z) => (inCar(x, z) ? LIFT.root.position.y : deckY(LIFT.deck) + (LIFT.deck === 1 && Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0));
+const floorH = (x, z) => (inCar(x, z) ? LIFT.root.position.y : deckY(LIFT.deck) + deckOf(LIFT.deck).floor(x, z));
 
 ````
 
@@ -6473,14 +6559,12 @@ function liftSetDeck(n) {
     scene.add(LIFT.deck1);
   }
   LIFT.deck = n;
-  if (LIFT.deck1) LIFT.deck1.visible = n === 1;
-  DECK2.visible = n === 2;
-  LIFT.stub.visible = n > 2; LIFT.stub.position.y = deckY(n);
+  // show only this deck: its own group if it is built, otherwise the sealed placeholder lobby at its height
+  Object.values(DECKS).forEach((d) => { const r = d.root(); if (r) r.visible = d.n === n; });
+  LIFT.stub.visible = !deckOf(n).built; LIFT.stub.position.y = deckY(n);
   if (n === 1 && LIFT.envStale) { LIFT.envStale = false; bakeEnv(); }
   LIFT.panels.forEach(liftPanelDraw);
 }
-// each deck is 3.5 m below the one above; the car really travels between them
-const deckY = (n) => -(n - 1) * 3.5;
 function liftGo(n) {
   if (LIFT.phase !== 'idle' || n === LIFT.deck) return;
   if (!inCar(player.x, player.z)) { toast('Step into the lift car first, then choose a deck on the panel.', 'Lift'); return; }
@@ -6527,9 +6611,10 @@ const liftLocked = () => LIFT.phase === 'closing' || LIFT.phase === 'moving';
 function liftLocation(roomLabel) {
   const d = liftDeck(LIFT.deck);
   if (LIFT.inside) return `Lift 1 · Deck ${d.n}`;
-  if (LIFT.deck === 2) { const r = D2.rooms.find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1); return `${r ? r.label : d.name} · Deck 2`; }
-  if (LIFT.deck !== 1) return `${d.name} · Deck ${d.n}`;
-  return (roomLabel || 'Main Bridge') + ' · Deck 1';
+  const D = deckOf(LIFT.deck);
+  if (LIFT.deck === 1) return (roomLabel || 'Main Bridge') + ' · Deck 1';
+  const r = D.rooms().find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
+  return `${r ? r.label : d.name} · Deck ${d.n}`;
 }
 // is this object (and every group above it) showing? Used to ignore stations and walls on hidden decks.
 function shown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
@@ -7047,6 +7132,9 @@ BAKE.ready.then((ok) => {
   const KEY = 'defiance-perf', DPR = Math.min(window.devicePixelRatio || 1, 2);
   const opt = Object.assign({ res: 'standard', ao: false, aa: true, screens: 'normal' }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(opt)); } catch (e) { /* storage may be unavailable */ } };
+  // settings version 2 (Nov 27): edge smoothing on by default. It costs little frame rate on a desktop and looks much
+  // better, so a choice saved under the old settings (often switched off while testing) is reset to on, once.
+  if ((opt.v || 1) < 2) { opt.aa = true; opt.v = 2; save(); }
   const RES = { full: DPR, standard: 1, low: 0.75 };
   function apply() {
     // edge smoothing first: changing it rebuilds the composer's buffers, and resize() re-flags the new ones

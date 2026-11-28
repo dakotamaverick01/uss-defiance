@@ -276,14 +276,12 @@ function liftSetDeck(n) {
     scene.add(LIFT.deck1);
   }
   LIFT.deck = n;
-  if (LIFT.deck1) LIFT.deck1.visible = n === 1;
-  DECK2.visible = n === 2;
-  LIFT.stub.visible = n > 2; LIFT.stub.position.y = deckY(n);
+  // show only this deck: its own group if it is built, otherwise the sealed placeholder lobby at its height
+  Object.values(DECKS).forEach((d) => { const r = d.root(); if (r) r.visible = d.n === n; });
+  LIFT.stub.visible = !deckOf(n).built; LIFT.stub.position.y = deckY(n);
   if (n === 1 && LIFT.envStale) { LIFT.envStale = false; bakeEnv(); }
   LIFT.panels.forEach(liftPanelDraw);
 }
-// each deck is 3.5 m below the one above; the car really travels between them
-const deckY = (n) => -(n - 1) * 3.5;
 function liftGo(n) {
   if (LIFT.phase !== 'idle' || n === LIFT.deck) return;
   if (!inCar(player.x, player.z)) { toast('Step into the lift car first, then choose a deck on the panel.', 'Lift'); return; }
@@ -330,9 +328,10 @@ const liftLocked = () => LIFT.phase === 'closing' || LIFT.phase === 'moving';
 function liftLocation(roomLabel) {
   const d = liftDeck(LIFT.deck);
   if (LIFT.inside) return `Lift 1 · Deck ${d.n}`;
-  if (LIFT.deck === 2) { const r = D2.rooms.find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1); return `${r ? r.label : d.name} · Deck 2`; }
-  if (LIFT.deck !== 1) return `${d.name} · Deck ${d.n}`;
-  return (roomLabel || 'Main Bridge') + ' · Deck 1';
+  const D = deckOf(LIFT.deck);
+  if (LIFT.deck === 1) return (roomLabel || 'Main Bridge') + ' · Deck 1';
+  const r = D.rooms().find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
+  return `${r ? r.label : d.name} · Deck ${d.n}`;
 }
 // is this object (and every group above it) showing? Used to ignore stations and walls on hidden decks.
 function shown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }

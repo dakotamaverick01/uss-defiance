@@ -48,6 +48,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | File | What it covers |
   | --- | --- |
   | `core.js` | Constants, renderer, shared helpers, display palette, scene state |
+  | `decks.js` | The deck registry: each deck's group, collision, rooms and floor height, read by collision, the lift and the location readout |
   | `shipgeo.js` | The ship's shape in metres (`SHIPGEO`): the saucer and engineering body (`shipHull` works out the hull's cross-sections and outlines from them), spine, rollbar and weapons pod with its launchers, nacelles, pylons, every deck's compartments. An identical copy lives in the deck-plan page |
   | `exterior.js` | The exterior model, built from `SHIPGEO`, with its painted atlas and its own light |
   | `sim.js` | The ship model: power, shields by arc, weapons, eight damage zones, repair teams, combat drill. Runs on a fixed 10-per-second tick |
@@ -62,6 +63,7 @@ Everything here is original: the ship, its layout, the interface language, the i
   | `screens.js` | Console screen drawing and the instrument widget kit |
   | `sound.js` | Synthesized ambience and interface sounds |
   | `ui.js` | Station panels, alerts, HUD |
+  | `kit.js` | The shared building kit for decks below the bridge (rooms, walls with openings, light panels, frames, handrails, signs, plants), built to the ship standards `STD` in core.js |
   | `deck2.js` | Deck 2, 3.5 m below the bridge: lift lobby, corridor, all the officers' quarters, wardroom, passage, observation lounge, and the exterior model seen through its windows |
   | `lift.js` | Lift 1: the car, the ride, deck switching (one deck in the scene at a time) and the sealed lobby for unbuilt decks |
   | `controls.js` | Movement, touch and mouse input, aiming |

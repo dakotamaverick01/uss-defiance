@@ -18,7 +18,7 @@ function pushSeg(x, z, ax, az, bx, bz, r) {
 }
 // Only the deck you are on collides (lift.js swaps decks); the Lift 1 car is there on every deck.
 function collide(x, z) {
-  const d1 = LIFT.deck === 1, segs = d1 ? WALL_SEGS : LIFT.deck === 2 ? D2.segs : LIFT.stubSegs, obs = d1 ? obstacles : LIFT.deck === 2 ? D2.obs : [], ds = LIFT.doorSeg;
+  const D = deckOf(LIFT.deck), segs = D.segs(), obs = D.obs(), ds = LIFT.doorSeg;
   for (let it = 0; it < 4; it++) {
     for (const o of obs) { const dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), m = o.r + PR; if (d < m && d > 1e-5) { x = o.x + dx / d * m; z = o.z + dz / d * m; } }
     for (const sg of segs) [x, z] = pushSeg(x, z, sg[0], sg[1], sg[2], sg[3], sg[4]);
@@ -29,4 +29,4 @@ function collide(x, z) {
   return [x, z];
 }
 // the floor under you: the lift car's (it moves), the dais on the bridge, otherwise the deck you're on
-const floorH = (x, z) => (inCar(x, z) ? LIFT.root.position.y : deckY(LIFT.deck) + (LIFT.deck === 1 && Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0));
+const floorH = (x, z) => (inCar(x, z) ? LIFT.root.position.y : deckY(LIFT.deck) + deckOf(LIFT.deck).floor(x, z));

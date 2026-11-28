@@ -8,6 +8,9 @@
   const KEY = 'defiance-perf', DPR = Math.min(window.devicePixelRatio || 1, 2);
   const opt = Object.assign({ res: 'standard', ao: false, aa: true, screens: 'normal' }, (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(opt)); } catch (e) { /* storage may be unavailable */ } };
+  // settings version 2 (Nov 27): edge smoothing on by default. It costs little frame rate on a desktop and looks much
+  // better, so a choice saved under the old settings (often switched off while testing) is reset to on, once.
+  if ((opt.v || 1) < 2) { opt.aa = true; opt.v = 2; save(); }
   const RES = { full: DPR, standard: 1, low: 0.75 };
   function apply() {
     // edge smoothing first: changing it rebuilds the composer's buffers, and resize() re-flags the new ones

@@ -6,56 +6,17 @@
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
-const D2Y = -3.5, D2H = 2.75, D2C = 2.6; // floor height, room ceiling, corridor ceiling
+const D2Y = deckY(2), D2H = STD.room.h, D2C = STD.corridor.h; // floor height, room ceiling, corridor ceiling
 const DECK2 = group(0, D2Y, 0, 0); DECK2.name = 'Deck 2';
-const D2 = { segs: [], obs: [], rooms: [], door: null, labels: [], rails: [] };
+const D2 = { root: DECK2, segs: [], obs: [], rooms: [], door: null, labels: [], rails: [] };
 const d2RoomWall = roomWallMat(D2H, 'fabric'), d2CorrWall = roomWallMat(D2C, 'fabric');
 const [D2_LX] = onEdge(LIFT_GAP.edge, LIFT_GAP.t, 0); // the lift door's x; the doors open forward at z = 6.2
-function d2seg(ax, az, bx, bz, r) { D2.segs.push([ax, az, bx, bz, r === undefined ? 0.33 : r]); }
-function d2obs(x, z, r) { D2.obs.push({ x, z, r }); }
-// a straight wall from A to B facing n, with openings measured along it: { a, b, y0, y1 } (y0 > 0 means a window)
-function d2wall(mat, A, B, n, H, holes) {
-  const len = Math.hypot(B[0] - A[0], B[1] - A[1]), dir = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], P = (s) => [A[0] + dir[0] * s, A[1] + dir[1] * s];
-  let s = 0; (holes || []).slice().sort((p, q) => p.a - q.a).forEach((h) => {
-    wallPiece(mat, A, dir, n, s, h.a, 0, H, H, 1.2, DECK2);
-    if (h.y0 > 0.001) wallPiece(mat, A, dir, n, h.a, h.b, 0, h.y0, H, 1.2, DECK2);
-    if (h.y1 < H - 0.001) wallPiece(mat, A, dir, n, h.a, h.b, h.y1, H, H, 1.2, DECK2);
-    const p0 = P(s), p1 = P(h.a); d2seg(p0[0], p0[1], p1[0], p1[1]);
-    if (h.y0 > 0.4) { const q0 = P(h.a), q1 = P(h.b); d2seg(q0[0], q0[1], q1[0], q1[1]); }
-    s = h.b;
-  });
-  wallPiece(mat, A, dir, n, s, len, 0, H, H, 1.2, DECK2);
-  const p0 = P(s), p1 = P(len); d2seg(p0[0], p0[1], p1[0], p1[1]);
-}
-// a room: floor, ceiling, four walls facing in, a cove light and a dark crown under the ceiling
-function d2room(label, x0, x1, z0, z1, H, mat, floor, holes) {
-  const fw = x1 - x0, fd = z1 - z0;
-  const fg = new THREE.PlaneGeometry(fw, fd); { const uv = fg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * fw, uv.getY(i) * fd); }
-  const f = mesh(fg, floor, (x0 + x1) / 2, 0.002, (z0 + z1) / 2, DECK2); f.rotation.x = -Math.PI / 2;
-  const c = mesh(fg.clone(), MAT.ceiling, (x0 + x1) / 2, H, (z0 + z1) / 2, DECK2); c.rotation.x = Math.PI / 2;
-  // walls sit 6 cm inside the room's outline, so two rooms back to back never share one plane
-  // (coincident back-to-back walls shadow each other in the light bake and come out black)
-  const I = 0.06, sh = (L) => (L || []).map((h) => Object.assign({}, h, { a: h.a - I, b: h.b - I }));
-  holes = holes || {};
-  d2wall(mat, [x0 + I, z0 + I], [x1 - I, z0 + I], [0, 1], H, sh(holes.n));
-  d2wall(mat, [x0 + I, z1 - I], [x1 - I, z1 - I], [0, -1], H, sh(holes.s));
-  d2wall(mat, [x0 + I, z0 + I], [x0 + I, z1 - I], [1, 0], H, sh(holes.w));
-  d2wall(mat, [x1 - I, z0 + I], [x1 - I, z1 - I], [-1, 0], H, sh(holes.e));
-  [[(x0 + x1) / 2, z0 + 0.13, fw - 0.3, 0], [(x0 + x1) / 2, z1 - 0.13, fw - 0.3, 0], [x0 + 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2], [x1 - 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2]].forEach(([x, z, L, ry]) => {
-    const cv = mesh(BOX(L, 0.03, 0.03), SLOT, x, H - 0.28, z, DECK2); cv.rotation.y = ry;
-    const sh = mesh(RBOX(L + 0.1, 0.08, 0.12, 0.015), MAT.gunDark, x, H - 0.23, z, DECK2); sh.rotation.y = ry;
-    const st = mesh(BOX(L - 0.2, 0.02, 0.02), STRIP, x, 0.06, z, DECK2); st.rotation.y = ry;
-  });
-  D2.rooms.push({ label, x0, x1, z0, z1 });
-}
-function d2down(x, z, H) {
-  mesh(new THREE.CircleGeometry(0.1, 20), downlightMat, x, H - 0.004, z, DECK2).rotation.x = Math.PI / 2;
-  mesh(new THREE.TorusGeometry(0.115, 0.016, 6, 20), MAT.steel, x, H - 0.008, z, DECK2).rotation.x = Math.PI / 2;
-}
-function d2panel(x, z, H, w, d) {
-  mesh(RBOX(w + 0.12, 0.04, d + 0.12, 0.015), MAT.steel, x, H - 0.02, z, DECK2);
-  mesh(new THREE.PlaneGeometry(w, d), downlightMat, x, H - 0.045, z, DECK2).rotation.x = Math.PI / 2;
-}
+function d2seg(ax, az, bx, bz, r) { return kitSeg(D2, ax, az, bx, bz, r); }
+function d2obs(x, z, r) { return kitObs(D2, x, z, r); }
+function d2wall(mat, A, B, n, H, holes) { return kitWall(D2, mat, A, B, n, H, holes); }
+function d2room(label, x0, x1, z0, z1, H, mat, floor, holes) { return kitRoom(D2, label, x0, x1, z0, z1, H, mat, floor, holes); }
+function d2down(x, z, H) { return kitDown(D2, x, z, H); }
+function d2panel(x, z, H, w, d) { return kitPanel(D2, x, z, H, w, d); }
 // simple furniture pieces
 function d2chair(x, z, rot, mat, kind) {
   const g = group(x, 0, z, rot, DECK2); const ch = makeChair(g, kind || 'dining', mat); chairRest(ch.userData.chair, Math.sin(x * 5 + z * 11) * 0.18); return g;
@@ -75,26 +36,9 @@ function d2desk(parent, w, d, station, sub, title, code) {
   addHit(BOX(w, 1.0, d), { station }, g, 0, 0.6, 0);
   return g;
 }
-// a potted plant kept inside the walls of the room it stands in (walls are inset 6 cm from each room's outline)
-function d2plant(x, z, scale) {
-  const r = D2.rooms.find((q) => x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1), I = 0.06;
-  plantAt(DECK2, x, z, scale, r && [r.x0 + I, r.x1 - I, r.z0 + I, r.z1 - I]); d2obs(x, z, 0.3);
-}
-// a handrail along a wall at x from z0 to z1, broken at each gap [za, zb] (doorways and openings), with end brackets
-function d2rail(x, z0, z1, gaps, side) {
-  let runs = [[z0, z1]];
-  (gaps || []).forEach(([a, b]) => { runs = runs.flatMap(([p, q]) => (b <= p || a >= q) ? [[p, q]] : [[p, a], [b, q]].filter(([u, v]) => v - u > 0.25)); });
-  runs.forEach(([p, q]) => {
-    const r = mesh(CYL(0.022, 0.022, q - p, 10), MAT.steel, x, 0.95, (p + q) / 2, DECK2); r.rotation.x = Math.PI / 2; D2.rails.push([x, p, q]);
-    [p + 0.06, q - 0.06].forEach((z) => mesh(BOX(0.07, 0.025, 0.025), MAT.steel, x - side * 0.035, 0.95, z, DECK2));
-  });
-}
-function d2label(text, x, y, z, rot, w) {
-  const c = cnv(512, 80), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 80);
-  hexTab(g, 6, 10, 40, 60, true, false); g.fillStyle = '#E8A06A'; g.fill();
-  g.fillStyle = '#E8A06A'; g.font = `600 44px ${DISP}`; g.textBaseline = 'middle'; g.fillText(text, 60, 43);
-  const m = mesh(new THREE.PlaneGeometry(w, w * 80 / 512), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x, y, z, DECK2); m.rotation.y = rot; D2.labels.push(m); return m;
-}
+function d2plant(x, z, scale) { return kitPlant(D2, x, z, scale); }
+function d2rail(x, z0, z1, gaps, side) { return kitRail(D2, x, z0, z1, gaps, side); }
+function d2label(text, x, y, z, rot, w) { return kitLabel(D2, text, x, y, z, rot, w); }
 
 // a bed with its headboard to local -x: frame, mattress, cover, pillows, headboard; bedside tables at local z +-(wid/2 + 0.32)
 function d2bed(parent, x, z, rot, wid, sides) {
@@ -426,17 +370,7 @@ d2cabin(2, 9.6, 16.4, 12.0, true, 457);
   d2plant(W2.x0 + 0.5, W2.z1 - 0.5, 1.1); d2plant(W2.x1 - 0.5, W2.z1 - 0.5, 1.1);
 }
 
-// ---------- officers' passage and observation lounge ----------
-// From the corridor's aft end a short passage turns to port, then runs aft along the wardroom's port side, past the
-// sealed pod capacitor bank, to the observation lounge across the stern of the spine.
-function d2frames(x0, x1, z0, z1, H) { // structural frames every 2.4 m along z, a light panel between each, handrails
-  const cx = (x0 + x1) / 2;
-  for (let z = z0 + 1.2; z < z1 - 0.4; z += 2.4) {
-    [x0 + 0.05, x1 - 0.05].forEach((x) => mesh(RBOX(0.1, H - 0.05, 0.16, 0.02), MAT.gunDark, x, (H - 0.05) / 2, z, DECK2));
-    mesh(RBOX(x1 - x0, 0.12, 0.16, 0.02), MAT.gunDark, cx, H - 0.06, z, DECK2);
-    if (z + 1.2 < z1 - 0.5) d2panel(cx, z + 1.2, H, 0.9, 0.36);
-  }
-}
+function d2frames(x0, x1, z0, z1, H) { return kitFrames(D2, x0, x1, z0, z1, H); }
 {
   const P = D2_PAS, H = D2C, op = [{ a: 0.12, b: 1.88, y0: 0, y1: 2.35 }];
   d2room('Officers’ passage', P.ax1, 0.2, P.z0, P.z1, H, d2CorrWall, MAT.floorCarpet, { e: [{ a: 0.2, b: 1.6, y0: 0, y1: 2.35 }], w: op });

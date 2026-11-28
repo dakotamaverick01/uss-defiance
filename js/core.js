@@ -145,6 +145,20 @@ const SYSTEMS = [
   { star: 'Thessaly Drift', planet: 'Mira Vey', type: 'ice', cls: 'Ice-shelled moon', atm: 'Thin nitrogen, 0.02 atm', life: 'Microbial, under the ice', dist: '880,000 km', heading: '147 mark 30', planets: 3, featured: 2, starColor: 0xcfe0ff, halo: '190,225,255', seed: 37 },
   { star: 'Okonkwo-9', planet: 'Ashfall', type: 'lava', cls: 'Young volcanic world', atm: 'Sulfur dioxide, 4 atm', life: 'None detected', dist: '2.7 million km', heading: '302 mark 04', planets: 5, featured: 0, starColor: 0xffc890, halo: '255,140,90', seed: 41 },
 ];
+// Ship standards: the sizes every deck is built to (kit.js and the deck builders read these; see claude/roadmap.md F1).
+// The bridge (3.3 m) and its rooms (3.1 m) are named exceptions to the room height.
+const STD = {
+  deck: 3.5,                      // deck spacing: Deck n's floor is 3.5 (n - 1) m below the bridge's
+  corridor: { w: 2.2, h: 2.6 },   // clear width and ceiling of a corridor
+  room: { h: 2.75 },              // standard room ceiling
+  door: { w: 1.2, h: 2.3 },       // clear opening of a standard door
+  frame: 2.4,                     // structural frame spacing along a corridor
+  inset: 0.06,                    // walls stand this far inside a room's outline (back-to-back walls never share a plane)
+  mount: 0.08,                    // anything on a wall sits at least this far inside the outline
+  gap: 0.10,                      // the least gap between two partition walls
+};
+// each deck is 3.5 m below the one above; the lift car really travels between them
+function deckY(n) { return -(n - 1) * STD.deck; }
 const SPEEDS = {
   stop: { speed: 0, len: 0, name: 'All stop', screen: 'ALL STOP' },
   impulse: { speed: 12, len: 0.6, name: 'Impulse, one quarter', screen: 'IMPULSE ¼' },
