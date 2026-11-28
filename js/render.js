@@ -250,6 +250,8 @@ function frame() {
     }
     extGeo.attributes.position.needsUpdate = true;
   } else extStreaks.visible = false;
+  // the exterior's moving parts: shuttlebay doors, impulse plumes, thruster puffs, blinking hull lights
+  if (EXTSET.userData.update) EXTSET.userData.update(dt, elapsed);
 
   if (state.alert === 'red') {
     const k = 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(elapsed * 4));

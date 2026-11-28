@@ -75,6 +75,20 @@ CHECK_JS = r"""() => {
   ok('set piece exists inside Deck 2', ext && (() => { for (let p = ext; p; p = p.parent) if (p === DECK2) return true; return false; })());
   ok('set piece has no baked materials', ext && std === 0, std);
   ok('exterior model within budget (170k triangles desktop; phones build a lighter one)', ext && tris < 170000, Math.round(tris) + ' triangles');
+  // stage 2b: the outside hardware agrees with the deck plan, and its moving parts move
+  if (ext && ext.userData.docks) { const U = ext.userData, bad = [];
+    U.docks.forEach((dk) => { const deck = Math.floor(dk.d / 3.5) + 1, rooms = SHIPGEO.rooms[Math.min(9, Math.max(0, deck - 1))] || [];
+      if (!rooms.some(([a, b, name]) => name === dk.name && dk.m >= a && dk.m <= b)) bad.push(`${dk.name} at m ${dk.m.toFixed(1)}, Deck ${deck}`); });
+    ok('docking ports and collar sit in their deck-plan rooms', U.docks.length === 3 && !bad.length, bad.join('; ') || U.docks.length + ' found');
+    const bayRoom = (n) => (SHIPGEO.rooms[n - 1] || []).find(([a, b, name]) => /^Shuttlebay/.test(name) && U.bay.m0 >= a - 0.01 && b >= 198);
+    ok('shuttlebay model inside the two-deck bay on the plan (Decks 7-8)', bayRoom(7) && bayRoom(8) && U.bay.dA >= 21 && U.bay.dB <= 28.01, `m ${U.bay.m0}, depth ${U.bay.dA}-${U.bay.dB}`);
+    const was = state.bayDoors, sp = cur.speed, zmax = () => { let z = -1e9; U.bay.leaves.forEach((m) => { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) z = Math.max(z, p.getZ(i)); }); return z; };
+    const helm = STATIONS.helm.panel().acts.find((a) => /shuttlebay/i.test(a.label));
+    state.bayDoors = false; U.update(10, 0); const z0 = zmax(); if (helm) helm.fn(); U.update(10, 0); const open = U.bay.door(), z1 = zmax();
+    ok('Flight panel opens the shuttlebay doors and they swing aft', !!helm && state.bayDoors === true && open === 1 && z1 - z0 > 2.5, `door ${open}, leaves moved ${(z1 - z0).toFixed(1)} m`);
+    cur.speed = 0; U.update(10, 0); const L0 = U.plumeLength(); cur.speed = 12; U.update(10, 0); const L1 = U.plumeLength();
+    ok('impulse plume grows with speed', L1 > L0 + 6, `${L0.toFixed(1)} m stopped, ${L1.toFixed(1)} m at impulse`);
+    state.bayDoors = was; cur.speed = sp; U.update(10, 0); }
   // every Deck 2 screen sits in front of its wall (walls are inset 6 cm from each room's outline)
   { const p = new THREE.Vector3(), hid = []; screens.forEach((sc) => { let d2 = false; for (let o = sc.mesh; o; o = o.parent) if (o === DECK2) d2 = true; if (!d2) return; sc.mesh.getWorldPosition(p); const x = p.x, z = p.z;
       if (!D2.rooms.some((r) => x > r.x0 + 0.061 && x < r.x1 - 0.061 && z > r.z0 + 0.061 && z < r.z1 - 0.061)) hid.push(sc.station + '@' + x.toFixed(2) + ',' + z.toFixed(2)); });

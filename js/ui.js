@@ -30,6 +30,7 @@ const STATIONS = {
       { label: 'All stop', on: state.speed === 'stop', fn: () => setSpeed('stop') },
       { label: 'Impulse', on: state.speed === 'impulse', fn: () => setSpeed('impulse') },
       { label: 'Engage warp', on: state.speed === 'warp', disabled: !simCanWarp() && state.speed !== 'warp', fn: () => setSpeed('warp') },
+      { label: state.bayDoors ? 'Close shuttlebay' : 'Open shuttlebay', on: state.bayDoors, fn: () => order('Flight', state.bayDoors ? 'Closing the shuttlebay doors.' : 'Opening the shuttlebay doors. Bay is depressurised and clear.', () => { state.bayDoors = !state.bayDoors; }) },
     ] }) },
   ops: { title: 'Operations', role: 'Crew, convoy and resources', panel: () => ({
     read: [['Power preset', cap(sim.preset)], ['Reactor', `${Math.round(reactorOut())} units`], ['Weapons · shields', `${sim.alloc.weapons} · ${sim.alloc.shields}`], ['Engines · sensors', `${sim.alloc.engines} · ${sim.alloc.sensors}`], ['Convoy', '3 freighters in formation']],

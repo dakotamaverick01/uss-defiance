@@ -160,7 +160,7 @@ const ALERTS = {
 const LIGHT_LEVELS = { dim: 0.55, standard: 1, bright: 1.35 };
 const state = {
   speed: 'stop', alert: 'green', light: 'standard', cur: 0, dest: 1, holo: 0, holoOn: true, view: 'forward', logIdx: 0, reports: 4, slide: 0, shutters: 'auto', cup: null,
-  scanning: false, scanned: false, scanT: 0, sitting: false, open: null,
+  scanning: false, scanned: false, scanT: 0, sitting: false, open: null, bayDoors: false,
   comms: [
     { at: 0, who: 'Meridian Station', text: 'Defiance, you are cleared to begin your survey.' },
     { at: 0, who: 'Convoy Lead', text: 'Freighters are formed up behind you. Thanks for the escort.' },

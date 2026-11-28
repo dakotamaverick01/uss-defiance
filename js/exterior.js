@@ -68,16 +68,18 @@ function buildExterior(opts) {
   const rnd = mulberry(4080);
 
   // ---------- atlas layout (pixels at full size) ----------
-  const AW = 4096, AH = 2560;
+  const AW = 4096, AH = 3072;
   const R = {
     hull: [0, 0, 4096, 2048], nac: [0, 2048, 1536, 384], spine: [1536, 2048, 768, 512], arch: [2304, 2048, 1024, 256],
     spar: [3328, 2048, 512, 256], turret: [3840, 2048, 256, 256], stern: [2304, 2304, 512, 256],
     name: [2816, 2304, 768, 128], reg: [2816, 2432, 512, 128], rcs: [3328, 2432, 256, 128], defl: [3584, 2304, 256, 256],
     cells: [3840, 2304, 256, 256], launch: [0, 2432, 256, 128],
+    // stage 2b: the shuttlebay's clamshell doors, the docking hatches, the sensor pallets and a sheet of small stencils
+    door: [0, 2560, 512, 512], dock: [512, 2560, 256, 256], sensor: [512, 2816, 256, 256], marks: [768, 2560, 1280, 512],
   };
   // uv in a region: (a, b) in 0..1 across the region (b = 0 at the region's top row in the canvas)
   const ruv = (r, a, b) => [(r[0] + a * r[2]) / AW, 1 - (r[1] + b * r[3]) / AH];
-  const CELL = { base: 0, dark: 1, slate: 2, glass: 3, deflector: 4, impulse: 5, grille: 6, cap: 7, gun: 8, ring: 9, barrel: 10, light: 11, dome: 12, oxide: 13 };
+  const CELL = { base: 0, dark: 1, slate: 2, glass: 3, deflector: 4, impulse: 5, grille: 6, cap: 7, gun: 8, ring: 9, barrel: 10, light: 11, dome: 12, oxide: 13, tractor: 14, pale: 15 };
   const cellUV = (k) => ruv(R.cells, ((k % 4) + 0.5) / 4, (((k / 4) | 0) + 0.5) / 4);
 
   // ---------- geometry assembly ----------
@@ -156,12 +158,7 @@ function buildExterior(opts) {
   {
     parts.push(finish(grid(HS.length, RING, (i, j) => { const S = HS[i], [x, d] = ringPt(S, j); return [x, Y(d), Z(S.m)]; },
       (i, j) => ruv(R.hull, HS[i].m / 200, ringPt(HS[i], j)[2] / VMAX), true)));
-    // the stern: a rounded transom closing the last section
-    const S = HS[HS.length - 1], pos = [0, Y((S.t + S.b) / 2), Z(S.m) + 0.6], uvs = [...ruv(R.stern, 0.5, ((S.t + S.b) / 2 - 15) / 18)], idx = [];
-    for (let j = 0; j < RING; j++) { const [x, d] = ringPt(S, j); pos.push(x, Y(d), Z(S.m)); uvs.push(...ruv(R.stern, 0.5 + x / 24, (d - 15) / 18)); idx.push(0, 1 + j, 1 + (j + 1) % RING); }
-    const t = new THREE.BufferGeometry(); t.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); t.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); t.setIndex(idx);
-    t.computeVertexNormals(); if (t.attributes.normal.getZ(0) < 0) { flip(t); t.computeVertexNormals(); }
-    parts.push(t);
+    // the stern's transom is built with the shuttlebay (below), round the bay's opening
   }
   // a point on the hull: on the upper surface at lateral x, on the underside at lateral x, or on a side at depth d
   const onSide = (S, x, upper) => { const s = S.side, ax = Math.abs(x);
@@ -257,7 +254,7 @@ function buildExterior(opts) {
     const rcs = (x, y, z, ry, s) => parts.push(stock(new THREE.BoxGeometry(2.6, 1.5, 0.9).translate(0, 0, 0.45), (u, v) => ruv(R.rcs, 0.04 + u * 0.92, 0.08 + (1 - v) * 0.84), M4(x, y, z, 0, ry, 0, s || 1)));
     [22, 98, 184].forEach((m) => { const S = secFull(m), dw = (hullSec(m + 0.5).w - hullSec(m - 0.5).w), yaw = Math.atan(dw); [-1, 1].forEach((sd) => rcs(sd * (hullAtDepth(S, SAU.dc).x - 0.25), Y(SAU.dc), Z(m), sd * (Math.PI / 2 + yaw), 1)); });
     [-1, 1].forEach((sd) => { const p = NL0 - 14, q = nacPt(sd, p, 0.75); rcs(q[0] - sd * 0.25, q[1], q[2], sd * Math.PI / 2, 0.8); });
-    const bot = hullBot(64, 0.01); parts.push(stock(new THREE.SphereGeometry(3.0, lite ? 14 : 24, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, bot[1] + 0.5, bot[2], Math.PI, 0, 0, [1, 0.5, 1.3])));
+    const bot = hullBot(80, 0.01); parts.push(stock(new THREE.SphereGeometry(3.0, lite ? 14 : 24, lite ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, bot[1] + 0.5, bot[2], Math.PI, 0, 0, [1, 0.5, 1.3])));
     const bot2 = hullBot(150, 0.01); parts.push(stock(new THREE.SphereGeometry(1.6, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, M4(0, bot2[1] + 0.3, bot2[2], Math.PI, 0, 0, [1, 0.6, 1])));
   }
 
@@ -297,6 +294,162 @@ function buildExterior(opts) {
     const dish = new THREE.CircleGeometry(1, lite ? 24 : 40), du = dish.attributes.uv; for (let k = 0; k < du.count; k++) du.setXY(k, ...ruv(R.defl, du.getX(k), 1 - du.getY(k))); dish.applyMatrix4(M4(0, py, pz, -tilt, Math.PI, 0, [3.2, 2.3, 1])); decals.push(dish);
     parts.push(stock(new THREE.TorusGeometry(1, 0.12, 8, lite ? 24 : 40), CELL.dark, M4(0, py + Math.sin(tilt) * 0.05, pz + Math.cos(tilt) * 0.05, -tilt, Math.PI, 0, [3.3, 2.4, 3])));
     parts.push(stock(new THREE.CylinderGeometry(1, 1.15, out + 0.6, lite ? 16 : 28, 1, true), CELL.dark, M4(0, (py + Y(dd)) / 2 + Math.sin(tilt) * 0.3, (pz + Z(m0)) / 2 + Math.cos(tilt) * 0.3, Math.PI / 2 - tilt, 0, 0, [3.3, 1, 2.4]))); }
+
+  // ---------- stage 2b: the busy outside ----------
+  // Hardware with real depth is geometry in the hull's paint (docking ports and the ventral collar, tractor emitters,
+  // dishes, antennas, sensor pallets, the shuttlebay's opening and its clamshell doors); small lights are points
+  // (LT) that blink in their own shader; the impulse plumes and thruster puffs are soft sprites (built after the paint).
+  const V3 = (a) => new THREE.Vector3(...a), SEG = lite ? 18 : 36;
+  // a local frame: y along n (out of the hull), z along t (usually aft), x = y cross z
+  const mount = (p, n, t, s) => { const y = n.clone().normalize(), z = t.clone().addScaledVector(y, -t.dot(y)).normalize(), x = new THREE.Vector3().crossVectors(y, z);
+    const mt = new THREE.Matrix4().makeBasis(x, y, z); if (s) mt.scale(new THREE.Vector3(...(Array.isArray(s) ? s : [s, s, s]))); return mt.setPosition(p); };
+  // the hull's frame at a point on a side (m, depth d) or on the top or bottom (m, lateral x)
+  const sideFrame = (m, d, sd) => { const P = (mm, dd) => V3(hullSidePt(mm, dd, sd)), t = P(m + 0.25, d).sub(P(m - 0.25, d)).normalize(), dn = P(m, d + 0.25).sub(P(m, d - 0.25)).normalize();
+    const n = new THREE.Vector3().crossVectors(t, dn).normalize(); if (n.x * sd < 0) n.negate(); return { p: P(m, d), n, t }; };
+  const surfFrame = (m, x, upper) => { const P = (mm, xx) => V3(upper ? hullTop(mm, xx) : hullBot(mm, xx)), t = P(m + 0.25, x).sub(P(m - 0.25, x)).normalize(), s = P(m, x + 0.25).sub(P(m, x - 0.25)).normalize();
+    const n = new THREE.Vector3().crossVectors(t, s).normalize(); if ((n.y > 0) !== upper) n.negate(); return { p: P(m, x), n, t }; };
+  // turn every triangle to face want(centre) (for shapes whose winding isn't known in advance), then smooth normals
+  const orient = (g, want) => { const p = g.attributes.position, ix = g.index.array, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    for (let k = 0; k < ix.length; k += 3) { a.fromBufferAttribute(p, ix[k]); b.fromBufferAttribute(p, ix[k + 1]); c.fromBufferAttribute(p, ix[k + 2]);
+      const nn = b.clone().sub(a).cross(c.clone().sub(a)), ctr = a.clone().add(b).add(c).multiplyScalar(1 / 3); if (nn.dot(want(ctr)) < 0) { const q = ix[k + 1]; ix[k + 1] = ix[k + 2]; ix[k + 2] = q; } }
+    if (g.attributes.normal) g.deleteAttribute('normal'); g.computeVertexNormals(); return g; };
+  const LT = [], LK = { steady: 0, strobe: 1, beacon: 2, chase: 3, blink: 4 }; // lights: position, colour, size (m), kind, phase
+  const light = (p, col, size, kind, ph) => LT.push({ p: Array.isArray(p) ? p : p.toArray(), col: new THREE.Color(col), size, kind: LK[kind], ph: ph || 0 });
+  const AMBER = 0xffa640, WHITE = 0xf4f8ff, RED = 0xff3a2a;
+  const local = (fr, x, y, z) => { const mt = mount(fr.p, fr.n, fr.t); return new THREE.Vector3(x, y, z).applyMatrix4(mt); };
+  // docking ports: an armoured collar standing out of the hull, a striped face ring, a recessed hatch, a ring of guide lights
+  const DOCKS = [];
+  function dockPort(name, fr, r, lip, nl) {
+    const { p, n, t } = fr, at = (h) => p.clone().addScaledVector(n, h);
+    parts.push(stock(new THREE.CylinderGeometry(r, r + 0.35, lip + 0.9, SEG, 1, true), CELL.dark, mount(at((lip - 0.9) / 2), n, t)));
+    parts.push(stock(new THREE.RingGeometry(r * 0.64, r + 0.02, SEG, 1).rotateX(-Math.PI / 2), (u, v) => ruv(R.dock, u, 1 - v), mount(at(lip), n, t)));
+    const well = new THREE.CylinderGeometry(r * 0.64, r * 0.64, 0.32, SEG, 1, true); flip(well); well.computeVertexNormals();
+    parts.push(stock(well, CELL.slate, mount(at(lip - 0.16), n, t)));
+    parts.push(stock(new THREE.CircleGeometry(r * 0.64, SEG).rotateX(-Math.PI / 2), (u, v) => ruv(R.dock, 0.5 + (u - 0.5) * 0.64, 0.5 - (v - 0.5) * 0.64), mount(at(lip - 0.3), n, t)));
+    for (let k = 0; k < nl; k++) { const a = k / nl * Math.PI * 2; light(local(fr, Math.cos(a) * (r + 0.22), lip + 0.06, Math.sin(a) * (r + 0.22)), AMBER, 0.55, 'chase', k / nl); }
+    const m = p.z + 64, d = 7 - p.y; DOCKS.push({ name, m, d, r, lip }); return fr;
+  }
+  // Deck 4's rim docking ports (port and starboard twins), and the ventral collar under the keel on Deck 10
+  const DOCK_RIM = { m: 89, d: 12.3 }, DOCK_KEEL = { m: 121 };
+  [-1, 1].forEach((sd) => dockPort(sd < 0 ? 'Docking port, port' : 'Docking port, starboard', sideFrame(DOCK_RIM.m, DOCK_RIM.d, sd), 1.9, 0.55, 10));
+  { const fr = { p: V3(hullBot(DOCK_KEEL.m, 0)), n: new THREE.Vector3(0, -1, 0), t: new THREE.Vector3(0, 0, 1) };
+    dockPort('Docking collar and fuel transfer', fr, 2.5, 1.5, 14);
+    parts.push(stock(new THREE.TorusGeometry(3.05, 0.26, 8, SEG).rotateX(-Math.PI / 2), CELL.gun, mount(fr.p.clone().addScaledVector(fr.n, 0.25), fr.n, fr.t)));
+    [-1, 1].forEach((s) => parts.push(stock(new THREE.BoxGeometry(0.7, 0.9, 7.6), CELL.dark, M4(s * 3.3, fr.p.y - 0.3, fr.p.z)))); } // the collar's side rails
+  // tractor beam emitters: an armoured ring round a shallow glowing lens (keel, Deck 10; and aft by the shuttlebay)
+  const emitter = (fr, r) => { const at = (h) => fr.p.clone().addScaledVector(fr.n, h);
+    parts.push(stock(new THREE.CylinderGeometry(r * 1.15, r * 1.35, 1.0, SEG, 1, true), CELL.dark, mount(at(0.05), fr.n, fr.t)));
+    parts.push(stock(new THREE.TorusGeometry(r * 1.15, 0.12, 6, SEG).rotateX(-Math.PI / 2), CELL.slate, mount(at(0.55), fr.n, fr.t)));
+    parts.push(stock(new THREE.SphereGeometry(r, SEG, lite ? 4 : 8, 0, Math.PI * 2, 0, Math.PI / 2), CELL.tractor, mount(at(0.42), fr.n, fr.t, [1, 0.3, 1]))); };
+  const TRACTORS = [134, 192]; TRACTORS.forEach((m) => emitter({ p: V3(hullBot(m, 0)), n: new THREE.Vector3(0, -1, 0), t: new THREE.Vector3(0, 0, 1) }, m < 150 ? 1.5 : 1.1));
+  // small dishes on short masts and whip antennas with a red tip light
+  const dishGeo = (R0, f) => { const pts = [], N = lite ? 4 : 6; for (let i = 0; i <= N; i++) { const r = R0 * i / N; pts.push(new THREE.Vector2(Math.max(r, 0.002), r * r / (4 * f))); }
+    for (let i = N; i >= 0; i--) { const r = R0 * i / N * 0.96; pts.push(new THREE.Vector2(Math.max(r, 0.002), r * r / (4 * f) - 0.09 - 0.05 * (1 - i / N))); }
+    return orient(new THREE.LatheGeometry(pts, lite ? 10 : 18), (c) => new THREE.Vector3(0, c.y > Math.hypot(c.x, c.z) ** 2 / (4 * f) - 0.05 ? 1 : -1, 0)); };
+  const dish = (fr, R0, mast, aim) => { const top = fr.p.clone().addScaledVector(fr.n, mast), dir = aim.clone().normalize();
+    parts.push(stock(new THREE.CylinderGeometry(0.12, 0.2, mast + 0.3, 8), CELL.dark, mount(fr.p.clone().addScaledVector(fr.n, mast / 2 - 0.15), fr.n, fr.t)));
+    parts.push(stock(dishGeo(R0, R0 * 0.55), CELL.pale, mount(top, dir, fr.t)));
+    parts.push(stock(new THREE.CylinderGeometry(0.035, 0.05, R0 * 0.55, 5), CELL.dark, mount(top.clone().addScaledVector(dir, R0 * 0.27), dir, fr.t)));
+    parts.push(stock(new THREE.SphereGeometry(0.09, 8, 6), CELL.slate, mount(top.clone().addScaledVector(dir, R0 * 0.55), dir, fr.t))); };
+  const whip = (fr, L) => { parts.push(stock(new THREE.CylinderGeometry(0.05, 0.1, L, 6), CELL.dark, mount(fr.p.clone().addScaledVector(fr.n, L / 2 - 0.1), fr.n, fr.t)));
+    parts.push(stock(new THREE.SphereGeometry(0.13, 8, 6), CELL.slate, mount(fr.p.clone().addScaledVector(fr.n, L), fr.n, fr.t))); light(fr.p.clone().addScaledVector(fr.n, L + 0.15), RED, 0.5, 'blink', rnd()); };
+  // comms dishes on the engineering back aft of the rollbar, a pair under the saucer's aft quarter, whips on the bridge module and the stern
+  [-1, 1].forEach((sd) => { dish(surfFrame(170, sd * 3.4, true), 1.2, 1.1, new THREE.Vector3(sd * 0.5, 1, 0.45)); dish(surfFrame(98, sd * 20, false), 0.95, 0.8, new THREE.Vector3(sd * 0.6, -1, -0.2)); });
+  { const fr = surfFrame(176.5, 0, true); dish(fr, 0.75, 2.2, new THREE.Vector3(0, 0.6, 1)); }
+  [-1, 1].forEach((sd) => { whip({ p: V3([sd * 5.2, Y(SP(75)) - 0.15, Z(75)]), n: new THREE.Vector3(sd * 0.08, 1, 0), t: new THREE.Vector3(0, 0, 1) }, 2.6); whip(surfFrame(188, sd * 2.2, true), 3.4); });
+  // raised sensor pallets: two on the saucer's forward top, two on the engineering back; a third dome low on the stern's back
+  const pallet = (fr, w, l, hgt) => { const bx = new THREE.BoxGeometry(w, hgt, l), nn = bx.attributes.normal, uv = bx.attributes.uv;
+    for (let k = 0; k < uv.count; k++) { const c = nn.getY(k) > 0.9 ? ruv(R.sensor, uv.getX(k), 1 - uv.getY(k)) : cellUV(CELL.dark); uv.setXY(k, c[0], c[1]); }
+    bx.applyMatrix4(mount(fr.p.clone().addScaledVector(fr.n, hgt / 2 - 0.12), fr.n, fr.t)); parts.push(bx); };
+  [-1, 1].forEach((sd) => { pallet(surfFrame(21, sd * 11.5, true), 5.2, 3.4, 0.42); pallet(surfFrame(158, sd * 5.0, true), 2.6, 5.0, 0.34); });
+  { const fr = surfFrame(194, 0, true); parts.push(stock(new THREE.SphereGeometry(1.0, lite ? 10 : 18, lite ? 4 : 8, 0, Math.PI * 2, 0, Math.PI / 2), CELL.dome, mount(fr.p.clone().addScaledVector(fr.n, -0.05), fr.n, fr.t, [1, 0.5, 1.3]))); }
+
+  // ---------- the shuttlebay: a two-deck bay (Decks 7 and 8) opening through the stern behind clamshell doors ----------
+  // The opening follows the transom's outline 1 m in from the hull; the transom is rebuilt round it (scanlines through
+  // the hull's own section points, so its edge meets the hull exactly). Behind it the bay runs forward to m BAY.m0.
+  const SB = HS[HS.length - 1], ZS = Z(SB.m);
+  const BAY = { m0: 168, dA: 21.3, dB: 28.0, inset: 1.0, lip: 0.36, frame: 0.5 };
+  BAY.dM = (BAY.dA + BAY.dB) / 2;
+  const hwAt = (d) => { const q = hullAtDepth(SB, d); return q ? q.x : 0; }, owAt = (d) => Math.max(0.6, hwAt(d) - BAY.inset);
+  const sternUV = (x, d) => ruv(R.stern, 0.5 + x / 24, (d - 15) / 18);
+  const BAYD = (() => { const s = []; for (let i = 0; i <= 10; i++) s.push(BAY.dA + (BAY.dB - BAY.dA) * i / 10); return s; })();
+  // the opening's outline, going round from the top left: ceiling, starboard wall, floor, port wall; v (0..1) for the bay's art
+  // each point: [x, depth, v, which edge: t top, r starboard, b bottom, l port; a corner is the first point of an edge]
+  const OPEN = (() => { const o = [], nT = 6, nS = BAYD.length - 1;
+    for (let i = 0; i < nT; i++) o.push([-owAt(BAY.dA) + 2 * owAt(BAY.dA) * i / nT, BAY.dA, 0.25 * i / nT, 't', i === 0]);
+    for (let i = 0; i < nS; i++) o.push([owAt(BAYD[i]), BAYD[i], 0.25 + 0.25 * i / nS, 'r', i === 0]);
+    for (let i = 0; i < nT; i++) o.push([owAt(BAY.dB) - 2 * owAt(BAY.dB) * i / nT, BAY.dB, 0.5 + 0.25 * i / nT, 'b', i === 0]);
+    for (let i = 0; i < nS; i++) o.push([-owAt(BAYD[nS - i]), BAYD[nS - i], 0.75 + 0.25 * i / nS, 'l', i === 0]);
+    return o; })();
+  // the outline pushed out by F: corners diagonally, the top and bottom edges up and down, the side walls sideways
+  const openOut = (F) => OPEN.map(([x, d, , e, corner]) => {
+    if (corner) return [Math.sign(x) * (Math.abs(x) + F), d + (d < BAY.dM ? -F : F)];
+    if (e === 't' || e === 'b') return [x * (owAt(d) + F) / owAt(d), d + (e === 't' ? -F : F)];
+    return [Math.sign(x) * (Math.abs(x) + F), d]; });
+  { // the transom: a top and a bottom piece across the full width, and a piece either side of the opening
+    const side = SB.side.map(([x, d]) => [x, d]), aft = () => new THREE.Vector3(0, 0, 1);
+    const piece = (rows, nc, xf) => orient(grid(rows.length, nc, (i, j) => [xf(rows[i], j), Y(rows[i]), ZS], (i, j) => sternUV(xf(rows[i], j), rows[i])), aft);
+    const wAt = (d) => { for (const [x, dd] of side) if (Math.abs(dd - d) < 1e-6) return x; return hwAt(d); };
+    const rA = owAt(BAY.dA) / hwAt(BAY.dA), rB = owAt(BAY.dB) / hwAt(BAY.dB), fA = [-1, -(1 + rA) / 2, -rA, -rA / 2, 0, rA / 2, rA, (1 + rA) / 2, 1], fB = [-1, -(1 + rB) / 2, -rB, -rB / 2, 0, rB / 2, rB, (1 + rB) / 2, 1];
+    parts.push(piece([...side.filter(([, d]) => d < BAY.dA - 0.01).map(([, d]) => d), BAY.dA], 9, (d, j) => fA[j] * wAt(d)));
+    parts.push(piece([BAY.dB, ...side.filter(([, d]) => d > BAY.dB + 0.01).map(([, d]) => d)], 9, (d, j) => fB[j] * wAt(d)));
+    const mids = [...new Set([...BAYD, ...side.filter(([, d]) => d > BAY.dA && d < BAY.dB).map(([, d]) => d)])].sort((a, b) => a - b);
+    [-1, 1].forEach((s) => parts.push(piece(mids, 3, (d, j) => s * (owAt(d) + (wAt(d) - owAt(d)) * j / 2)))); }
+  { // the door frame: an armoured lip standing out round the opening (inner wall, face, outer wall)
+    const n = OPEN.length, out = openOut(BAY.frame);
+    const ring = (a, za, b, zb, want) => parts.push(orient(grid(2, n, (i, j) => { const [x, d] = (i ? b : a)[j]; return [x, Y(d), i ? zb : za]; }, () => cellUV(CELL.dark), true), want));
+    const ctr = new THREE.Vector3(0, Y(BAY.dM), 0);
+    ring(OPEN, ZS - 0.4, OPEN, ZS + BAY.lip, (c) => ctr.clone().setZ(c.z).sub(c));
+    ring(OPEN, ZS + BAY.lip, out, ZS + BAY.lip, () => new THREE.Vector3(0, 0, 1));
+    ring(out, ZS + BAY.lip, out, ZS - 0.05, (c) => c.clone().sub(ctr.clone().setZ(c.z)));
+    // hinge rods along the top and bottom of the opening
+    [BAY.dA - 0.2, BAY.dB + 0.2].forEach((d) => parts.push(stock(new THREE.CylinderGeometry(0.2, 0.2, 2 * owAt(d) + 0.6, 10).rotateZ(Math.PI / 2), CELL.gun, M4(0, Y(d), ZS + BAY.lip + 0.1)))); }
+  // the impulse vents sit above the bay on the transom: [x from, x to, depth from, depth to] (the stern art paints them)
+  const VENTS = [[-7.4, -0.9, 17.8, 19.6], [0.9, 7.4, 17.8, 19.6]];
+  // thruster blocks (the lateral ones at the rim and on the nacelles) as puff sources: [position, outward direction]
+  const RCS = [];
+  [22, 98, 184].forEach((m) => { const S = secFull(m), dw = (hullSec(m + 0.5).w - hullSec(m - 0.5).w), yaw = Math.atan(dw);
+    [-1, 1].forEach((sd) => { const dir = [sd * Math.cos(yaw), 0, -Math.sin(yaw)], x0 = sd * (hullAtDepth(S, SAU.dc).x - 0.25); RCS.push([[x0 + dir[0] * 1.0, Y(SAU.dc), Z(m) + dir[2] * 1.0], dir]); }); });
+  [-1, 1].forEach((sd) => { const q = nacPt(sd, NL0 - 14, 0.75); RCS.push([[q[0] + sd * 0.55, q[1], q[2]], [sd, 0, 0]]); });
+  // navigation strobes (white double flash) at the bow, the nacelle tails and the stern; red beacons on the pod and the keel
+  light([0, Y(SAU.dc), Z(0) - 0.35], WHITE, 1.6, 'strobe', 0);
+  [-1, 1].forEach((sd) => light(nacPt(sd, NL0 - 0.8, 0.5, 0.25), WHITE, 1.4, 'strobe', 0.03));
+  light([0, Y(HT(199.4)) + 0.3, Z(199.4)], WHITE, 1.3, 'strobe', 0.5);
+  light([0, Y(POD.d) + POD.h + 0.3, Z((POD.m[0] + POD.m[1]) / 2)], RED, 1.3, 'beacon', 0);
+  light([0, V3(hullBot(165, 0)).y - 0.3, Z(165)], RED, 1.3, 'beacon', 0.5);
+  // docking guide lights either side of the bay's mouth, chasing toward it, and the fighter hangar's launch doors (Deck 6)
+  [-1, 1].forEach((s) => { for (let k = 0; k < 5; k++) light([s * (owAt(BAY.dM) + BAY.frame + 0.35), Y(BAY.dA + (BAY.dB - BAY.dA) * (k + 0.5) / 5), ZS + BAY.lip + 0.05], AMBER, 0.5, 'chase', k / 5); });
+  const HANGAR = [[57.5, 63.2], [64.0, 69.7]], HX = [2.2, 8.6];
+  HANGAR.forEach(([a, b]) => [-1, 1].forEach((s) => [a, b].forEach((m) => [HX[0], HX[1]].forEach((x) => light(V3(hullBot(m, s * x)).add(new THREE.Vector3(0, -0.12, 0)), AMBER, 0.4, 'blink', m > a ? 0.5 : 0)))));
+
+  // ---------- service stencils and registry repeats: thin decals, their text drawn by letter() ----------
+  // Each stencil gets one 32 px row of R.marks, its width fitted to the text (pale grey, condensed caps).
+  const MK = (() => { const c = cnv(8, 8).getContext('2d'); c.font = `600 100px ${DISP}`; const list = {}; let row = 0;
+    const add = (key, txt) => { const wd = c.measureText(txt).width + 6 * (txt.length - 1), w = Math.min(R.marks[2], Math.ceil(wd * 0.284 / 0.94) + 6); list[key] = { txt, r: [R.marks[0], R.marks[1] + 32 * row++, w, 32] }; };
+    [['dockP', 'DOCKING PORT 4-P'], ['dockS', 'DOCKING PORT 4-S'], ['collar', 'DOCKING COLLAR 10'], ['tr1', 'TRACTOR EMITTER 1'], ['tr2', 'TRACTOR EMITTER 2'],
+      ['bay', 'SHUTTLEBAY'], ['h1', 'LAUNCH DOOR 6-1'], ['h2', 'LAUNCH DOOR 6-2'], ['h3', 'LAUNCH DOOR 6-3'], ['h4', 'LAUNCH DOOR 6-4'], ['rcs', 'RCS · KEEP CLEAR'],
+      ['ep3', 'ESCAPE PODS · DECK 3'], ['ep4', 'ESCAPE PODS · DECK 4'], ['ep5', 'ESCAPE PODS · DECK 5'], ['ep6', 'ESCAPE PODS · DECK 6']].forEach(([k, t]) => add(k, t));
+    return list; })();
+  // on a side, centred at (m, depth d), hs metres tall on the surface, read from outside (forward to the left on port)
+  const markSide = (reg, mc, dc, hs, sd) => { const len = hs * reg[2] / reg[3], P = (m, d) => V3(hullSidePt(m, d, sd)), dh = hs / (P(mc, dc + 0.1).distanceTo(P(mc, dc - 0.1)) / 0.2);
+    decal((a, b) => { const m = sd < 0 ? mc - len / 2 + a * len : mc + len / 2 - a * len; return hullSidePt(m, dc - dh / 2 + b * dh, sd); }, reg, Math.max(4, Math.round(len / 1.2)), 2); };
+  // under the hull, read from below with the tops of the letters toward the bow
+  const markBot = (reg, mc, xc, hs) => { const w = hs * reg[2] / reg[3]; decal((a, b) => hullBot(mc - hs / 2 + b * hs, xc + (0.5 - a) * w), reg, Math.max(3, Math.round(w / 1.2)), 2); };
+  // the depth reached by walking dist metres over the hull's surface from (m, d0), toward the rim (dir -1) or away (+1)
+  const walk = (m, d0, dist, sd, dir) => { let d = d0, s = 0, p = V3(hullSidePt(m, d0, sd)); while (s < dist) { const q = hullSidePt(m, d + dir * 0.01, sd); if (!q) break; d += dir * 0.01; s += p.distanceTo(V3(q)); p = V3(q); } return d; };
+  [-1, 1].forEach((sd) => {
+    // above each rim docking port: its stencil, and the registry above that
+    const dl = walk(DOCK_RIM.m, DOCK_RIM.d, 2.9, sd, -1), dr = walk(DOCK_RIM.m, DOCK_RIM.d, 3.7, sd, -1);
+    markSide(MK[sd < 0 ? 'dockP' : 'dockS'].r, DOCK_RIM.m, dl, 0.5, sd); markSide(R.reg, DOCK_RIM.m, dr, 0.62, sd);
+    // over each lateral thruster block on the rim and the engineering flanks
+    [22, 98, 184].forEach((m) => markSide(MK.rcs.r, m, walk(m, SAU.dc, 1.55, sd, -1), 0.4, sd));
+    // escape pod rows, labelled along their middle, 1.4 m off the row (above it on the upper hull, below it underneath)
+    [[30, 46, 10.0, 'ep3'], [84, 100, 10.0, 'ep3'], [140, 150, 12.8, 'ep3'], [34, 52, 11.0, 'ep4'], [72.5, 96, 17.0, 'ep5'], [72.5, 90, 20.5, 'ep6']].forEach(([a, b, d, k]) => {
+      const mc = (a + b) / 2; markSide(MK[k].r, mc, walk(mc, d, 1.45, sd, d < SAU.dc ? -1 : 1), 0.42, sd); });
+  });
+  markBot(MK.collar.r, DOCK_KEEL.m + 4.6, 0, 0.6); markBot(MK.tr1.r, TRACTORS[0] - 3.1, 0, 0.55); markBot(MK.tr2.r, TRACTORS[1] - 2.6, 0, 0.5);
+  HANGAR.forEach(([a, b], i) => [-1, 1].forEach((s) => markBot(MK['h' + (1 + 2 * i + (s > 0 ? 1 : 0))].r, i ? b + 0.75 : a - 0.75, s * (HX[0] + HX[1]) / 2, 0.55)));
+  { const reg = MK.bay.r, hs = 0.36, w = hs * reg[2] / reg[3]; decal((a, b) => [-w / 2 + a * w, Y(19.76 + b * hs), ZS], reg, 2, 1); }
 
   // ---------- paint ----------
   const cw = Math.round(AW * K), chh = Math.round(AH * K), ek = K * 0.5;
@@ -375,11 +528,12 @@ function buildExterior(opts) {
   { const sh = (k) => (m) => { const S = secAt(m); return arcAtX(S, S.w * k, true); };
     line(g, sh(0.62), 36, 116, 0.7, HULL_PAINT.dark); line(h, sh(0.62), 36, 116, 0.7, 'rgb(120,120,120)'); line(g, sh(0.62), 37, 115, 0.16, 'rgba(111,182,230,0.35)'); line(ge, sh(0.62), 37, 115, 0.16, 'rgba(70,120,160,0.5)');
     line(g, (m) => arcAtD(m, Math.min(secAt(m).b - 0.3, 21.4)), 13, 30, 1.1, HULL_PAINT.dark);
-    line(g, (m) => arcAtX(secAt(m), 0.8, false), 102, 124, 1.8, HULL_PAINT.dark); line(h, (m) => arcAtX(secAt(m), 0.8, false), 102, 124, 1.8, 'rgb(110,110,110)'); }
+    line(g, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, HULL_PAINT.dark); line(h, (m) => arcAtX(secAt(m), 0.8, false), 102, 116.5, 1.8, 'rgb(110,110,110)'); }
   // windows: a black band per deck wherever a lived-in or command compartment meets a steep enough stretch of hull side
   G.rooms.forEach((rooms, i) => {
     const n = i + 1, dc = 3.5 * (n - 1) + 1.7; if (n < 3) return;
-    rooms.forEach(([a, b, , , kind]) => {
+    rooms.forEach(([a, b, name, , kind]) => {
+      if (/^Docking/.test(name)) return; // the docking ports' hardware stands there
       const lit = kind === 'l' || kind === 'w' ? 0.82 : kind === 's' ? 0.3 : -1; if (lit < 0) return;
       const row = [];
       for (let m = a + 1.2; m <= b - 1.0; m += 2.2) { const S = secAt(m), hh = hullAtDepth(S, dc); if (!hh || Math.abs(hh.ny) > 0.62 || dc < S.t + 1 || dc > S.b - 1.2) continue; row.push([m, hh.arc]); }
@@ -410,6 +564,19 @@ function buildExterior(opts) {
       g.fillStyle = '#2A3033'; g.fillRect(x + 0.45 * HU, y + 0.62 * HV, w - 0.9 * HU, 0.26 * HV);
       h.fillStyle = 'rgb(205,205,205)'; h.fillRect(x, y, w, hh); h.fillStyle = 'rgb(150,150,150)'; h.fillRect(x - 0.12 * HU, y - 0.12 * HV, w + 0.24 * HU, 0.12 * HV); } });
     podCount = n; }
+  // lateral sensor strips low on the engineering body's flanks (Deck 8), dark with blue glints
+  { const f = (m) => arcAtD(m, 27.2); line(g, f, 104, 128, 0.8, HULL_PAINT.dark); line(h, f, 104, 128, 0.8, 'rgb(120,120,120)');
+    for (let m = 104.6; m < 127.6; m += 0.9) { const a = f(m); if (a == null) continue; g.fillStyle = 'rgba(111,182,230,0.35)'; g.fillRect(hx(m), hy(a) - 0.12 * HV, 0.35 * HU, 0.24 * HV); ge.fillStyle = 'rgba(70,130,180,0.7)'; ge.fillRect(hx(m), hy(a) - 0.12 * HV, 0.35 * HU, 0.24 * HV); } }
+  // the fighter hangar's launch doors in the saucer's belly (Deck 6): two a side, each split down the middle, with a
+  // dark recessed frame and oxide caution bars at both ends
+  HANGAR.forEach(([a, b]) => { for (let m = a; m < b; m += 0.25) { const S = secAt(m + 0.125), y0 = arcAtX(S, HX[1], false), y1 = arcAtX(S, HX[0], false); if (y0 == null || y1 == null) continue;
+    const yi0 = arcAtX(S, HX[1] - 0.3, false), yi1 = arcAtX(S, HX[0] + 0.3, false), ym = arcAtX(S, (HX[0] + HX[1]) / 2, false), inner = m > a + 0.3 && m < b - 0.55, x = hx(m), w = 0.25 * HU + 0.5;
+    g.fillStyle = HULL_PAINT.band; g.fillRect(x, hy(y0), w, hy(y1) - hy(y0)); h.fillStyle = 'rgb(120,120,120)'; h.fillRect(x, hy(y0), w, hy(y1) - hy(y0));
+    if (!inner) continue;
+    const ends = m < a + 1.0 || m > b - 1.25;
+    g.fillStyle = ends ? HULL_PAINT.oxide : '#5E6668'; g.fillRect(x, hy(yi0), w, hy(yi1) - hy(yi0)); h.fillStyle = 'rgb(170,170,170)'; h.fillRect(x, hy(yi0), w, hy(yi1) - hy(yi0));
+    if (ends) { g.fillStyle = '#8E9496'; for (let k = 0; k < 7; k++) { const q0 = yi0 + (yi1 - yi0) * (k / 7 + ((m * 2) % 1) * 0.07); g.fillRect(x, hy(q0), w, (hy(yi1) - hy(yi0)) / 14); } }
+    g.fillStyle = HULL_PAINT.band; g.fillRect(x, hy(ym) - 0.06 * HV, w, 0.12 * HV); h.fillStyle = 'rgb(110,110,110)'; h.fillRect(x, hy(ym) - 0.06 * HV, w, 0.12 * HV); } });
   grainOver(R.hull, lite ? 0.18 : 0.25);
 
   // spine region: u = m - 50, v = arc from the starboard base over the top to the port base
@@ -467,6 +634,11 @@ function buildExterior(opts) {
     g.fillStyle = HULL_PAINT.band; g.fillRect(px(0), py(0.62), r[2], 0.26 * r[3]);
     [0, 0.5].forEach((v) => { g.fillStyle = HULL_PAINT.band; g.fillRect(px(0.14), py(v ? v - 0.012 : 0.988), r[2] * 0.72, 0.024 * r[3]); g.fillRect(px(0.14), py(v), r[2] * 0.72, 0.012 * r[3]);
       ge.fillStyle = 'rgba(90,160,220,0.85)'; ge.fillRect(px(0.15), py(v ? v - 0.005 : 0.995), r[2] * 0.7, 0.01 * r[3]); ge.fillRect(px(0.15), py(v), r[2] * 0.7, 0.005 * r[3]); });
+    // phaser strips along both upper shoulders, in the saucer arcs' colours (1.15 m mount, copper emitter, segment ticks)
+    [0.15, 0.35].forEach((v) => { const mw = 1.15 / 30, ew = 0.5 / 30;
+      g.fillStyle = '#353C3F'; g.fillRect(px(0.1), py(v - mw / 2), r[2] * 0.8, mw * r[3]); h.fillStyle = 'rgb(205,205,205)'; h.fillRect(px(0.1), py(v - mw / 2), r[2] * 0.8, mw * r[3]);
+      g.fillStyle = '#6A4232'; g.fillRect(px(0.1), py(v - ew / 2), r[2] * 0.8, ew * r[3]); g.fillStyle = 'rgba(255,190,140,0.28)'; g.fillRect(px(0.105), py(v - 0.002), r[2] * 0.79, 0.004 * r[3]);
+      g.fillStyle = 'rgba(16,18,19,0.75)'; for (let q = 0.12; q < 0.9; q += 1.5 / 38) g.fillRect(px(q), py(v - 0.3 / 30), Math.max(1.5, 0.08 / 38 * r[2]), 0.6 / 30 * r[3]); });
     for (let k = 0; k < 6; k++) { const x = px(0.22 + k * 0.1), y = py(0.235); g.fillStyle = HULL_PAINT.slate; g.fillRect(x, y - 0.03 * r[3], 0.06 * r[2], 0.03 * r[3]); g.fillStyle = HULL_PAINT.oxide; g.fillRect(x, y - 0.034 * r[3], 0.06 * r[2], 0.004 * r[3]); h.fillStyle = 'rgb(130,130,130)'; h.fillRect(x, y - 0.03 * r[3], 0.06 * r[2], 0.03 * r[3]); }
     grainOver(r, 0.25); }
   // the nacelle pylons: u root to tip, v round them
@@ -482,9 +654,9 @@ function buildExterior(opts) {
   // the stern: shuttlebay doors low, impulse vents high
   { const r = R.stern, sx2 = (x) => r[0] + (0.5 + x / 24) * r[2], sy2 = (d) => r[1] + (d - 15) / 18 * r[3];
     panels(r, r[2] / 24, r[3] / 18, 5, 1.4);
-    g.fillStyle = HULL_PAINT.band; g.fillRect(sx2(-6.2), sy2(23.6), 12.4 / 24 * r[2], 7.8 / 18 * r[3]); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 3; g.strokeRect(sx2(-6.2), sy2(23.6), 12.4 / 24 * r[2], 7.8 / 18 * r[3]);
-    g.fillStyle = 'rgba(255,200,140,0.25)'; for (let x = -5.6; x < 5.8; x += 1.1) g.fillRect(sx2(x), sy2(30.9), 0.4 / 24 * r[2], 0.25 / 18 * r[3]);
-    g.beginPath(); g.moveTo(sx2(0), sy2(23.6)); g.lineTo(sx2(0), sy2(31.4)); g.stroke();
+    // a dark skirt round the bay's frame (the opening and its clamshell doors are geometry)
+    g.fillStyle = HULL_PAINT.band; { const o = BAY.frame + 0.35; g.beginPath(); openOut(o).forEach(([x, d], i) => g[i ? 'lineTo' : 'moveTo'](sx2(x), sy2(d))); g.closePath(); g.fill(); }
+    g.lineWidth = 3; g.strokeStyle = HULL_PAINT.slate;
     [-1, 1].forEach((sd) => { const x0 = sx2(sd < 0 ? -7.4 : 0.9), w2 = 6.5 / 24 * r[2], y = sy2(17.8), h2 = 1.8 / 18 * r[3];
       g.fillStyle = '#5A2C25'; g.fillRect(x0, y, w2, h2); ge.fillStyle = HULL_PAINT.impulse; ge.fillRect(x0, y, w2, h2); ge.fillStyle = 'rgba(0,0,0,0.4)'; for (let k = 1; k < 8; k++) ge.fillRect(x0 + w2 * k / 8, y, 2, h2);
       g.strokeStyle = HULL_PAINT.slate; g.strokeRect(x0, y, w2, h2); }); }
@@ -492,9 +664,40 @@ function buildExterior(opts) {
   { const r = R.rcs; g.fillStyle = HULL_PAINT.oxide; g.fillRect(...r); g.fillStyle = HULL_PAINT.band; for (let k = 0; k < 6; k++) g.fillRect(r[0] + r[2] * (0.15 + k * 0.12), r[1] + r[3] * 0.3, r[2] * 0.06, r[3] * 0.4);
     g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 3; g.strokeRect(r[0] + 3, r[1] + 3, r[2] - 6, r[3] - 6); }
   // solid cells for small parts, with their glow
-  { const cols = ['#80878A', HULL_PAINT.dark, HULL_PAINT.slate, HULL_PAINT.glass, '#2E4A5E', '#5A2C25', '#20303C', '#A9563A', '#6E7578', '#3A4044', '#2A2F33', '#FFFFFF', '#1C2830', HULL_PAINT.oxide, '#80878A', '#80878A'];
-    const glow = { 4: HULL_PAINT.deflector, 5: HULL_PAINT.impulse, 6: HULL_PAINT.grille, 7: HULL_PAINT.cap, 11: '#FFFFFF', 12: '#1E3C52' }, c = R.cells, s = c[2] / 4;
+  { const cols = ['#80878A', HULL_PAINT.dark, HULL_PAINT.slate, HULL_PAINT.glass, '#2E4A5E', '#5A2C25', '#20303C', '#A9563A', '#6E7578', '#3A4044', '#2A2F33', '#FFFFFF', '#1C2830', HULL_PAINT.oxide, '#34505E', '#9AA2A4'];
+    const glow = { 4: HULL_PAINT.deflector, 5: HULL_PAINT.impulse, 6: HULL_PAINT.grille, 7: HULL_PAINT.cap, 11: '#FFFFFF', 12: '#1E3C52', 14: '#3E7096' }, c = R.cells, s = c[2] / 4;
     cols.forEach((col, k) => { const x = c[0] + (k % 4) * s, y = c[1] + ((k / 4) | 0) * s; g.fillStyle = col; g.fillRect(x, y, s, s); if (glow[k]) { ge.fillStyle = glow[k]; ge.fillRect(x, y, s, s); } }); }
+
+  // the clamshell doors (u across the beam, x -8..8 m; v down the stern, the opening plus 0.4 m): plates, ribs, a dark
+  // rim, oxide-and-pale caution bars along the meeting edge with the bay's light leaking through the seam
+  const DOOR_D0 = BAY.dA - 0.4, DOOR_DH = BAY.dB - BAY.dA + 0.8, doorUV = (x, d) => ruv(R.door, 0.5 + x / 16, (d - DOOR_D0) / DOOR_DH);
+  { const r = R.door, ux = (x) => r[0] + (0.5 + x / 16) * r[2], vy = (d) => r[1] + (d - DOOR_D0) / DOOR_DH * r[3];
+    panels(r, r[2] / 16, r[3] / DOOR_DH, 3.2, 0.9, { red: 0 }); streaks(r, r[2] / 16, r[3] / DOOR_DH, 30);
+    g.fillStyle = HULL_PAINT.slate; h.fillStyle = 'rgb(140,140,140)';
+    for (let d = BAY.dA + 0.5; d < BAY.dB - 0.3; d += 0.85) { if (Math.abs(d - BAY.dM) < 0.6) continue; g.fillRect(r[0], vy(d) - 2, r[2], 4); h.fillRect(r[0], vy(d) - 3, r[2], 6); }
+    for (let x = -8, k = 0; x < 8; x += 0.7, k++) { g.fillStyle = k % 2 ? HULL_PAINT.oxide : '#8E9496'; g.fillRect(ux(x), vy(BAY.dM - 0.42), 0.7 / 16 * r[2] + 1, vy(BAY.dM + 0.42) - vy(BAY.dM - 0.42)); }
+    g.fillStyle = HULL_PAINT.band; g.fillRect(r[0], vy(BAY.dM) - 4, r[2], 8); h.fillStyle = 'rgb(90,90,90)'; h.fillRect(r[0], vy(BAY.dM) - 4, r[2], 8);
+    ge.fillStyle = 'rgba(255,214,160,0.6)'; ge.fillRect(r[0], vy(BAY.dM) - 1.5, r[2], 3);
+    // each leaf's rim follows the opening's outline 0.28 m out
+    g.strokeStyle = HULL_PAINT.band; g.lineWidth = 0.3 / 16 * r[2]; [[DOOR_D0 + 0.15, BAY.dM - 0.02], [BAY.dM + 0.02, BAY.dB + 0.25]].forEach(([a, b]) => {
+      g.beginPath(); for (let d = a; d <= b + 1e-6; d += 0.25) { const dd = Math.min(Math.max(d, BAY.dA), BAY.dB); g[d === a ? 'moveTo' : 'lineTo'](ux(owAt(dd) + 0.12), vy(d)); }
+      for (let d = b; d >= a - 1e-6; d -= 0.25) { const dd = Math.min(Math.max(d, BAY.dA), BAY.dB); g.lineTo(ux(-owAt(dd) - 0.12), vy(d)); } g.closePath(); g.stroke(); });
+    grainOver(r, 0.25); }
+  // docking hatches: a striped outer ring round a hatch with an iris of six leaves and a faint amber ring light
+  { const r = R.dock, cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, R0 = r[2] / 2, P2 = Math.PI * 2;
+    g.fillStyle = HULL_PAINT.dark; g.fillRect(...r); h.fillStyle = 'rgb(200,200,200)'; h.fillRect(...r);
+    for (let k = 0; k < 16; k++) { g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R0, k / 16 * P2, (k + 1) / 16 * P2); g.closePath(); g.fillStyle = k % 2 ? HULL_PAINT.oxide : '#8E9496'; g.fill(); }
+    g.beginPath(); g.arc(cx, cy, R0 * 0.86, 0, P2); g.fillStyle = HULL_PAINT.dark; g.fill();
+    g.beginPath(); g.arc(cx, cy, R0 * 0.64, 0, P2); g.fillStyle = '#596164'; g.fill(); h.beginPath(); h.arc(cx, cy, R0 * 0.64, 0, P2); h.fillStyle = 'rgb(150,150,150)'; h.fill();
+    g.strokeStyle = HULL_PAINT.band; g.lineWidth = 3; for (let k = 0; k < 6; k++) { const a = k / 6 * P2; g.beginPath(); g.moveTo(cx + Math.cos(a) * R0 * 0.1, cy + Math.sin(a) * R0 * 0.1);
+      g.quadraticCurveTo(cx + Math.cos(a + 0.6) * R0 * 0.42, cy + Math.sin(a + 0.6) * R0 * 0.42, cx + Math.cos(a + 1.1) * R0 * 0.62, cy + Math.sin(a + 1.1) * R0 * 0.62); g.stroke(); }
+    g.beginPath(); g.arc(cx, cy, R0 * 0.1, 0, P2); g.fillStyle = HULL_PAINT.slate; g.fill();
+    ge.strokeStyle = 'rgba(255,170,90,0.55)'; ge.lineWidth = 3; ge.beginPath(); ge.arc(cx, cy, R0 * 0.6, 0, P2); ge.stroke(); }
+  // sensor pallets: a dark plate in a slate frame with rows of faintly lit slots
+  { const r = R.sensor; g.fillStyle = '#2A3034'; g.fillRect(...r); h.fillStyle = 'rgb(160,160,160)'; h.fillRect(...r); g.strokeStyle = HULL_PAINT.slate; g.lineWidth = 6; g.strokeRect(r[0] + 4, r[1] + 4, r[2] - 8, r[3] - 8);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) { const x = r[0] + r[2] * (0.1 + i * 0.135), y = r[1] + r[3] * (0.14 + j * 0.2);
+      g.fillStyle = '#1A2228'; g.fillRect(x, y, r[2] * 0.1, r[3] * 0.12); h.fillStyle = 'rgb(110,110,110)'; h.fillRect(x, y, r[2] * 0.1, r[3] * 0.12);
+      ge.fillStyle = 'rgba(80,150,200,0.55)'; ge.fillRect(x + 2, y + r[3] * 0.04, r[2] * 0.1 - 4, r[3] * 0.04); } }
 
   // relief: the height canvas goes into the colour atlas's alpha (0.55..1, so nothing on the ship is cut away)
   { const ci = g.getImageData(0, 0, cw, chh), hi = h.getImageData(0, 0, cw, chh), c = ci.data, hd = hi.data;
@@ -508,13 +711,20 @@ function buildExterior(opts) {
     ge.fillStyle = gr; ge.beginPath(); ge.arc(0, 0, rr, 0, Math.PI * 2); ge.fill(); ge.restore(); }
   const map = tex(C), emap = tex(E);
   [map, emap].forEach((t) => { t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; });
+  // the upper door leaf's registry box, kept clean so a second font can be drawn over it
+  const DREG = (() => { const r = R.door, ux = (x) => r[0] + (0.5 + x / 16) * r[2], vy = (d) => r[1] + (d - DOOR_D0) / DOOR_DH * r[3];
+    return [ux(-3.4), vy(BAY.dA + 0.55), ux(3.4) - ux(-3.4), vy(BAY.dM - 0.75) - vy(BAY.dA + 0.55)]; })();
+  const dregClean = g.getImageData(...DREG.map((v) => Math.round(v * K)));
   function letter(font) {
-    [[R.name, 'USS DEFIANCE'], [R.reg, 'EV-0408']].forEach(([r, txt]) => {
-      g.clearRect(r[0], r[1], r[2], r[3]); g.save(); g.fillStyle = HULL_PAINT.letter; g.font = `600 100px ${font}`; g.textBaseline = 'alphabetic';
-      const sp = 9, wd = g.measureText(txt).width + sp * (txt.length - 1), capH = 0.78 * r[3], k = capH / 88, sxk = Math.min(1, (r[2] * 0.94) / (wd * k));
+    const write = (r, txt, col, sp, clear) => {
+      if (clear) g.clearRect(r[0], r[1], r[2], r[3]); g.save(); g.fillStyle = col; g.font = `600 100px ${font}`; g.textBaseline = 'alphabetic';
+      const wd = g.measureText(txt).width + sp * (txt.length - 1), capH = 0.78 * r[3], k = capH / 88, sxk = Math.min(1, (r[2] * 0.94) / (wd * k));
       g.translate(r[0] + r[2] / 2, r[1] + r[3] / 2 + capH / 2); g.scale(k * sxk, k); let x = -wd / 2;
       for (const ch of txt) { g.fillText(ch, x, 0); x += g.measureText(ch).width + sp; }
-      g.restore(); });
+      g.restore(); };
+    [[R.name, 'USS DEFIANCE'], [R.reg, 'EV-0408']].forEach(([r, txt]) => write(r, txt, HULL_PAINT.letter, 9, true));
+    Object.values(MK).forEach(({ r, txt }) => write(r, txt, '#BCC4C6', 6, true));
+    g.putImageData(dregClean, Math.round(DREG[0] * K), Math.round(DREG[1] * K)); write(DREG, 'EV-0408', HULL_PAINT.letter, 9, false);
     map.needsUpdate = true;
   }
   letter(DISP);
@@ -635,8 +845,119 @@ void main() {
         s.position.set(...p); s.scale.setScalar(2.6); lights.add(s);
         const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshBasicMaterial({ color: col, toneMapped: false, fog: false })); b.position.set(...p); lights.add(b); });
     }); }
+  // ---------- stage 2b: the moving parts ----------
+  const soft = (inner, outer) => { const c = cnv(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, inner); gr.addColorStop(0.3, outer); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return tex(c); };
+  const glowTex = soft('rgba(255,255,255,1)', 'rgba(255,255,255,0.4)'), puffTex = soft('rgba(255,255,255,0.6)', 'rgba(255,255,255,0.22)'), plumeTex = soft('rgba(255,255,255,1)', 'rgba(255,255,255,0.32)');
+  const addSprite = (map, col, blend) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, color: col, transparent: true, opacity: 0, blending: blend || THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false })); sp.visible = false; root.add(sp); return sp; };
+  // the clamshell doors: an upper leaf hinged along the top of the opening and a lower one along its foot, both bowed
+  // outward; opening, they swing aft to lie level (the upper as an awning, the lower as an apron). Their vertices are
+  // turned on the CPU so the paint shader (which works in the ship's own frame) still lines up shadows and floods.
+  const doorMat = paint.clone(); doorMat.uniforms = uniforms; doorMat.side = THREE.DoubleSide;
+  const ZH = ZS + BAY.lip + 0.12;
+  const leaf = (d0, d1, hingeD, sign) => { const rows = lite ? 6 : 9, cols = lite ? 9 : 15;
+    const pt = (i, j) => { const d = d0 + (d1 - d0) * i / (rows - 1), W = owAt(Math.min(Math.max(d, BAY.dA), BAY.dB)) + 0.28, x = -W + 2 * W * j / (cols - 1), q = x / W; return [x, d, ZH + 0.38 * (1 - q * q)]; };
+    const geo = orient(grid(rows, cols, (i, j) => { const [x, d, z] = pt(i, j); return [x, Y(d), z]; }, (i, j) => { const [x, d] = pt(i, j); return doorUV(x, d); }), () => new THREE.Vector3(0, 0, 1));
+    const m = new THREE.Mesh(geo, doorMat); m.frustumCulled = false; m.name = 'Shuttlebay door leaf'; root.add(m);
+    return { m, base: geo.attributes.position.array.slice(), nb: geo.attributes.normal.array.slice(), yh: Y(hingeD), sign }; };
+  const LEAVES = [leaf(BAY.dA - 0.25, BAY.dM - 0.02, BAY.dA - 0.25, -1), leaf(BAY.dM + 0.02, BAY.dB + 0.25, BAY.dB + 0.25, 1)];
+  const setLeaves = (k) => LEAVES.forEach((L) => { const a = L.sign * k * Math.PI * 0.49, c = Math.cos(a), s2 = Math.sin(a), P = L.m.geometry.attributes.position, Nn = L.m.geometry.attributes.normal;
+    for (let v = 0; v < P.count; v++) { const dy = L.base[v * 3 + 1] - L.yh, dz = L.base[v * 3 + 2] - ZH, ny = L.nb[v * 3 + 1], nz = L.nb[v * 3 + 2];
+      P.array[v * 3 + 1] = L.yh + dy * c - dz * s2; P.array[v * 3 + 2] = ZH + dy * s2 + dz * c; Nn.array[v * 3 + 1] = ny * c - nz * s2; Nn.array[v * 3 + 2] = ny * s2 + nz * c; }
+    P.needsUpdate = true; Nn.needsUpdate = true; });
+  // the bay behind them: the opening's outline carried forward to m BAY.m0, lit; a back wall with the flight control
+  // booth's window on the gallery level; a runabout and two utility shuttles on the Deck 8 floor, noses to the doors
+  const bay = new THREE.Group(); bay.name = 'Shuttlebay'; bay.visible = false; root.add(bay);
+  { const W = lite ? 512 : 1024, H = lite ? 256 : 512, c = cnv(W, H), x = c.getContext('2d'), L = 200 - BAY.m0, ux = (m) => (m - BAY.m0) / L * W, vy = (v) => v * H;
+    x.fillStyle = '#5F676A'; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#4E575A'; x.fillRect(0, 0, W, vy(0.25)); // ceiling, with rows of light panels
+    for (let m = BAY.m0 + 2; m < 199; m += 4) { x.fillStyle = '#F2DEC0'; x.fillRect(ux(m), vy(0.06), ux(m + 2.2) - ux(m), vy(0.05)); x.fillRect(ux(m), vy(0.14), ux(m + 2.2) - ux(m), vy(0.05)); }
+    x.fillStyle = '#6C7375'; x.fillRect(0, vy(0.5), W, vy(0.25)); // the floor: a pale deck, an amber centre line, landing squares, lit edges
+    x.fillStyle = '#E0A050'; for (let m = BAY.m0 + 1; m < 199; m += 2) x.fillRect(ux(m), vy(0.622), ux(m + 1.1) - ux(m), vy(0.006));
+    x.strokeStyle = '#E8E2D2'; x.lineWidth = 3; [176, 186].forEach((m) => x.strokeRect(ux(m - 3.5), vy(0.545), ux(m + 3.5) - ux(m - 3.5), vy(0.16)));
+    x.fillStyle = '#FFE2B0'; x.fillRect(0, vy(0.503), W, vy(0.008)); x.fillRect(0, vy(0.739), W, vy(0.008));
+    [0.25, 0.75].forEach((v0) => { // the walls: frames, the gallery catwalk at the Deck 7/8 line with warm lit windows above it, a light strip below
+      x.fillStyle = '#4A5255'; for (let m = BAY.m0 + 3; m < 199; m += 3) x.fillRect(ux(m), vy(v0), 3, vy(0.25));
+      const up = v0 < 0.5, cat = v0 + 0.25 * (up ? 24.5 - BAY.dA : BAY.dB - 24.5) / (BAY.dB - BAY.dA); // the starboard wall runs down from the ceiling, the port wall up from the floor
+      x.fillStyle = '#3C4448'; x.fillRect(0, vy(cat) - 4, W, 8); x.fillStyle = '#FFD9A0'; x.fillRect(0, vy(cat) + (up ? 6 : -9), W, 3);
+      x.fillStyle = '#F3D6A8'; for (let m = BAY.m0 + 1.5; m < 197; m += 3) x.fillRect(ux(m), vy(up ? v0 + 0.03 : cat + 0.02), ux(m + 1.6) - ux(m), vy(0.05));
+      x.fillStyle = '#FFF4E2'; x.fillRect(0, vy(up ? 0.47 : 0.78), W, vy(0.008)); });
+    const bmat = new THREE.MeshBasicMaterial({ map: tex(c), fog: false }), n = OPEN.length, ctr = new THREE.Vector3(0, Y(BAY.dM), 0);
+    const tg = orient(grid(4, n + 1, (i, j) => { const [ox, d] = OPEN[j % n], m = 200 - (200 - BAY.m0) * i / 3; return [ox, Y(d), Z(m)]; },
+      (i, j) => [1 - i / 3, 1 - (j < n ? OPEN[j][2] : 1)]), (q) => ctr.clone().setZ(q.z).sub(q));
+    bay.add(new THREE.Mesh(tg, bmat));
+    const bw = cnv(256, 128), bx = bw.getContext('2d'); bx.fillStyle = '#5A6265'; bx.fillRect(0, 0, 256, 128); bx.fillStyle = '#3C4448'; bx.fillRect(0, 50, 256, 6);
+    bx.fillStyle = '#FFE0B0'; bx.fillRect(70, 14, 116, 26); bx.fillStyle = '#C89060'; for (let k = 1; k < 4; k++) bx.fillRect(70 + k * 29, 14, 2, 26);
+    bx.fillStyle = '#454D50'; bx.fillRect(90, 70, 76, 58); bx.fillStyle = '#E0A050'; bx.fillRect(90, 66, 76, 4);
+    const pos = [0, Y(BAY.dM), Z(BAY.m0)], uv = [0.5, 0.5], idx = []; OPEN.forEach(([ox, d], j) => { pos.push(ox, Y(d), Z(BAY.m0)); uv.push(0.5 + ox / 16, 1 - (d - BAY.dA) / (BAY.dB - BAY.dA)); idx.push(0, 1 + j, 1 + (j + 1) % n); });
+    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); wg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); wg.setIndex(idx);
+    orient(wg, () => new THREE.Vector3(0, 0, 1)); bay.add(new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ map: tex(bw), fog: false })));
+    // shuttles: tapered hulls in the bay's light (vertex colours lit from above), with a dark canopy band and side pods
+    const craft = (len, wid, hgt, m, xo) => { const gb = new THREE.BoxGeometry(wid, hgt, len, 1, 1, 1).toNonIndexed(), P = gb.attributes.position;
+      for (let v = 0; v < P.count; v++) { if (P.getZ(v) > 0) { P.setX(v, P.getX(v) * 0.55); if (P.getY(v) > 0) P.setY(v, P.getY(v) - hgt * 0.45); } }
+      gb.computeVertexNormals(); const Nn = gb.attributes.normal, col = [];
+      for (let v = 0; v < P.count; v++) { const l = 0.3 + 0.42 * Math.max(0, Nn.getY(v)) + 0.1 * Math.abs(Nn.getX(v)) + 0.08 * Math.max(0, Nn.getZ(v)); col.push(0.62 * l, 0.65 * l, 0.66 * l); }
+      gb.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const g2 = new THREE.Group(); g2.position.set(xo, Y(BAY.dB) + hgt / 2 + 0.25, Z(m)); bay.add(g2);
+      g2.add(new THREE.Mesh(gb, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false })));
+      const dk = new THREE.MeshBasicMaterial({ color: 0x23292c, fog: false });
+      const cb = new THREE.Mesh(new THREE.BoxGeometry(wid * 0.62, hgt * 0.16, len * 0.08), dk); cb.position.set(0, hgt * 0.18, len * 0.28); g2.add(cb);
+      [-1, 1].forEach((s) => { const pd = new THREE.Mesh(new THREE.BoxGeometry(wid * 0.16, hgt * 0.3, len * 0.66), new THREE.MeshBasicMaterial({ color: 0x5a6265, fog: false })); pd.position.set(s * wid * 0.56, -hgt * 0.1, -len * 0.08); g2.add(pd); }); };
+    craft(10, 3.9, 2.6, 187, 0); [-1, 1].forEach((s) => craft(5.4, 2.6, 2.1, 175.5, s * 2.15)); }
+  const bayGlow = addSprite(glowTex, 0xffe2b8); bayGlow.position.set(0, Y(BAY.dM), ZS + 2.0); bayGlow.scale.set(13, 8, 1);
+  // impulse: each vent's glow brightens with speed, and a soft red-orange plume trails aft, longer the faster she goes
+  const ventTex = (() => { const c = cnv(64, 32), x = c.getContext('2d'), gr = x.createRadialGradient(32, 16, 0, 32, 16, 32); gr.addColorStop(0, 'rgba(255,230,200,1)'); gr.addColorStop(0.5, 'rgba(255,140,90,0.7)'); gr.addColorStop(1, 'rgba(255,80,40,0.15)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 32); return tex(c); })();
+  const PLN = lite ? 6 : 12, IMP = VENTS.map(([x0, x1, d0, d1]) => {
+    const vm = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, d1 - d0), new THREE.MeshBasicMaterial({ map: ventTex, color: 0xff7a4a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false }));
+    vm.position.set((x0 + x1) / 2, Y((d0 + d1) / 2), ZS + 0.07); root.add(vm);
+    const plume = []; for (let i = 0; i < PLN; i++) plume.push(addSprite(plumeTex, i < 2 ? 0xff9a64 : i < 5 ? 0xff6a38 : 0xe8462a));
+    return { vm, plume, c: [(x0 + x1) / 2, Y((d0 + d1) / 2)], w: x1 - x0, h: d1 - d0 }; });
+  // thruster puffs: short-lived soft white jets from the thruster blocks
+  const PUFFS = []; for (let i = 0; i < 12; i++) PUFFS.push(addSprite(puffTex, 0xdfe8f0, THREE.NormalBlending));
+  const puff = (i, age) => { const src = RCS[i]; if (!src) return; const sp = PUFFS.find((q) => !q.visible); if (!sp) return;
+    const dir = new THREE.Vector3(...src[1]).normalize(); sp.position.set(...src[0]); sp.userData = { v: dir.multiplyScalar(4.5 + Math.random()), age: 0, life: 0.8 + Math.random() * 0.3 }; sp.visible = true;
+    if (age) { sp.position.addScaledVector(sp.userData.v, age); sp.userData.age = age; } };
+  // small lights: one draw call for every strobe, beacon, guide light and tip light, blinking in the vertex shader
+  const LPTS = (() => { const n = LT.length, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), inf = new Float32Array(n * 3);
+    LT.forEach((l, i) => { pos.set(l.p, i * 3); col.set([l.col.r, l.col.g, l.col.b], i * 3); inf.set([l.size, l.kind, l.ph], i * 3); });
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); gg.setAttribute('col', new THREE.BufferAttribute(col, 3)); gg.setAttribute('info', new THREE.BufferAttribute(inf, 3));
+    const mat = new THREE.ShaderMaterial({ uniforms: { time: { value: 0 }, px: { value: 600 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute vec3 col; attribute vec3 info; uniform float time; uniform float px; varying vec3 vC; varying float vA;
+void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); float k = info.y, ph = info.z, a = 1.0;
+  if (k > 0.5 && k < 1.5) { float c = fract(time / 1.7 + ph); a = step(c, 0.035) + step(0.13, c) * step(c, 0.165); }          // strobe: a double flash
+  else if (k > 1.5 && k < 2.5) { a = 0.08 + 0.92 * pow(max(0.0, sin(6.2832 * (time / 1.4 + ph))), 4.0); }                   // beacon: a slow pulse
+  else if (k > 2.5 && k < 3.5) { float c = fract(time * 0.7 - ph); a = 0.15 + 0.85 * exp(-c * 9.0); }                       // guide lights: a chase
+  else if (k > 3.5) { a = 0.2 + 0.8 * step(0.55, fract(time / 2.2 + ph)); }                                                    // tip lights: a slow blink
+  vA = a; vC = col; gl_PointSize = clamp(info.x * 2.4 * px / -mv.z, 2.0, 96.0); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `varying vec3 vC; varying float vA;
+void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); if (r > 1.0) discard; float core = smoothstep(0.1, 0.0, r), halo = pow(1.0 - r, 3.0) * 0.55;
+  gl_FragColor = vec4(vC * (core * 1.6 + halo) * vA, 1.0); }` });
+    const pts = new THREE.Points(gg, mat); pts.name = 'Hull lights'; pts.frustumCulled = false; const v2 = new THREE.Vector2();
+    pts.onBeforeRender = (r, sc, cam) => { r.getDrawingBufferSize(v2); mat.uniforms.px.value = cam.projectionMatrix.elements[5] * v2.y / 2; }; root.add(pts); return pts; })();
+  // per frame: doors toward state.bayDoors (3 s), plume toward the speed, idle puffs every few seconds and a burst when the speed order changes
+  const DY = { door: 0, shown: -1, plume: 0, puffT: 2.5, lastSpeed: null };
+  const ease = (k) => k * k * (3 - 2 * k), sm = (a, b, v) => { const q = Math.max(0, Math.min(1, (v - a) / (b - a))); return q * q * (3 - 2 * q); };
+  const PAIRS = [[1, 4], [0, 5], [2, 5], [3, 4], [6, 7]];
+  root.userData.update = (dt, t) => {
+    const st = typeof state !== 'undefined' ? state : {}, sp = typeof cur !== 'undefined' ? cur.speed : 0;
+    DY.door += Math.max(-dt / 3, Math.min(dt / 3, (st.bayDoors ? 1 : 0) - DY.door));
+    if (DY.door !== DY.shown) { DY.shown = DY.door; setLeaves(ease(DY.door)); bay.visible = DY.door > 0.002; bayGlow.visible = bay.visible; bayGlow.material.opacity = 0.14 * ease(DY.door); }
+    DY.plume += (sm(0.2, 12, sp) * (1 - sm(80, 300, sp)) - DY.plume) * Math.min(1, dt * 1.5);
+    const k = DY.plume, fl = 1 + 0.06 * Math.sin(t * 31) + 0.04 * Math.sin(t * 57);
+    IMP.forEach((I) => { I.vm.material.opacity = (0.22 + 0.78 * k) * fl; const L = 1.5 + 13 * k;
+      I.plume.forEach((s, i) => { const f = (i + 0.5) / I.plume.length; s.visible = k > 0.01; s.position.set(I.c[0], I.c[1], ZS + 0.4 + L * f);
+        const sz = I.w * (0.42 + 0.4 * Math.sin(Math.PI * Math.min(1, f * 1.6))) * (1 - 0.4 * f) * (0.75 + 0.25 * k); s.scale.set(sz, sz * 0.6, 1); s.material.opacity = Math.min(1, k * 0.95 * Math.pow(1 - f, 1.1) * fl); }); });
+    DY.puffT -= dt; if (DY.puffT <= 0) { PAIRS[(Math.random() * PAIRS.length) | 0].forEach((i) => puff(i)); DY.puffT = 3 + Math.random() * 6; }
+    if (st.speed !== DY.lastSpeed) { if (DY.lastSpeed != null) [0, 1, 2, 3, 4, 5].forEach((i) => puff(i)); DY.lastSpeed = st.speed; }
+    const dp = Math.min(dt, 0.05); PUFFS.forEach((s) => { if (!s.visible) return; const u = s.userData; u.age += dp; s.position.addScaledVector(u.v, dp);
+      if (u.age >= u.life) { s.visible = false; return; } const q = u.age / u.life; s.scale.setScalar(0.5 + u.age * 3.2); s.material.opacity = 0.24 * Math.pow(1 - q, 1.6); });
+    LPTS.material.uniforms.time.value = t;
+  };
+  root.userData.puff = puff; root.userData.lights = LT.length;
+  root.userData.docks = DOCKS; root.userData.bay = { m0: BAY.m0, dA: BAY.dA, dB: BAY.dB, door: () => DY.door, leaves: LEAVES.map((L) => L.m) };
+  root.userData.plumeLength = () => IMP[0].plume[IMP[0].plume.length - 1].position.z - ZS;
+  root.userData.update(0, 0);
   root.traverse((o) => { o.userData.noPick = true; });
-  root.userData.triangles = (ship.geometry.index.count + lettering.geometry.index.count) / 3;
+  { let n = 0; root.traverse((o) => { if (o.isMesh) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); root.userData.triangles = n; }
   root.userData.paint = paint; root.userData.shadow = !!shadow; root.userData.escapePods = podCount * 2;
   return root;
 }
