@@ -247,6 +247,10 @@ liftPanel(LIFT.root, 'ind', 0.5, 0.14, 360, 100, LIFT_DX, 2.5, CAR.z0 + 0.03, 0)
   const d = DOORS.find((q) => q.station === 'lift'), swap = new Map([[MAT.gun, LIFT_MAT.gun], [MAT.panel, LIFT_MAT.panel], [MAT.steel, LIFT_MAT.steel]]);
   [d.L, d.Rr, ...d.reveal].forEach((o) => o.traverse((c) => { if (c.isMesh && swap.has(c.material)) c.material = swap.get(c.material); }));
 }
+// fewer draw calls (batch.js): merge the car's and the lobby's fixed parts, each in its own frame so the car still
+// rides as one; the doors slide, so each leaf stays separate
+batchMerge(LIFT.root, { movers: new Set([LIFT.carDoor.L, LIFT.carDoor.Rr]), label: 'lift car' });
+batchMerge(LIFT.stub, { movers: new Set([LIFT.stubDoor.L, LIFT.stubDoor.Rr]), label: 'lift lobby' });
 
 // ---------- sound: the doors and the ride ----------
 function liftDoorSound() {

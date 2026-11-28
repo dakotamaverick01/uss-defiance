@@ -109,7 +109,7 @@ async def run():
     b = await p.chromium.launch(executable_path=CHROME, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
     pg = await (await b.new_context(viewport={'width': 1280, 'height': 720})).new_page()
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-    await pg.add_init_script('window.PLANET_RES=1024; window.DEFIANCE_NO_BAKE=true;')
+    await pg.add_init_script('window.PLANET_RES=1024; window.DEFIANCE_NO_BAKE=true; window.DEFIANCE_NO_BATCH=true;')  # export each part on its own, as the bake was made
     await pg.route('**/*', route); await pg.goto('https://example.test/')
     await pg.wait_for_function('window.DEFIANCE_BAKED', timeout=120000)
     await pg.evaluate('DEFIANCE_HERO(1)'); await pg.wait_for_timeout(1500)  # lets every screen draw once

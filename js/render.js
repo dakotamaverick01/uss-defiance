@@ -229,6 +229,7 @@ function frame() {
     else d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 5);
     d.L.position.x = -d.q - d.open * d.slide; d.Rr.position.x = d.q + d.open * d.slide;
   });
+  batchSleep(); // chairs and doors at rest are drawn merged; wake the ones that are about to move (batch.js)
   // rooms: light the one you are in or approaching, name it in the HUD
   { let here = null;
     ROOMS.forEach((r) => {
