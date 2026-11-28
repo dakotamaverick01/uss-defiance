@@ -92,3 +92,87 @@ function kitFrames(K, x0, x1, z0, z1, H) { // structural frames every 2.4 m alon
     if (z + 1.2 < z1 - 0.5) kitPanel(K, cx, z + 1.2, H, 0.9, 0.36);
   }
 }
+
+// ---------- the corridor kit (roadmap B2) ----------
+// Corridors are built from modules: a 2.2 m wide, 2.6 m high (STD.corridor) piece of corridor with its floor, ceiling,
+// walls, a structural frame at its start (frames hide every joint), a ceiling light panel, cove light and shelf, base
+// strip and handrails. Each side of a module is a wall, a door opening (1.2 m, at the module's centre) or open. A
+// module may taper (ring corridors: the inner wall shorter than the outer), so a ring is a polygon of identical straight
+// pieces bending at every frame. Every variant is built once and all its copies are drawn as instances (one draw per
+// variant and material), placed by kitCorridorBuild from a deck's floor plan (deck3.js).
+// Module frame: x across (-1.1 left to +1.1 right), y up from the floor, z along (start edge at -len/2).
+const CKIT = { variants: new Map() };
+// merge [geometry, Matrix4] pairs into one geometry (position, normal, uv), so a variant's parts per material are one mesh
+function kitGeo(list) {
+  const pos = [], nor = [], uv = [];
+  list.forEach(([g0, m]) => {
+    const g = g0.index ? g0.toNonIndexed() : g0.clone(); if (m) g.applyMatrix4(m); if (!g.attributes.normal) g.computeVertexNormals();
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0); }
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.computeBoundingSphere(); return g;
+}
+// a flat quad through four points (any order round its edge) facing along n, with uvs
+function kitQuad(P, UV, n) {
+  const a = new THREE.Vector3(...P[0]), b = new THREE.Vector3(...P[1]), c = new THREE.Vector3(...P[2]);
+  const f = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).dot(new THREE.Vector3(...n)) < 0;
+  const o = f ? [0, 3, 2, 1] : [0, 1, 2, 3], idx = [o[0], o[1], o[2], o[0], o[2], o[3]];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(idx.flatMap((i) => P[i]), 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(idx.flatMap(() => n), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(idx.flatMap((i) => UV[i]), 2));
+  return g;
+}
+const kitM4 = (x, y, z, ry, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, 0)), new THREE.Vector3(1, 1, 1));
+// one module variant: sides [left, right], each 'w' wall, 'd' door, 'o' open; lin and lout the lengths of the left and
+// right edges (equal for a straight piece); x: a crossing (open both sides, posts at the corners). Returns [{ geo, mat }].
+function kitModule(L, R, lin, lout, wallMat) {
+  const H = STD.corridor.h, W = STD.corridor.w / 2, zA = (x, s) => s * (lin + (lout - lin) * (x + W) / (2 * W)) / 2;
+  const by = new Map(), put = (mat, g, m) => { if (!by.has(mat)) by.set(mat, []); by.get(mat).push([g, m]); };
+  const f = [[-W, 0, zA(-W, -1)], [-W, 0, zA(-W, 1)], [W, 0, zA(W, 1)], [W, 0, zA(W, -1)]];
+  put(MAT.floorCarpet, kitQuad(f.map(([x, , z]) => [x, 0.002, z]), f.map(([x, , z]) => [x, z]), [0, 1, 0]));
+  put(MAT.ceiling, kitQuad(f.map(([x, , z]) => [x, H, z]), f.map(([x, , z]) => [x / 1.2, z / 1.2]), [0, -1, 0]));
+  // light panel in the middle of the ceiling
+  put(MAT.steel, RBOX(1.02, 0.04, 0.48, 0.015), kitM4(0, H - 0.02, 0, 0));
+  put(downlightMat, new THREE.PlaneGeometry(0.9, 0.36), kitM4(0, H - 0.045, 0, 0, Math.PI / 2));
+  [[-1, L], [1, R]].forEach(([s, k]) => {
+    const x = s * W, z0 = zA(x, -1), z1 = zA(x, 1), len = z1 - z0, n = [-s, 0, 0], yaw = Math.atan2(0, 1);
+    const wq = (a, b, y0, y1) => put(wallMat, kitQuad([[x, y0, a], [x, y0, b], [x, y1, b], [x, y1, a]], [[a / 1.2, y0 / H], [b / 1.2, y0 / H], [b / 1.2, y1 / H], [a / 1.2, y1 / H]], n));
+    if (k === 'w') wq(z0, z1, 0, H);
+    if (k === 'd') { wq(z0, -0.6, 0, H); wq(0.6, z1, 0, H); wq(-0.6, 0.6, 2.3, H); }
+    if (k === 'o') return;
+    // cove light and its shelf under the ceiling, base strip, handrail (broken at a door)
+    const xi = x - s * 0.13;
+    put(SLOT, BOX(0.03, 0.03, len - 0.1), kitM4(xi, H - 0.28, 0, yaw)); put(MAT.gunDark, RBOX(0.12, 0.08, len, 0.015), kitM4(x - s * 0.06, H - 0.23, 0, yaw));
+    put(STRIP, BOX(0.02, 0.02, len - 0.2), kitM4(x - s * 0.02, 0.06, 0, yaw));
+    const rx = x - s * 0.06, runs = k === 'd' ? [[z0 + 0.15, -0.85], [0.85, z1 - 0.15]] : [[z0 + 0.15, z1 - 0.15]];
+    runs.forEach(([a, b]) => { if (b - a < 0.25) return; put(MAT.steel, CYL(0.022, 0.022, b - a, 10), kitM4(rx, 0.95, (a + b) / 2, 0, Math.PI / 2));
+      [a + 0.06, b - 0.06].forEach((zz) => put(MAT.steel, BOX(0.07, 0.025, 0.025), kitM4(x - s * 0.025, 0.95, zz, 0))); });
+    // frame post at the start edge
+    put(MAT.gunDark, RBOX(0.1, H - 0.05, 0.16, 0.02), kitM4(x - s * 0.05, (H - 0.05) / 2, zA(x - s * 0.05, -1), 0));
+  });
+  // frame beam across the start edge (turned to follow a tapered edge), or corner posts for a crossing
+  if (L !== 'o' || R !== 'o') { const za = zA(-W, -1), zb = zA(W, -1); put(MAT.gunDark, RBOX(2 * W, 0.12, 0.16, 0.02), kitM4(0, H - 0.06, (za + zb) / 2, -Math.atan2(zb - za, 2 * W))); }
+  else [[-W, -1], [W, -1], [-W, 1], [W, 1]].forEach(([x, s]) => put(MAT.gunDark, RBOX(0.2, H, 0.2, 0.03), kitM4(x, H / 2, zA(x, s), 0)));
+  return [...by.entries()].map(([mat, list]) => ({ mat, geo: kitGeo(list) }));
+}
+// Place a deck's corridor: mods = [{ L, R, lin, lout, x, z, ry, sz }] (world x, z of the module's centre, turn about y,
+// stretch along its length). One InstancedMesh per variant and material, added to K.root.
+function kitCorridorBuild(K, mods, wallMat) {
+  const groups = new Map();
+  mods.forEach((d) => { const key = [d.L, d.R, d.lin.toFixed(3), d.lout.toFixed(3)].join('|'); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(d); });
+  const out = [];
+  groups.forEach((list, key) => {
+    const [L, R, lin, lout] = key.split('|'), vk = key + '|' + wallMat.uuid;
+    if (!CKIT.variants.has(vk)) CKIT.variants.set(vk, kitModule(L, R, +lin, +lout, wallMat));
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    CKIT.variants.get(vk).forEach(({ geo, mat }) => {
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = 'corridor ' + key;
+      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4); });
+      im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); out.push(im);
+    });
+  });
+  return out;
+}

@@ -61,7 +61,7 @@ function batchMerge(top, opts) {
   const stat = BATCH.passes[label] = { before: 0, after: 0 };
   if (BATCH_OFF) return stat;
   // the frames a deck's merged objects live in: each built deck's group, the lift car and lobby, else the scene
-  const frames = new Set([DECK2]);
+  const frames = new Set(Object.values(DECKS).map((d) => d.n !== 1 && d.root()).filter(Boolean));
   if (typeof LIFT !== 'undefined') [LIFT.deck1, LIFT.root, LIFT.stub].forEach((g) => g && frames.add(g));
   const receivers = new Set(BAKE.receivers || []), occ = new Set(OCCLUDERS);
   const edgeWear = (m) => (m._patches || []).some((p) => /^tri[^ ]*e/.test(p.key));
@@ -177,7 +177,7 @@ function batchDeck(top) {
     if (seen.has(d)) return;
     const sl = { door: d, parts: [], awake: false }; sleepers.set(d.L, sl); sleepers.set(d.Rr, sl);
   });
-  if (D2.door) { movers.add(D2.door.L); movers.add(D2.door.Rr); } // Deck 2's lift landing doors (lift.js slides them)
+  Object.values(DECKS).forEach((d) => { const ld = d.door && d.door(); if (ld) { movers.add(ld.L); movers.add(ld.Rr); } }); // each deck's lift landing doors (lift.js slides them)
   CHAIRS.forEach((c) => { if (!seen.has(c)) sleepers.set(c.g, { chair: c, parts: [], awake: false }); });
   return batchMerge(top, { movers, skip, sleepers, label: 'parts ' + (top === scene ? 'd1' : top.name) });
 }

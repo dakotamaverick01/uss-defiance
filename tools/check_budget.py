@@ -9,9 +9,9 @@ from check_stations import route, CHROME
 root = sys.argv[1] if len(sys.argv) > 1 else '.'; check_stations.root = root
 # desktop limits per deck (fail above them); the target for every deck is 450 draw calls (roadmap F3; after part 2 the
 # bridge is about 290 and Deck 2 about 360). Tighten once John's Mac and a phone are measured.
-BUDGET = {'1': {'calls': 450, 'triangles': 450000}, '2': {'calls': 450, 'triangles': 450000}}
+BUDGET = {'1': {'calls': 450, 'triangles': 450000}, '2': {'calls': 450, 'triangles': 450000}, '3': {'calls': 450, 'triangles': 450000}}
 TARGET = 450
-VIEWS = {'1': ([0, 1.7, 3.2], [0, 1.4, -6]), '2': ([1.3, -1.9, 3.6], [1.0, -2.6, 16])}
+VIEWS = {'1': ([0, 1.7, 3.2], [0, 1.4, -6]), '2': ([1.3, -1.9, 3.6], [1.0, -2.6, 16]), '3': ([0.4, -5.4, 4.0], [0, -5.6, 40])}  # Deck 3: from the lift lobby, looking aft down the spoke
 MEASURE = r"""(views) => { const out = {}; const cam = new THREE.PerspectiveCamera(70, 16 / 9, 0.05, 2000);
   for (const [n, [p, t]] of Object.entries(views)) { liftSetDeck(+n); scene.updateMatrixWorld(true); cam.position.set(...p); cam.lookAt(...t); cam.updateMatrixWorld();
     renderer.info.autoReset = false; renderer.info.reset(); renderer.setRenderTarget(null); renderer.render(scene, cam);

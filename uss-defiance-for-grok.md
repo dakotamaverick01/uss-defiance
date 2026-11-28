@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `849a487`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `74ee59d`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -645,7 +645,7 @@ html.alert-red { --ice: #5D7F92; }
 </script>
 <script type="module">
 // Loads three.js, then the ship's code files in order. The code files are plain scripts that share one scope.
-const FILES = ['core', 'decks', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'kit', 'deck2', 'lighting', 'bake', 'batch', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render', 'perf'];
+const FILES = ['core', 'decks', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'kit', 'deck2', 'deck3', 'lighting', 'bake', 'batch', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render', 'perf'];
 const fail = () => { window.DEFIANCE_FAILED = true; document.getElementById('nogl').hidden = false; document.getElementById('intro').hidden = true; };
 try {
   const [T, { EffectComposer }, { RenderPass }, { ShaderPass }, { UnrealBloomPass }, { GammaCorrectionShader }] = await Promise.all([
@@ -901,6 +901,7 @@ const pal = () => {
 //   segs(), obs() collision lines and round obstacles on this deck
 //   rooms()       named rectangles { label, x0, x1, z0, z1 } for the location readout
 //   floor(x, z)   extra floor height at a point (the bridge's dais)
+//   door()        the deck's own Lift 1 landing doors { L, Rr } once built (lift.js slides them with the car's)
 //   build()       builds the deck's geometry; run once, by deckBuild, the first time the lift heads there (the doors are
 //                 shut and the car is moving, so nobody sees it happen). Deck 1 is built at start-up.
 // Each built deck has its own light bake in bake/d<n>/ (bake.js), so changing one deck never re-bakes another.
@@ -917,9 +918,11 @@ const deckOf = (n) => DECKS[n];
 deckDef(1, { built: true, made: true, envAt: [0, 1.75, 0.6], root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
   floor: (x, z) => (Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0) });
 // Deck 2, the officers' deck (deck2.js)
-deckDef(2, { built: true, envAt: [1.3, 1.6, 9.0], root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms, build: () => buildDeck2() });
-// Decks 3 to 10: not fitted out yet
-for (let n = 3; n <= 10; n++) deckDef(n, {});
+deckDef(2, { built: true, envAt: [1.3, 1.6, 9.0], root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms, door: () => D2.door, build: () => buildDeck2() });
+// Deck 3, medical and officers (deck3.js): corridors open, rooms sealed until fitted out
+deckDef(3, { built: true, envAt: [-2.6, 1.6, 4.2], root: () => DECK3, segs: () => D3.segs, obs: () => D3.obs, rooms: () => D3.rooms, door: () => D3.door, build: () => buildDeck3() });
+// Decks 4 to 10: not fitted out yet
+for (let n = 4; n <= 10; n++) deckDef(n, {});
 
 // Build a deck the first time it is needed: its geometry, its light-map layout, merged objects (batch.js), then its baked
 // light once that has loaded (start-up fetches every built deck's light files; bake.js applies them here or on arrival).
@@ -4315,6 +4318,90 @@ function kitFrames(K, x0, x1, z0, z1, H) { // structural frames every 2.4 m alon
   }
 }
 
+// ---------- the corridor kit (roadmap B2) ----------
+// Corridors are built from modules: a 2.2 m wide, 2.6 m high (STD.corridor) piece of corridor with its floor, ceiling,
+// walls, a structural frame at its start (frames hide every joint), a ceiling light panel, cove light and shelf, base
+// strip and handrails. Each side of a module is a wall, a door opening (1.2 m, at the module's centre) or open. A
+// module may taper (ring corridors: the inner wall shorter than the outer), so a ring is a polygon of identical straight
+// pieces bending at every frame. Every variant is built once and all its copies are drawn as instances (one draw per
+// variant and material), placed by kitCorridorBuild from a deck's floor plan (deck3.js).
+// Module frame: x across (-1.1 left to +1.1 right), y up from the floor, z along (start edge at -len/2).
+const CKIT = { variants: new Map() };
+// merge [geometry, Matrix4] pairs into one geometry (position, normal, uv), so a variant's parts per material are one mesh
+function kitGeo(list) {
+  const pos = [], nor = [], uv = [];
+  list.forEach(([g0, m]) => {
+    const g = g0.index ? g0.toNonIndexed() : g0.clone(); if (m) g.applyMatrix4(m); if (!g.attributes.normal) g.computeVertexNormals();
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0); }
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.computeBoundingSphere(); return g;
+}
+// a flat quad through four points (any order round its edge) facing along n, with uvs
+function kitQuad(P, UV, n) {
+  const a = new THREE.Vector3(...P[0]), b = new THREE.Vector3(...P[1]), c = new THREE.Vector3(...P[2]);
+  const f = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).dot(new THREE.Vector3(...n)) < 0;
+  const o = f ? [0, 3, 2, 1] : [0, 1, 2, 3], idx = [o[0], o[1], o[2], o[0], o[2], o[3]];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(idx.flatMap((i) => P[i]), 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(idx.flatMap(() => n), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(idx.flatMap((i) => UV[i]), 2));
+  return g;
+}
+const kitM4 = (x, y, z, ry, rx) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, 0)), new THREE.Vector3(1, 1, 1));
+// one module variant: sides [left, right], each 'w' wall, 'd' door, 'o' open; lin and lout the lengths of the left and
+// right edges (equal for a straight piece); x: a crossing (open both sides, posts at the corners). Returns [{ geo, mat }].
+function kitModule(L, R, lin, lout, wallMat) {
+  const H = STD.corridor.h, W = STD.corridor.w / 2, zA = (x, s) => s * (lin + (lout - lin) * (x + W) / (2 * W)) / 2;
+  const by = new Map(), put = (mat, g, m) => { if (!by.has(mat)) by.set(mat, []); by.get(mat).push([g, m]); };
+  const f = [[-W, 0, zA(-W, -1)], [-W, 0, zA(-W, 1)], [W, 0, zA(W, 1)], [W, 0, zA(W, -1)]];
+  put(MAT.floorCarpet, kitQuad(f.map(([x, , z]) => [x, 0.002, z]), f.map(([x, , z]) => [x, z]), [0, 1, 0]));
+  put(MAT.ceiling, kitQuad(f.map(([x, , z]) => [x, H, z]), f.map(([x, , z]) => [x / 1.2, z / 1.2]), [0, -1, 0]));
+  // light panel in the middle of the ceiling
+  put(MAT.steel, RBOX(1.02, 0.04, 0.48, 0.015), kitM4(0, H - 0.02, 0, 0));
+  put(downlightMat, new THREE.PlaneGeometry(0.9, 0.36), kitM4(0, H - 0.045, 0, 0, Math.PI / 2));
+  [[-1, L], [1, R]].forEach(([s, k]) => {
+    const x = s * W, z0 = zA(x, -1), z1 = zA(x, 1), len = z1 - z0, n = [-s, 0, 0], yaw = Math.atan2(0, 1);
+    const wq = (a, b, y0, y1) => put(wallMat, kitQuad([[x, y0, a], [x, y0, b], [x, y1, b], [x, y1, a]], [[a / 1.2, y0 / H], [b / 1.2, y0 / H], [b / 1.2, y1 / H], [a / 1.2, y1 / H]], n));
+    if (k === 'w') wq(z0, z1, 0, H);
+    if (k === 'd') { wq(z0, -0.6, 0, H); wq(0.6, z1, 0, H); wq(-0.6, 0.6, 2.3, H); }
+    if (k === 'o') return;
+    // cove light and its shelf under the ceiling, base strip, handrail (broken at a door)
+    const xi = x - s * 0.13;
+    put(SLOT, BOX(0.03, 0.03, len - 0.1), kitM4(xi, H - 0.28, 0, yaw)); put(MAT.gunDark, RBOX(0.12, 0.08, len, 0.015), kitM4(x - s * 0.06, H - 0.23, 0, yaw));
+    put(STRIP, BOX(0.02, 0.02, len - 0.2), kitM4(x - s * 0.02, 0.06, 0, yaw));
+    const rx = x - s * 0.06, runs = k === 'd' ? [[z0 + 0.15, -0.85], [0.85, z1 - 0.15]] : [[z0 + 0.15, z1 - 0.15]];
+    runs.forEach(([a, b]) => { if (b - a < 0.25) return; put(MAT.steel, CYL(0.022, 0.022, b - a, 10), kitM4(rx, 0.95, (a + b) / 2, 0, Math.PI / 2));
+      [a + 0.06, b - 0.06].forEach((zz) => put(MAT.steel, BOX(0.07, 0.025, 0.025), kitM4(x - s * 0.025, 0.95, zz, 0))); });
+    // frame post at the start edge
+    put(MAT.gunDark, RBOX(0.1, H - 0.05, 0.16, 0.02), kitM4(x - s * 0.05, (H - 0.05) / 2, zA(x - s * 0.05, -1), 0));
+  });
+  // frame beam across the start edge (turned to follow a tapered edge), or corner posts for a crossing
+  if (L !== 'o' || R !== 'o') { const za = zA(-W, -1), zb = zA(W, -1); put(MAT.gunDark, RBOX(2 * W, 0.12, 0.16, 0.02), kitM4(0, H - 0.06, (za + zb) / 2, -Math.atan2(zb - za, 2 * W))); }
+  else [[-W, -1], [W, -1], [-W, 1], [W, 1]].forEach(([x, s]) => put(MAT.gunDark, RBOX(0.2, H, 0.2, 0.03), kitM4(x, H / 2, zA(x, s), 0)));
+  return [...by.entries()].map(([mat, list]) => ({ mat, geo: kitGeo(list) }));
+}
+// Place a deck's corridor: mods = [{ L, R, lin, lout, x, z, ry, sz }] (world x, z of the module's centre, turn about y,
+// stretch along its length). One InstancedMesh per variant and material, added to K.root.
+function kitCorridorBuild(K, mods, wallMat) {
+  const groups = new Map();
+  mods.forEach((d) => { const key = [d.L, d.R, d.lin.toFixed(3), d.lout.toFixed(3)].join('|'); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(d); });
+  const out = [];
+  groups.forEach((list, key) => {
+    const [L, R, lin, lout] = key.split('|'), vk = key + '|' + wallMat.uuid;
+    if (!CKIT.variants.has(vk)) CKIT.variants.set(vk, kitModule(L, R, +lin, +lout, wallMat));
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    CKIT.variants.get(vk).forEach(({ geo, mat }) => {
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = 'corridor ' + key;
+      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4); });
+      im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); out.push(im);
+    });
+  });
+  return out;
+}
+
 ````
 
 ---
@@ -4777,6 +4864,160 @@ function buildDeck2() {
 
 ---
 
+## `js/deck3.js`
+
+````javascript
+// USS Defiance · deck3.js
+// Deck 3, medical and officers (roadmap B2): the corridors laid out from the deck's floor plan (SHIPGEO.plans[3],
+// shipFloorPlan) with the corridor kit (kit.js): a ring round the saucer's centre, four spokes, the aft spoke running on
+// as the fore-aft corridor; the Lift 1 lobby between sickbay and the medical lab. Every room is behind a closed,
+// labelled door until its fit-out (sickbay is step D; cabins and offices come with the standard room kit, step C).
+// Built when the lift first heads here (decks.js deckBuild). Until bake/d3 exists the deck gets the provisional light.
+// Coordinates: world x = the plan's x (starboard +), world z = m - 64, y from the Deck 3 floor.
+// Files share one global scope and load in order (see index.html).
+'use strict';
+
+const D3Y = deckY(3), D3C = STD.corridor.h;
+const DECK3 = group(0, D3Y, 0, 0); DECK3.name = 'Deck 3';
+const D3 = { root: DECK3, segs: [], obs: [], rooms: [], door: null, labels: [], rails: [], mods: [], doors: [] };
+const d3xz = (m, x) => [x, m - 64]; // plan [m, x] to world [x, z]
+
+// The corridor layout, worked out from the plan (no 3D objects, so checks can call it): modules (see kitCorridorBuild),
+// room doors snapped to the centre of a module, wall lines for collision, end caps, lobby openings.
+function d3Layout() {
+  const F = shipFloorPlan(3), P = F.P, [cm, cx] = P.c, W = STD.corridor.w / 2, rad = Math.PI / 180, LEN = STD.frame;
+  const mods = [], caps = [], N = 48, half = 180 / N, [Rr] = P.ring;
+  const dc = Rr * Math.cos(half * rad), rlin = 2 * (dc - W) * Math.tan(half * rad), rlout = 2 * (dc + W) * Math.tan(half * rad);
+  const spokeA = P.spokes.map(([a]) => a), near0 = (a, s) => Math.abs(((a - s + 540) % 360) - 180) < 1e-6;
+  // the ring: N identical tapered pieces, a crossing wherever a spoke meets it
+  for (let k = 0; k < N; k++) { const a = k * 360 / N, cross = spokeA.some((s) => near0(a, s)), [x, z] = d3xz(cm + dc * Math.cos(a * rad), cx + dc * Math.sin(a * rad));
+    mods.push({ L: cross ? 'o' : 'w', R: cross ? 'o' : 'w', lin: rlin, lout: rlout, x, z, ry: (a - 90) * rad, ring: true, cross, full: !cross, a }); }
+  // the spokes, from the centre crossing out: one run inside the ring, one outside; openings onto corridor-like spaces
+  // (the lobby) split a run; each piece is whole 2.4 m modules from its start, then a stretched filler
+  // the crossing at the centre, where the four spokes meet
+  { const [x, z] = d3xz(cm, cx); mods.push({ L: 'o', R: 'o', lin: 2 * W, lout: 2 * W, x, z, ry: 0, cross: true, full: false, centre: true }); }
+  const lobbies = F.spaces.filter((s) => s.t === 'c');
+  P.spokes.forEach(([a, end]) => {
+    const u = [Math.sin(a * rad), Math.cos(a * rad)], ry = Math.atan2(u[0], u[1]), side = [u[1], -u[0]], [ox, oz] = d3xz(cm, cx);
+    const at = (t, l) => [ox + u[0] * t + side[0] * l, oz + u[1] * t + side[1] * l];
+    const local = (wx, wz) => { const dx = wx - ox, dz = wz - oz; return [dx * u[0] + dz * u[1], dx * side[0] + dz * side[1]]; };
+    [[W, dc - W], [dc + W, end]].forEach(([t0, t1], ri) => {
+      const cuts = [t0, t1], open = [];
+      lobbies.forEach((s) => { const pts = s.poly.map(([m, x]) => local(...d3xz(m, x))); [-1, 1].forEach((sd) => {
+        const on = pts.filter(([, l]) => Math.abs(l - sd * W) < 0.15); if (on.length < 2) return;
+        const lo = Math.max(t0, Math.min(...on.map(([t]) => t))), hi = Math.min(t1, Math.max(...on.map(([t]) => t))); if (hi - lo > 0.5) { open.push([lo, hi, sd]); cuts.push(lo, hi); } }); });
+      const cs = [...new Set(cuts.map((v) => +v.toFixed(4)))].sort((p, q) => p - q);
+      for (let i = 0; i < cs.length - 1; i++) {
+        const p0 = cs[i], p1 = cs[i + 1], o = open.find(([lo, hi]) => p0 >= lo - 1e-3 && p1 <= hi + 1e-3), L = o && o[2] < 0 ? 'o' : 'w', R = o && o[2] > 0 ? 'o' : 'w';
+        const n = Math.floor((p1 - p0) / LEN + 1e-6), f = p1 - p0 - n * LEN;
+        for (let j = 0; j < n; j++) { const t = p0 + LEN * (j + 0.5), [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: 1, full: true, spoke: a, t }); }
+        if (f > 0.02) { const t = p1 - f / 2, [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: f / LEN, full: false, spoke: a, t }); }
+      }
+      if (ri === 1) { const [x0, z0] = at(end, -W), [x1, z1] = at(end, W); caps.push({ A: [x0, z0], B: [x1, z1], n: [-u[0], -u[1]], spoke: a }); }
+    });
+  });
+  // module geometry in world terms: its axes, half-lengths of each edge
+  mods.forEach((d) => { d.ax = [Math.cos(d.ry), -Math.sin(d.ry)]; d.az = [Math.sin(d.ry), Math.cos(d.ry)]; d.sz = d.sz || 1; });
+  const toLocal = (d, wx, wz) => { const dx = wx - d.x, dz = wz - d.z; return [dx * d.ax[0] + dz * d.ax[1], dx * d.az[0] + dz * d.az[1]]; };
+  const halfLen = (d, s) => (s < 0 ? d.lin : d.lout) * d.sz / 2;
+  // room doors onto the corridor: each to the nearest whole module with a wall on that side, at its centre
+  const doors = [];
+  F.spaces.forEach((s) => {
+    if (!s.door || s.t === 'c' || s.t === 'v' || s.n === 'Lift 1') return;
+    const [wx, wz] = d3xz(...s.door); let best = null;
+    mods.forEach((d) => { if (!d.full) return; const [lx, lz] = toLocal(d, wx, wz), sd = Math.sign(lx), k = sd < 0 ? d.L : d.R;
+      if (Math.abs(Math.abs(lx) - W) > 0.4 || k !== 'w' || Math.abs(lz) > 3.6) return;
+      if (!best || Math.abs(lz) < best.dz) best = { d, sd, dz: Math.abs(lz) }; });
+    if (!best) { if (s.n !== 'Sickbay') console.warn('Deck 3: no corridor module for the door of', s.id || s.n); return; }
+    const d = best.d; if (best.sd < 0) d.L = 'd'; else d.R = 'd';
+    const px = d.x + d.ax[0] * best.sd * W, pz = d.z + d.ax[1] * best.sd * W, nrm = [-d.ax[0] * best.sd, -d.ax[1] * best.sd];
+    doors.push({ s, x: px, z: pz, rot: Math.atan2(nrm[0], nrm[1]), moved: Math.hypot(px - wx, pz - wz) });
+  });
+  // collision: each walled side as a line (broken at a door), each end cap
+  const segs = [];
+  mods.forEach((d) => [[-1, d.L], [1, d.R]].forEach(([sd, k]) => {
+    if (k === 'o') return; const h = halfLen(d, sd), P0 = (lz) => [d.x + d.ax[0] * sd * W + d.az[0] * lz, d.z + d.ax[1] * sd * W + d.az[1] * lz];
+    (k === 'd' ? [[-h, -0.6], [0.6, h]] : [[-h, h]]).forEach(([a, b]) => segs.push([...P0(a), ...P0(b)])); }));
+  caps.forEach((c) => segs.push([...c.A, ...c.B]));
+  return { F, mods, doors, caps, segs, W, dc };
+}
+
+// the short name on a room's door
+function d3DoorLabel(s) {
+  const id = s.id ? s.id.slice(2) : '';
+  return ({ 'Officers’ quarters': 'OFFICER · ' + id, 'Crew quarters': 'CREW · ' + id, 'Sickbay': 'SICKBAY', 'Medical lab and morgue': 'MEDICAL LAB',
+    'Forward shield generator': 'SHIELD GEN', 'Computer core, upper': 'COMPUTER CORE', 'Damage control station': 'DAMAGE CONTROL',
+    'Pod feeds and torpedo magazine': 'MAGAZINE', 'Lift 2': 'LIFT 2' })[s.n] || s.n.toUpperCase();
+}
+
+function buildDeck3() {
+  const Lt = d3Layout(), corrWall = roomWallMat(D3C, 'fabric');
+  D3.layout = Lt; D3.mods = kitCorridorBuild(D3, Lt.mods, corrWall);
+  Lt.segs.forEach(([ax, az, bx, bz]) => kitSeg(D3, ax, az, bx, bz));
+  // end caps
+  Lt.caps.forEach((c) => { const len = Math.hypot(c.B[0] - c.A[0], c.B[1] - c.A[1]), dir = [(c.B[0] - c.A[0]) / len, (c.B[1] - c.A[1]) / len];
+    wallPiece(corrWall, c.A, dir, c.n, 0, len, 0, D3C, D3C, 1.2, DECK3); });
+
+  // ---------- the Lift 1 lobby, open onto the aft spoke ----------
+  const lob = Lt.F.spaces.find((s) => s.n === 'Lift 1 lobby'), xs = lob.poly.map(([, x]) => x), ms = lob.poly.map(([m]) => m);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...ms) - 64, z1 = Math.max(...ms) - 64, H = D3C, I = STD.inset;
+  {
+    const fw = x1 - x0, fd = z1 - z0, fg = new THREE.PlaneGeometry(fw, fd); { const uv = fg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * fw, uv.getY(i) * fd); }
+    mesh(fg, MAT.floorCarpet, (x0 + x1) / 2, 0.002, (z0 + z1) / 2, DECK3).rotation.x = -Math.PI / 2;
+    mesh(fg.clone(), MAT.ceiling, (x0 + x1) / 2, H, (z0 + z1) / 2, DECK3).rotation.x = Math.PI / 2;
+    const sb = Lt.F.spaces.find((s) => s.n === 'Sickbay'), sbx = sb.door[1];
+    kitWall(D3, corrWall, [x0 + I, z0 + I], [x1, z0 + I], [0, 1], H, [{ a: sbx - 0.6 - x0 - I, b: sbx + 0.6 - x0 - I, y0: 0, y1: 2.3 }]);
+    kitWall(D3, corrWall, [x0 + I, z1 - I], [x1, z1 - I], [0, -1], H, [{ a: LIFT_DX - 0.6 - x0 - I, b: LIFT_DX + 0.6 - x0 - I, y0: 0, y1: 2.3 }]);
+    kitWall(D3, corrWall, [x0 + I, z0 + I], [x0 + I, z1 - I], [1, 0], H);
+    [[(x0 + x1) / 2, z0 + 0.13, fw - 0.2, 0], [(x0 + x1) / 2, z1 - 0.13, fw - 0.2, 0], [x0 + 0.13, (z0 + z1) / 2, fd - 0.3, Math.PI / 2]].forEach(([x, z, L, ry]) => {
+      mesh(BOX(L, 0.03, 0.03), SLOT, x, H - 0.28, z, DECK3).rotation.y = ry; mesh(RBOX(L + 0.1, 0.08, 0.12, 0.015), MAT.gunDark, x, H - 0.23, z, DECK3).rotation.y = ry;
+      mesh(BOX(L - 0.2, 0.02, 0.02), STRIP, x, 0.06, z, DECK3).rotation.y = ry; });
+    D3.rooms.push({ label: 'Lift 1 lobby', x0, x1: x1 + STD.corridor.w, z0, z1 });
+    // the lift doors on this deck (lift.js opens them with the car's), as on Deck 2
+    const g = group(LIFT_DX, 0, z1, Math.PI, DECK3);
+    [-1, 1].forEach((sd) => mesh(RBOX(0.22, 2.6, 0.3, 0.03), MAT.gun, sd * 0.71, 1.3, 0.12, g));
+    mesh(RBOX(1.64, 0.3, 0.3, 0.03), MAT.gun, 0, 2.45, 0.12, g); mesh(BOX(1.2, 0.004, 0.1), MAT.hazard, 0, 0.003, 0.16, g);
+    const L = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, -0.3, 1.15, 0.06, g), Rr = mesh(RBOX(0.6, 2.3, 0.06, 0.015), MAT.panel, 0.3, 1.15, 0.06, g);
+    [L, Rr].forEach((d, k) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, k ? -0.27 : 0.27, 0, 0.04, d); mesh(BOX(0.4, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
+    addHit(BOX(1.6, 2.6, 0.8), { station: 'lift' }, g, 0, 1.3, 0.45);
+    D3.door = { L, Rr };
+    kitLabel(D3, 'LIFT 1', LIFT_DX, 2.42, z1 - 0.28, Math.PI, 0.7);
+    // deck sign on the lobby's port wall
+    { const c = cnv(560, 256), x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 560, 256);
+      elbow(x, 14, 14, 70, 18, 300, 30, true, '#E8A06A'); elbow(x, 14, 242, 70, 14, 200, 24, false, '#D9B07E');
+      x.fillStyle = '#F2C88F'; x.font = `700 150px ${DISP}`; x.textBaseline = 'middle'; x.fillText('3', 110, 132);
+      x.fillStyle = '#E8A06A'; x.font = `600 44px ${DISP}`; x.fillText('DECK 3', 220, 92); x.fillStyle = '#B693C4'; x.font = `500 32px ${DISP}`; x.fillText('MEDICAL AND OFFICERS', 222, 142);
+      x.fillStyle = '#D9B07E'; x.font = `500 24px ${DISP}`; x.fillText('LIFT 1 · SICKBAY FORWARD · LAB TO STARBOARD', 222, 186);
+      const m = mesh(new THREE.PlaneGeometry(1.1, 0.5), new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }), x0 + 0.082, 1.6, (z0 + z1) / 2, DECK3); m.rotation.y = Math.PI / 2;
+      mesh(RBOX(0.02, 0.62, 1.22, 0.008), MAT.gunDark, x0 + 0.07, 1.6, (z0 + z1) / 2, DECK3); }
+    kitDown(D3, (x0 + x1) / 2, (z0 + z1) / 2, H); kitDown(D3, LIFT_DX, z1 - 1.0, H);
+  }
+
+  // ---------- room doors: closed and labelled until each room is fitted out ----------
+  const sickbay = Lt.F.spaces.find((s) => s.n === 'Sickbay');
+  const all = Lt.doors.concat([{ s: sickbay, x: sickbay.door[1], z: z0, rot: 0 }]);
+  all.forEach(({ s, x, z, rot }) => {
+    const st = 'd3:' + (s.id || s.n), lift2 = s.n === 'Lift 2';
+    doorAt(x, z, rot, d3DoorLabel(s), st, false, true, DECK3, 3);
+    STATIONS[st] = { title: lift2 ? 'Lift 2' : s.n + (s.id ? ' ' + s.id : ''), role: 'Deck 3',
+      panel: () => ({ read: [['Room', s.n + (s.b ? (s.b > 1 ? ' · two berths' : ' · one berth') : '')], ['Status', lift2 ? 'Lift 2 is not running yet' : 'Sealed for fitting-out']],
+        note: lift2 ? 'Lift 2 will serve Decks 3 to 10 once main engineering is built.' : 'This room is not built yet. The corridors of Deck 3 are open; rooms follow with the standard room kit, sickbay first.', acts: [] }) };
+  });
+  D3.doors = all;
+
+  // ---------- where you are: the corridor runs (rectangles) and the ring ----------
+  const [ocx, ocz] = d3xz(...Lt.F.P.c), W = Lt.W;
+  Lt.F.P.spokes.forEach(([a, end]) => { const r = a * Math.PI / 180, ux = Math.sin(r), uz = Math.cos(r), ex = ocx + ux * end, ez = ocz + uz * end;
+    const label = { 0: 'Aft corridor', 90: 'Starboard spoke', 180: 'Forward spoke', 270: 'Port spoke' }[a] || 'Corridor';
+    D3.rooms.push({ label, x0: Math.min(ocx, ex) - (uz ? W : 0), x1: Math.max(ocx, ex) + (uz ? W : 0), z0: Math.min(ocz, ez) - (ux ? W : 0), z1: Math.max(ocz, ez) + (ux ? W : 0) }); });
+  D3.rooms.unshift({ label: 'Ring corridor', test: (x, z) => { const r = Math.hypot(x - ocx, z - ocz); return r > Lt.dc - W - 0.2 && r < Lt.dc + W + 0.2; } });
+  DECK3.updateMatrixWorld(true);
+}
+
+````
+
+---
+
 ## `js/lighting.js`
 
 ````javascript
@@ -5121,7 +5362,7 @@ function batchMerge(top, opts) {
   const stat = BATCH.passes[label] = { before: 0, after: 0 };
   if (BATCH_OFF) return stat;
   // the frames a deck's merged objects live in: each built deck's group, the lift car and lobby, else the scene
-  const frames = new Set([DECK2]);
+  const frames = new Set(Object.values(DECKS).map((d) => d.n !== 1 && d.root()).filter(Boolean));
   if (typeof LIFT !== 'undefined') [LIFT.deck1, LIFT.root, LIFT.stub].forEach((g) => g && frames.add(g));
   const receivers = new Set(BAKE.receivers || []), occ = new Set(OCCLUDERS);
   const edgeWear = (m) => (m._patches || []).some((p) => /^tri[^ ]*e/.test(p.key));
@@ -5237,7 +5478,7 @@ function batchDeck(top) {
     if (seen.has(d)) return;
     const sl = { door: d, parts: [], awake: false }; sleepers.set(d.L, sl); sleepers.set(d.Rr, sl);
   });
-  if (D2.door) { movers.add(D2.door.L); movers.add(D2.door.Rr); } // Deck 2's lift landing doors (lift.js slides them)
+  Object.values(DECKS).forEach((d) => { const ld = d.door && d.door(); if (ld) { movers.add(ld.L); movers.add(ld.Rr); } }); // each deck's lift landing doors (lift.js slides them)
   CHAIRS.forEach((c) => { if (!seen.has(c)) sleepers.set(c.g, { chair: c, parts: [], awake: false }); });
   return batchMerge(top, { movers, skip, sleepers, label: 'parts ' + (top === scene ? 'd1' : top.name) });
 }
@@ -6724,7 +6965,7 @@ function drainSimEvents(dt) {
 const LIFT_DECKS = [
   { n: 1, name: 'Main Bridge', short: 'BRIDGE', built: true },
   { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'First officer’s quarters', 'Senior officers’ cabins', 'Officers’ wardroom', 'Officers’ passage', 'Observation lounge'], sealed: [] },
-  { n: 3, name: 'Medical and officers', short: 'MEDICAL', rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
+  { n: 3, name: 'Medical and officers', short: 'MEDICAL', built: true, rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
   { n: 4, name: 'Crew deck', short: 'CREW', rooms: ['Mess hall and galley', 'Crew lounge and gym', 'Crew quarters', 'Auxiliary control'] },
   { n: 5, name: 'Weapons and transport', short: 'WEAPONS', rooms: ['Torpedo bays 1 and 2', 'Armory and security', 'Transporter rooms', 'Science labs'] },
   { n: 6, name: 'Deflector and cargo', short: 'CARGO', rooms: ['Navigational deflector', 'Cargo bay 1', 'Torpedo loading', 'Crew quarters'] },
@@ -7033,7 +7274,7 @@ function liftUpdate(dt) {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
-  [LIFT.stubDoor, D2.door].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (Deck 2's exist once it is built)
+  [LIFT.stubDoor, ...Object.values(DECKS).map((d) => d.door && d.door())].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (each deck's exist once it is built)
   LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
   const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
@@ -7048,7 +7289,7 @@ function liftLocation(roomLabel) {
   if (LIFT.inside) return `Lift 1 · Deck ${d.n}`;
   const D = deckOf(LIFT.deck);
   if (LIFT.deck === 1) return (roomLabel || 'Main Bridge') + ' · Deck 1';
-  const r = D.rooms().find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
+  const r = D.rooms().find((q) => q.test ? q.test(player.x, player.z) : player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
   return `${r ? r.label : d.name} · Deck ${d.n}`;
 }
 // is this object (and every group above it) showing? Used to ignore stations and walls on hidden decks.
@@ -7064,7 +7305,7 @@ Object.assign(STATIONS, {
   liftcar: { title: 'Lift 1', role: 'Choose a deck', panel: () => {
     const d = liftDeck(LIFT.deck);
     return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Decks 1 and 2']],
-      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
+      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Deck 3 is medical and officers: its corridors are open, its rooms sealed for now. Decks 4 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
       acts: LIFT_DECKS.map((x) => ({ label: `${x.n} · ${x.short.charAt(0) + x.short.slice(1).toLowerCase()}`, on: x.n === LIFT.deck, disabled: x.n === LIFT.deck || LIFT.phase !== 'idle', fn: () => liftGo(x.n) })) };
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {

@@ -14,7 +14,7 @@
 const LIFT_DECKS = [
   { n: 1, name: 'Main Bridge', short: 'BRIDGE', built: true },
   { n: 2, name: 'Officers’ deck', short: 'OFFICERS', built: true, rooms: ['Lift 1 lobby', 'Captain’s quarters', 'Officers’ corridor', 'First officer’s quarters', 'Senior officers’ cabins', 'Officers’ wardroom', 'Officers’ passage', 'Observation lounge'], sealed: [] },
-  { n: 3, name: 'Medical and officers', short: 'MEDICAL', rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
+  { n: 3, name: 'Medical and officers', short: 'MEDICAL', built: true, rooms: ['Sickbay', 'Medical lab', 'Officers’ quarters', 'Forward shield generator'] },
   { n: 4, name: 'Crew deck', short: 'CREW', rooms: ['Mess hall and galley', 'Crew lounge and gym', 'Crew quarters', 'Auxiliary control'] },
   { n: 5, name: 'Weapons and transport', short: 'WEAPONS', rooms: ['Torpedo bays 1 and 2', 'Armory and security', 'Transporter rooms', 'Science labs'] },
   { n: 6, name: 'Deflector and cargo', short: 'CARGO', rooms: ['Navigational deflector', 'Cargo bay 1', 'Torpedo loading', 'Crew quarters'] },
@@ -323,7 +323,7 @@ function liftUpdate(dt) {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
-  [LIFT.stubDoor, D2.door].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (Deck 2's exist once it is built)
+  [LIFT.stubDoor, ...Object.values(DECKS).map((d) => d.door && d.door())].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (each deck's exist once it is built)
   LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
   const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);
@@ -338,7 +338,7 @@ function liftLocation(roomLabel) {
   if (LIFT.inside) return `Lift 1 · Deck ${d.n}`;
   const D = deckOf(LIFT.deck);
   if (LIFT.deck === 1) return (roomLabel || 'Main Bridge') + ' · Deck 1';
-  const r = D.rooms().find((q) => player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
+  const r = D.rooms().find((q) => q.test ? q.test(player.x, player.z) : player.x > q.x0 && player.x < q.x1 && player.z > q.z0 && player.z < q.z1);
   return `${r ? r.label : d.name} · Deck ${d.n}`;
 }
 // is this object (and every group above it) showing? Used to ignore stations and walls on hidden decks.
@@ -354,7 +354,7 @@ Object.assign(STATIONS, {
   liftcar: { title: 'Lift 1', role: 'Choose a deck', panel: () => {
     const d = liftDeck(LIFT.deck);
     return { read: [['Now at', `Deck ${d.n} · ${d.name}`], ['Fitted out', 'Decks 1 and 2']],
-      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Decks 3 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
+      note: LIFT.inside ? 'Deck 2 is the officers’ deck: quarters, the wardroom and the observation lounge. Deck 3 is medical and officers: its corridors are open, its rooms sealed for now. Decks 4 to 6 open onto a sealed lobby until they are built.' : 'Step into the car first.',
       acts: LIFT_DECKS.map((x) => ({ label: `${x.n} · ${x.short.charAt(0) + x.short.slice(1).toLowerCase()}`, on: x.n === LIFT.deck, disabled: x.n === LIFT.deck || LIFT.phase !== 'idle', fn: () => liftGo(x.n) })) };
   } },
   deckdir: { title: 'Deck directory', role: '', panel: () => {

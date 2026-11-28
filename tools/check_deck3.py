@@ -1,0 +1,77 @@
+# Deck 3 check: loads the ship, rides to Deck 3 and checks the corridors built from the floor plan (deck3.js, kit.js):
+# the layout closes up, every corridor piece has full headroom and stays out of the rooms, every room's door sits in
+# that room's wall and can be walked to from the lift, the lift doors and stations are in place.
+# usage: python3 tools/check_deck3.py <site_dir>    (prints PASS/FAIL lines; exits 1 on any FAIL)
+import asyncio, sys, os
+from playwright.async_api import async_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_stations import route, CHROME
+root = sys.argv[1] if len(sys.argv) > 1 else '.'
+import check_stations; check_stations.root = root
+
+CHECK_JS = r"""() => {
+  const out = [], ok = (name, pass, info) => out.push([name, !!pass, info === undefined ? '' : String(info)]);
+  liftSetDeck(3);
+  const Lt = D3.layout, F = Lt.F, W = Lt.W, w2p = (x, z) => [z + 64, x]; // world to plan [m, x]
+  const inPoly = (P, m, x) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [am, ax] = P[i], [bm, bx] = P[j]; if ((ax > x) !== (bx > x) && m < (bm - am) * (x - ax) / (bx - ax) + am) c = !c; } return c; };
+  ok('Deck 3 built and shown', deckOf(3).made && DECK3.visible && !LIFT.stub.visible);
+  ok('Lift 1 opens on Deck 3', LIFT_DECKS[2].built && deckOf(3).door() && D3.door.L && D3.door.Rr);
+  ok('corridor drawn as instances', D3.mods.length > 0 && D3.mods.every((m) => m.isInstancedMesh), D3.mods.length + ' instanced meshes, ' + new Set(D3.mods.map((m) => m.name)).size + ' variants');
+  // the layout closes up: the ring goes all the way round, each spoke run is covered end to end
+  { const ring = Lt.mods.filter((d) => d.ring); ok('ring of 48 pieces, 4 of them crossings; a crossing at the centre', ring.length === 48 && ring.filter((d) => d.cross).length === 4 && Lt.mods.filter((d) => d.centre).length === 1);
+    const bad = []; F.P.spokes.forEach(([a, end]) => { [[W, Lt.dc - W], [Lt.dc + W, end]].forEach(([t0, t1]) => {
+      const ms = Lt.mods.filter((d) => d.spoke === a && d.t > t0 && d.t < t1), len = ms.reduce((s, d) => s + d.lin * d.sz, 0);
+      if (Math.abs(len - (t1 - t0)) > 0.01) bad.push(`spoke ${a}: ${len.toFixed(2)} of ${(t1 - t0).toFixed(2)} m`); }); });
+    ok('every spoke run covered end to end', !bad.length, bad.join('; ')); }
+  // sample each corridor piece's floor (inset 0.15 m): full headroom, and inside no room
+  { const head = [], clash = new Set();
+    Lt.mods.forEach((d, i) => { for (let a = -W + 0.15; a <= W - 0.15; a += 0.35) for (let b = -0.45; b <= 0.45; b += 0.3) {
+      const h = (a < 0 ? d.lin : d.lout) * d.sz * b, x = d.x + d.ax[0] * a + d.az[0] * h, z = d.z + d.ax[1] * a + d.az[1] * h, [m, px] = w2p(x, z);
+      if (shipSkinTop(m, px) > F.limCorr + 1e-6) head.push(`piece ${i} at m ${m.toFixed(1)}, x ${px.toFixed(1)}`);
+      F.spaces.forEach((s) => { if (s.t !== 'c' && inPoly(s.poly, m, px)) clash.add((s.id || s.n) + ' / piece ' + i); }); } });
+    ok('full headroom along every corridor piece', !head.length, head.slice(0, 5).join('; '));
+    ok('no corridor piece reaches into a room', !clash.size, [...clash].slice(0, 6).join('; ')); }
+  // every room's door: placed, in its own wall (the whole 1.2 m opening backs onto the room), a sealed labelled door
+  { const want = F.spaces.filter((s) => s.door && s.t !== 'c' && s.t !== 'v' && s.n !== 'Lift 1'), bad = [], far = [];
+    want.forEach((s) => { const d = D3.doors.find((q) => q.s === s); if (!d) { bad.push((s.id || s.n) + ' missing'); return; }
+      const n = [Math.sin(d.rot), Math.cos(d.rot)], t = [n[1], -n[0]];
+      [-0.55, 0, 0.55].forEach((u) => { const x = d.x - n[0] * 0.35 + t[0] * u, z = d.z - n[1] * 0.35 + t[1] * u; if (!inPoly(s.poly, ...w2p(x, z))) bad.push(`${s.id || s.n} opening at ${u}`); });
+      const dd = DOORS.find((q) => q.station === 'd3:' + (s.id || s.n)); if (!dd || dd.auto || dd.deck !== 3) bad.push((s.id || s.n) + ' door object');
+      const st = STATIONS['d3:' + (s.id || s.n)]; try { if (!st || !st.panel().read.length) bad.push((s.id || s.n) + ' station'); } catch (e) { bad.push((s.id || s.n) + ' panel ' + e.message); }
+      if (d.moved > 1.3) far.push(`${s.id || s.n} ${d.moved.toFixed(2)} m`); });
+    ok(`every room has its door in its own wall (${want.length} doors)`, !bad.length, bad.slice(0, 6).join('; '));
+    ok('no door moved more than 1.3 m from the plan to fit a corridor piece', !far.length, far.join('; ')); }
+  // walk from the lift to the front of every door, over a grid of the corridor floor, moving with the game's collision
+  { const cells = new Map(), key = (x, z) => Math.round(x / 0.25) + ',' + Math.round(z / 0.25);
+    Lt.mods.forEach((d) => { const e = d.L === 'o' && d.R === 'o' ? 0.05 : 0.4; for (let a = -W + e; a <= W - e; a += 0.2) for (let b = -0.5; b <= 0.5; b += 0.08) {
+      const h = (a < 0 ? d.lin : d.lout) * d.sz * b, x = d.x + d.ax[0] * a + d.az[0] * h, z = d.z + d.ax[1] * a + d.az[1] * h; cells.set(key(x, z), [Math.round(x / 0.25) * 0.25, Math.round(z / 0.25) * 0.25]); } });
+    D3.rooms.filter((r) => r.label === 'Lift 1 lobby').forEach((r) => { for (let x = r.x0 + 0.4; x < r.x1 - 0.4; x += 0.25) for (let z = r.z0 + 0.4; z < r.z1 - 0.4; z += 0.25) cells.set(key(x, z), [Math.round(x / 0.25) * 0.25, Math.round(z / 0.25) * 0.25]); });
+    const moveOk = ([ax, az], [bx, bz]) => { let x = ax, z = az; for (let k = 0; k < 12; k++) { const dx = bx - x, dz = bz - z, d = Math.hypot(dx, dz); if (d < 0.02) break; [x, z] = collide(x + dx / d * Math.min(0.04, d), z + dz / d * Math.min(0.04, d)); } return Math.hypot(bx - x, bz - z) < 0.05; };
+    const start = key(LIFT_DX, LIFT_DZ - 1.2), seen = new Set([start]), q = [start];
+    while (q.length) { const k = q.shift(), [x, z] = cells.get(k); [[0.25, 0], [-0.25, 0], [0, 0.25], [0, -0.25]].forEach(([dx, dz]) => { const nk = key(x + dx, z + dz); if (cells.has(nk) && !seen.has(nk) && moveOk([x, z], cells.get(nk))) { seen.add(nk); q.push(nk); } }); }
+    const unreached = D3.doors.filter((d) => { const n = [Math.sin(d.rot), Math.cos(d.rot)], tx = d.x + n[0] * 0.75, tz = d.z + n[1] * 0.75;
+      return ![...seen].some((k) => { const [x, z] = cells.get(k); return Math.hypot(x - tx, z - tz) < 0.3; }); }).map((d) => d.s.id || d.s.n);
+    ok(`every door can be walked to from Lift 1 (${seen.size} of ${cells.size} floor cells reached)`, cells.has(start) && !unreached.length, unreached.join(', ')); }
+  // the location readout knows the corridors
+  { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
+    const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
+    ok('location readout: lobby, ring, aft corridor', /Lift 1 lobby/.test(r[0]) && /Ring corridor/.test(r[1]) && /Aft corridor/.test(r[2]), r.join(' | ')); }
+  liftSetDeck(1);
+  return out;
+}"""
+
+async def run():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path=CHROME, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+    ctx = await b.new_context(viewport={'width': 1280, 'height': 720}); pg = await ctx.new_page(); errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
+    await pg.add_init_script('window.DEFIANCE_NO_BATCH = 1;')
+    await pg.route('**/*', route); await pg.goto('https://example.test/')
+    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED', timeout=180000)
+    res = await pg.evaluate(CHECK_JS); await b.close()
+  bad = 0
+  for name, ok, info in res:
+    print(('PASS ' if ok else 'FAIL ') + name + (('  [' + info + ']') if info else '')); bad += 0 if ok else 1
+  if errs: print('FAIL page errors:', errs); bad += 1
+  print(f'{len(res) - bad}/{len(res)} passed'); sys.exit(1 if bad else 0)
+if __name__ == '__main__': asyncio.run(run())
