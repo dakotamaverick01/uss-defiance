@@ -230,6 +230,7 @@ function frame() {
     d.L.position.x = -d.q - d.open * d.slide; d.Rr.position.x = d.q + d.open * d.slide;
   });
   if (LIFT.deck === 3 && typeof d3Cull === 'function') d3Cull(camera.position); // inside a Deck 3 room: far doors hidden
+  if (LIFT.deck === 3 && typeof d3Screens === 'function') d3Screens(elapsed); // Deck 3's shared screen faces keep moving
   batchSleep(); // chairs and doors at rest are drawn merged; wake the ones that are about to move (batch.js)
   // rooms: light the one you are in or approaching, name it in the HUD
   { let here = null;

@@ -133,6 +133,12 @@ CHECK_JS = r"""() => {
     d3Alert(true, 1); const r1 = CKIT.band.emissiveIntensity > 0.9 && redAt(); d3Alert(true, 0); const r0 = CKIT.band.emissiveIntensity > 0 && CKIT.band.emissiveIntensity < 0.3;
     d3Alert(false, 0); const g = CKIT.band.emissiveIntensity === 0 && !mag.some(([m, i]) => { m.getColorAt(i, col); return col.g < 0.1; });
     ok('red alert: bands pulse red, hard red by the magazines; back to normal at green', mag.length >= 4 && r1 && r0 && g, mag.length + ' band copies by the magazines'); }
+  // polish: moving screens: the shared faces redraw their moving parts (biobed traces, surgical scan line, the status sweep bar)
+  // and the status screen's alert line follows the ship's alert
+  { const px = (M, x, y, w, h) => Array.from(M.map.image.getContext('2d').getImageData(x, y, w, h).data).join(','), was = state.alert, F3 = [[CKIT.bioFace, 10, 30, 170, 100], [CKIT.surgFace, 16, 32, 106, 84], [D3.screenMat, 12, 270, 488, 12]];
+    state.alert = 'green'; D3.scr = null; d3Screens(10); const a = F3.map((f) => px(...f)), al0 = px(D3.screenMat, 296, 238, 212, 30);
+    state.alert = 'red'; d3Screens(10.7); const b = F3.map((f) => px(...f)), al1 = px(D3.screenMat, 296, 238, 212, 30); state.alert = was; D3.scr = null;
+    ok('moving screens: biobed traces, surgical scan, status sweep move; the status screen shows the alert', a.every((v, i) => v !== b[i]) && al0 !== al1, a.map((v, i) => v !== b[i]).join(' ') + ' / alert ' + (al0 !== al1)); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;

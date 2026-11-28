@@ -692,3 +692,32 @@ function d3Alert(red, k) {
     L.forEach((d, i) => { if (!d.mag) return; im.setColorAt(i, _d3c.set(red ? 0xff1a10 : (d.band || 0xD9B07E)).convertSRGBToLinear()); ch = true; });
     if (ch) im.instanceColor.needsUpdate = true; });
 }
+
+// Moving screens (roadmap polish): Deck 3's shared screen faces redraw only their moving parts a few times a second
+// while you are on the deck: the biobed traces and readings, a scan line on the surgical consoles, the deck-status
+// screen's sweep bar and its alert line (which follows the ship's alert). Text is redrawn, never scrolled. Every copy
+// of a face shares one canvas, so one redraw moves them all. render.js calls this every frame on Deck 3.
+function d3Screens(t) {
+  const S = D3.scr || (D3.scr = { bio: -9, num: -9, surg: -9, st: -9, alert: null });
+  const up = (M) => { M.map.needsUpdate = true; }, ctx = (M) => M.map.image.getContext('2d');
+  const B = CKIT.bioFace;
+  if (B && t - S.bio > 1 / 12) { S.bio = t; const g = ctx(B); g.fillStyle = '#020708'; g.fillRect(6, 25, 180, 114);
+    [['#7fe0d6', 44, 46], ['#E8A06A', 76, 20], ['#B693C4', 108, 14]].forEach(([c, y, sp], k) => { g.strokeStyle = c; g.lineWidth = 2; g.lineJoin = 'round'; g.beginPath();
+      for (let x = 10; x < 180; x += 2) { const X = x + t * sp, ph = ((X + k * 17) % 46 + 46) % 46;
+        const v = k === 0 ? (ph < 3 ? -16 : ph < 5 ? 10 : 0) : Math.sin(X * (0.11 + k * 0.05)) * 7; x === 10 ? g.moveTo(x, y + v) : g.lineTo(x, y + v); } g.stroke(); });
+    if (t - S.num > 1.1) { S.num = t; g.fillRect(186, 26, 70, 112);
+      [[String(71 + Math.round(Math.sin(t * 0.37) * 2 + Math.sin(t * 1.3))), '#7fe0d6'], [String(97 + Math.round(Math.sin(t * 0.21))), '#E8A06A'], ['36.' + (7 + Math.round(Math.sin(t * 0.11))), '#B693C4']]
+        .forEach(([v, c], k) => { g.fillStyle = c; g.font = `600 22px ${DISP}`; g.fillText(v, 192, 52 + k * 32); }); g.fillStyle = '#020708'; }
+    up(B); }
+  const C = CKIT.surgFace;
+  if (C && t - S.surg > 1 / 12) { S.surg = t; const g = ctx(C); g.fillStyle = '#020708'; g.fillRect(12, 28, 114, 92);
+    g.strokeStyle = '#7fe0d6'; g.lineWidth = 2; g.strokeRect(14, 30, 110, 88); g.beginPath(); g.ellipse(69, 74, 22, 36, 0, 0, Math.PI * 2); g.stroke();
+    const y = 32 + (t * 28) % 84; g.fillStyle = 'rgba(232,160,106,0.85)'; g.fillRect(16, y, 106, 2); g.fillStyle = 'rgba(232,160,106,0.18)'; g.fillRect(16, Math.max(32, y - 10), 106, Math.min(10, y - 32));
+    up(C); }
+  const D = D3.screenMat;
+  if (D && t - S.st > 1 / 8) { S.st = t; const g = ctx(D);
+    g.fillStyle = '#7E5C8E'; g.fillRect(12, 270, 488, 12); g.fillStyle = '#D7B8E6'; g.fillRect(12 + (t * 70) % 428, 270, 60, 12);
+    if (S.alert !== state.alert) { S.alert = state.alert; const A = { green: ['CONDITION GREEN', '#8DBF84'], yellow: ['CONDITION YELLOW', '#F0B44C'], red: ['CONDITION RED', '#E05A50'] }[state.alert] || ['CONDITION GREEN', '#8DBF84'];
+      g.fillStyle = '#000'; g.fillRect(296, 238, 212, 30); g.fillStyle = A[1]; g.font = `500 24px ${DISP}`; g.fillText(A[0], 300, 262); }
+    up(D); }
+}
