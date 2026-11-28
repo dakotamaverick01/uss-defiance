@@ -262,6 +262,12 @@ function d3Light() {
   rooms.forEach((c) => { const d = D3.doors.find((q) => q.s === c.s); if (!d) return; const n = [Math.sin(d.rot), Math.cos(d.rot)]; lights.push([d.x + n[0] * 0.45, D3Y + 2.2, d.z + n[1] * 0.45, 0.35, 0]); });
   const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
   const spaceAt = (x, z) => { for (let i = 0; i < rooms.length; i++) { const b = rooms[i].bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3] && inP(rooms[i].wpoly, x, z)) return i + 1; } return 0; };
+  // sickbay's glass rooms (surgery, isolation, the CMO's office) are light spaces of their own inside sickbay's: a light
+  // fully lights its own glass room (or the ward), and the others at GT through the glass and its frame (roadmap D3)
+  const SB = D3.sickbay, sbi = SB ? rooms.indexOf(SB) + 1 : -1, GT = 0.5, TEAL = [0.93, 1.0, 0.99];
+  const glass = SB ? SB.glassRooms.map((g) => g.q.poly.map(([m, x]) => [x, m - 64])) : [];
+  const subAt = (x, z) => { for (let i = 0; i < glass.length; i++) if (inP(glass[i], x, z)) return i + 1; return 0; };
+  lights.forEach((l) => { l[5] = l[4] === sbi ? subAt(l[0], l[2]) : 0; });
   const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
   const X = Math.ceil((Math.max(...xs) + 3 - x0) / step) + 1, Z = Math.ceil((Math.max(...zs) + 3 - z0) / step) + 1, Y = Math.floor((H - 0.4) / step) + 1; // layers stay below the ceiling (it samples the top one)
   // spatial hash, 4 m cells
@@ -271,8 +277,9 @@ function d3Light() {
   const data = new Uint8Array(6 * X * Y * Z * 4), E = new Float32Array(6), S = new Float32Array(6);
   for (let iz = 0; iz < Z; iz++) for (let ix = 0; ix < X; ix++) {
     const px = x0 + ix * step, pz = z0 + iz * step, sp = spaceAt(px, pz), LL = near(HL, px, pz).filter((l) => l[4] === sp), CC = sp ? [] : near(HC, px, pz);
-    const direct = (py) => { E.fill(0); LL.forEach(([lx, ly, lz, k]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 49) return;
-      const r = Math.sqrt(r2), cl = Math.max(0, dy / r), a = IP * k * Math.pow(cl, 1.5) / (r2 + 0.35);
+    const ps = sp === sbi ? subAt(px, pz) : 0, BC = sp === sbi ? TEAL : COL; // in sickbay: which glass room, and a faint teal in the bounce off its white and teal walls
+    const direct = (py) => { E.fill(0); LL.forEach(([lx, ly, lz, k, , sub]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 49) return;
+      const r = Math.sqrt(r2), cl = Math.max(0, dy / r), a = IP * k * (sub === ps ? 1 : GT) * Math.pow(cl, 1.5) / (r2 + 0.35);
       N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) E[f] += a * c; }); }); };
     direct(D3Y + 0.02); const floorLit = E[2]; // the light on the floor below: it bounces back up onto the ceiling
     for (let iy = 0; iy < Y; iy++) {
@@ -280,10 +287,11 @@ function d3Light() {
       CC.forEach(([lx, ly, lz]) => { const dx = lx - px, dy = ly - py, dz = lz - pz, r2 = dx * dx + dy * dy + dz * dz; if (r2 > 16) return;
         const r = Math.sqrt(r2), a = IC / (r2 + 0.25); N.forEach((n, f) => { const c = (n[0] * dx + n[1] * dy + n[2] * dz) / r; if (c > 0) S[f] += a * c; }); });
       // bounce: a share of the light on the walls to every side, and the lit floor back up onto the ceiling
-      const avg = (E[0] + E[1] + E[4] + E[5]) / 4; for (let f = 0; f < 6; f++) E[f] += 0.3 * avg; E[3] += 0.4 * floorLit;
+      const avg = (E[0] + E[1] + E[4] + E[5]) / 4;
       for (let f = 0; f < 6; f++) {
-        const t = ((iz * Y + iy) * 6 * X + f * X + ix) * 4, w = Math.min(1, E[f] / PW);
-        data[t] = Math.round(255 * Math.sqrt(w * COL[0])); data[t + 1] = Math.round(255 * Math.sqrt(w * COL[1])); data[t + 2] = Math.round(255 * Math.sqrt(w * COL[2]));
+        const b = 0.3 * avg + (f === 3 ? 0.4 * floorLit : 0), t = ((iz * Y + iy) * 6 * X + f * X + ix) * 4, e = E[f] + b, w = Math.min(1, e / PW), k = e > 0 ? 1 / e : 0;
+        const c = [0, 1, 2].map((j) => (E[f] * COL[j] + b * BC[j]) * k); // direct light warm, bounce tinted by the room
+        data[t] = Math.round(255 * Math.sqrt(w * c[0])); data[t + 1] = Math.round(255 * Math.sqrt(w * c[1])); data[t + 2] = Math.round(255 * Math.sqrt(w * c[2]));
         data[t + 3] = Math.round(255 * Math.sqrt(Math.min(1, S[f] / PS)));
       }
     }
