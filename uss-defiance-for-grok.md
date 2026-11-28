@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `72e8c02`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `755b16c`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -903,10 +903,11 @@ function deckDef(n, o) {
 }
 const deckOf = (n) => DECKS[n];
 // Deck 1, the bridge deck: its parts are gathered into one group the first time you leave it (lift.js)
-deckDef(1, { built: true, root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
+//   envAt         where on the deck its reflection snapshot is taken (x, height above the floor, z)
+deckDef(1, { built: true, envAt: [0, 1.75, 0.6], root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
   floor: (x, z) => (Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0) });
 // Deck 2, the officers' deck (deck2.js)
-deckDef(2, { built: true, root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms });
+deckDef(2, { built: true, envAt: [1.3, 1.6, 9.0], root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms });
 // Decks 3 to 10: not fitted out yet
 for (let n = 3; n <= 10; n++) deckDef(n, {});
 
@@ -2322,7 +2323,10 @@ function uvSet(m, name, metres, o) {
 }
 
 // ---------- world-mapped detail ("triplanar": the texture is projected from three sides and blended) ----------
-const TRI_DECL = `uniform sampler2D triN, triO, triC; uniform float triS, triNS, triRV, triEdge, triLow; uniform vec3 triTint;
+// shared by every patched material: the floor height of the deck you are on (grime is measured from it) and whether
+// the bridge's walkway wear applies (its paths are the bridge's own; other decks get theirs from the kit later)
+const SURFU = { deckFloor: { value: 0 }, walkOn: { value: 1 } };
+const TRI_DECL = `uniform sampler2D triN, triO, triC; uniform float triS, triNS, triRV, triEdge, triLow, deckFloor; uniform vec3 triTint;
 vec3 triW(vec3 n) { vec3 w = pow(abs(n), vec3(4.0)); return w / dot(w, vec3(1.0)); }
 vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture(t, p.zy) * w.x + texture(t, p.xz) * w.y + texture(t, p.xy) * w.z; }
 `;
@@ -2330,7 +2334,7 @@ vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture(t, p.zy) * w.x + textu
 function triSurface(m, o) {
   const U = {
     triN: { value: PH.n }, triO: { value: PH.orm }, triC: { value: PH.c }, triS: { value: 1 / (o.metres || 0.6) }, triNS: { value: o.ns ?? 0.8 },
-    triRV: { value: o.rv ?? 0.6 }, triEdge: { value: o.edge || 0 }, triLow: { value: o.low ?? 1 }, triTint: { value: new THREE.Color(1, 1, 1) },
+    triRV: { value: o.rv ?? 0.6 }, triEdge: { value: o.edge || 0 }, triLow: { value: o.low ?? 1 }, triTint: { value: new THREE.Color(1, 1, 1) }, deckFloor: SURFU.deckFloor,
   };
   TX(o.set + '_n.jpg', 'n', (t) => { U.triN.value = t; });
   TX(o.set + '_orm.jpg', 'orm', (t) => { U.triO.value = t; });
@@ -2342,7 +2346,7 @@ function triSurface(m, o) {
     at: {
       map_fragment: `vec3 tP = vWP * triS; vec3 tWN = normalize(vWN); vec3 tw = triW(tWN); vec4 tO = triTex(triO, tP, tw); float tEdge = 0.0;
         ${o.color ? 'diffuseColor.rgb *= triTex(triC, tP, tw).rgb * triTint;' : ''}
-        float tLow = (1.0 - smoothstep(0.0, 0.35, vWP.y)) * (1.0 - abs(tWN.y)) * triLow; diffuseColor.rgb *= 1.0 - 0.35 * tLow;
+        float tLow = (1.0 - smoothstep(0.0, 0.35, vWP.y - deckFloor)) * (1.0 - abs(tWN.y)) * triLow; diffuseColor.rgb *= 1.0 - 0.35 * tLow;
         ${o.edge ? `{ vec3 an = abs(normalize(vON)); tEdge = smoothstep(0.09, 0.25, 1.0 - max(an.x, max(an.y, an.z))) * smoothstep(0.25, 0.55, tO.g + 0.1) * triEdge;
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.56, 0.55, 0.52), tEdge * 0.8); }` : ''}`,
       roughnessmap_fragment: o.absRough ? 'roughnessFactor *= tO.g;' :
@@ -2358,7 +2362,7 @@ function triSurface(m, o) {
 }
 
 // ---------- bridge floor wear: walkways scuffed where the crew actually walks ----------
-const WALK_DECL = `uniform float walkAmt, walkRough, walkFlat; uniform vec3 walkTint;
+const WALK_DECL = `uniform float walkAmt, walkRough, walkFlat, walkOn; uniform vec3 walkTint;
 float wHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float wNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(wHash(i), wHash(i + vec2(1.0, 0.0)), f.x), mix(wHash(i + vec2(0.0, 1.0)), wHash(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -2375,9 +2379,9 @@ float walkMask(vec2 p) {
 function walkWear(m, o) {
   return patchMat(m, 'walk', {
     world: true, decl: WALK_DECL,
-    uniforms: { walkAmt: { value: o.amt }, walkRough: { value: o.rough }, walkFlat: { value: o.flat }, walkTint: { value: new THREE.Color().setRGB(...o.tint) } },
+    uniforms: { walkAmt: { value: o.amt }, walkRough: { value: o.rough }, walkFlat: { value: o.flat }, walkOn: SURFU.walkOn, walkTint: { value: new THREE.Color().setRGB(...o.tint) } },
     at: {
-      map_fragment: 'float wk = walkMask(vWP.xz) * walkAmt; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * walkTint, wk);',
+      map_fragment: 'float wk = walkMask(vWP.xz) * walkAmt * walkOn; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * walkTint, wk);',
       roughnessmap_fragment: 'roughnessFactor = mix(roughnessFactor, roughnessFactor * walkRough, wk);',
       normal_fragment_maps: 'normal = normalize(mix(normal, flatN, wk * walkFlat));',
     },
@@ -4768,17 +4772,21 @@ function bakeLevels(k, alert, stripHex, stripK) {
 }
 
 // ---------- reflections: photograph the baked room once and use it as the environment ----------
-let _envRT = null;
+// One snapshot per deck, taken from the deck registry's envAt point (decks.js) the first time you are on it, so Deck 2's
+// metal and glass reflect Deck 2, not the bridge. The current deck's and the last one's are kept; older ones are freed.
+const _env = new Map();
 function bakeEnv() {
   if (!BAKE.ok) return;
-  if (typeof LIFT !== 'undefined' && LIFT.deck !== 1) { LIFT.envStale = true; return; } // redone on the way back to Deck 1
+  const n = typeof LIFT !== 'undefined' ? LIFT.deck : 1;
+  if (_env.has(n)) { const rt = _env.get(n); _env.delete(n); _env.set(n, rt); scene.environment = rt.texture; return; }
+  const at = (typeof deckOf === 'function' && deckOf(n).envAt) || [0, 1.75, 0.6];
   const crt = new THREE.WebGLCubeRenderTarget(isMobile ? 96 : 160, { type: THREE.HalfFloatType });
-  const cc = new THREE.CubeCamera(0.05, 40, crt); cc.position.set(0, 1.75, 0.6);
+  const cc = new THREE.CubeCamera(0.05, 40, crt); cc.position.set(at[0], deckY(n) + at[1], at[2]);
   const fog = scene.fog, env = scene.environment; scene.fog = null; scene.environment = null;
   BKU.bkIbl.value = 0; cc.update(renderer, scene);
   const pm = new THREE.PMREMGenerator(renderer), rt2 = pm.fromCubemap(crt.texture); pm.dispose(); crt.dispose();
-  if (_envRT) _envRT.dispose(); _envRT = rt2;
-  if (env && env !== rt2.texture && env.dispose) env.dispose();
+  if (env && env.dispose && ![..._env.values()].some((r) => r.texture === env)) env.dispose();
+  _env.set(n, rt2); while (_env.size > 2) { const k = _env.keys().next().value; _env.get(k).dispose(); _env.delete(k); }
   scene.environment = rt2.texture; scene.environmentIntensity = BAKE.meta.env ?? 1; scene.fog = fog;
 }
 
@@ -6310,7 +6318,7 @@ const CAR = { x0: LIFT_DX - 0.8, x1: LIFT_DX + 0.8, z0: LIFT_DZ + 0.22, z1: LIFT
 const LOBBY = { x0: LIFT_DX - 3.0, x1: LIFT_DX + 3.0, z0: LIFT_DZ - 4.2, z1: LIFT_DZ, h: 2.9 };
 const LIFT = {
   deck: 1, from: 1, to: 1, phase: 'idle', t: 0, dur: 0, door: 0, shake: 0, inside: false,
-  root: group(0, 0, 0, 0), stub: group(0, 0, 0, 0), deck1: null, envStale: false, k: -1,
+  root: group(0, 0, 0, 0), stub: group(0, 0, 0, 0), deck1: null, k: -1,
   carSegs: [], stubSegs: [], doorSeg: [LIFT_DX - 0.6, LIFT_DZ, LIFT_DX + 0.6, LIFT_DZ, 0.2], mats: [], panels: [], stubDoor: null, lum: 0.8,
 };
 LIFT.stub.visible = false;
@@ -6562,7 +6570,8 @@ function liftSetDeck(n) {
   // show only this deck: its own group if it is built, otherwise the sealed placeholder lobby at its height
   Object.values(DECKS).forEach((d) => { const r = d.root(); if (r) r.visible = d.n === n; });
   LIFT.stub.visible = !deckOf(n).built; LIFT.stub.position.y = deckY(n);
-  if (n === 1 && LIFT.envStale) { LIFT.envStale = false; bakeEnv(); }
+  SURFU.deckFloor.value = deckY(n); SURFU.walkOn.value = n === 1 ? 1 : 0;
+  bakeEnv(); // this deck's reflections (cached after the first visit)
   LIFT.panels.forEach(liftPanelDraw);
 }
 function liftGo(n) {

@@ -27,7 +27,7 @@ const CAR = { x0: LIFT_DX - 0.8, x1: LIFT_DX + 0.8, z0: LIFT_DZ + 0.22, z1: LIFT
 const LOBBY = { x0: LIFT_DX - 3.0, x1: LIFT_DX + 3.0, z0: LIFT_DZ - 4.2, z1: LIFT_DZ, h: 2.9 };
 const LIFT = {
   deck: 1, from: 1, to: 1, phase: 'idle', t: 0, dur: 0, door: 0, shake: 0, inside: false,
-  root: group(0, 0, 0, 0), stub: group(0, 0, 0, 0), deck1: null, envStale: false, k: -1,
+  root: group(0, 0, 0, 0), stub: group(0, 0, 0, 0), deck1: null, k: -1,
   carSegs: [], stubSegs: [], doorSeg: [LIFT_DX - 0.6, LIFT_DZ, LIFT_DX + 0.6, LIFT_DZ, 0.2], mats: [], panels: [], stubDoor: null, lum: 0.8,
 };
 LIFT.stub.visible = false;
@@ -279,7 +279,8 @@ function liftSetDeck(n) {
   // show only this deck: its own group if it is built, otherwise the sealed placeholder lobby at its height
   Object.values(DECKS).forEach((d) => { const r = d.root(); if (r) r.visible = d.n === n; });
   LIFT.stub.visible = !deckOf(n).built; LIFT.stub.position.y = deckY(n);
-  if (n === 1 && LIFT.envStale) { LIFT.envStale = false; bakeEnv(); }
+  SURFU.deckFloor.value = deckY(n); SURFU.walkOn.value = n === 1 ? 1 : 0;
+  bakeEnv(); // this deck's reflections (cached after the first visit)
   LIFT.panels.forEach(liftPanelDraw);
 }
 function liftGo(n) {

@@ -116,17 +116,21 @@ function bakeLevels(k, alert, stripHex, stripK) {
 }
 
 // ---------- reflections: photograph the baked room once and use it as the environment ----------
-let _envRT = null;
+// One snapshot per deck, taken from the deck registry's envAt point (decks.js) the first time you are on it, so Deck 2's
+// metal and glass reflect Deck 2, not the bridge. The current deck's and the last one's are kept; older ones are freed.
+const _env = new Map();
 function bakeEnv() {
   if (!BAKE.ok) return;
-  if (typeof LIFT !== 'undefined' && LIFT.deck !== 1) { LIFT.envStale = true; return; } // redone on the way back to Deck 1
+  const n = typeof LIFT !== 'undefined' ? LIFT.deck : 1;
+  if (_env.has(n)) { const rt = _env.get(n); _env.delete(n); _env.set(n, rt); scene.environment = rt.texture; return; }
+  const at = (typeof deckOf === 'function' && deckOf(n).envAt) || [0, 1.75, 0.6];
   const crt = new THREE.WebGLCubeRenderTarget(isMobile ? 96 : 160, { type: THREE.HalfFloatType });
-  const cc = new THREE.CubeCamera(0.05, 40, crt); cc.position.set(0, 1.75, 0.6);
+  const cc = new THREE.CubeCamera(0.05, 40, crt); cc.position.set(at[0], deckY(n) + at[1], at[2]);
   const fog = scene.fog, env = scene.environment; scene.fog = null; scene.environment = null;
   BKU.bkIbl.value = 0; cc.update(renderer, scene);
   const pm = new THREE.PMREMGenerator(renderer), rt2 = pm.fromCubemap(crt.texture); pm.dispose(); crt.dispose();
-  if (_envRT) _envRT.dispose(); _envRT = rt2;
-  if (env && env !== rt2.texture && env.dispose) env.dispose();
+  if (env && env.dispose && ![..._env.values()].some((r) => r.texture === env)) env.dispose();
+  _env.set(n, rt2); while (_env.size > 2) { const k = _env.keys().next().value; _env.get(k).dispose(); _env.delete(k); }
   scene.environment = rt2.texture; scene.environmentIntensity = BAKE.meta.env ?? 1; scene.fog = fog;
 }
 

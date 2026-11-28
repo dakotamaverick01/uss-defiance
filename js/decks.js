@@ -18,9 +18,10 @@ function deckDef(n, o) {
 }
 const deckOf = (n) => DECKS[n];
 // Deck 1, the bridge deck: its parts are gathered into one group the first time you leave it (lift.js)
-deckDef(1, { built: true, root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
+//   envAt         where on the deck its reflection snapshot is taken (x, height above the floor, z)
+deckDef(1, { built: true, envAt: [0, 1.75, 0.6], root: () => LIFT.deck1 || null, segs: () => WALL_SEGS, obs: () => obstacles,
   floor: (x, z) => (Math.hypot(x - DAIS.x, z - DAIS.z) < DAIS.r + 0.02 ? DAIS.h : 0) });
 // Deck 2, the officers' deck (deck2.js)
-deckDef(2, { built: true, root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms });
+deckDef(2, { built: true, envAt: [1.3, 1.6, 9.0], root: () => DECK2, segs: () => D2.segs, obs: () => D2.obs, rooms: () => D2.rooms });
 // Decks 3 to 10: not fitted out yet
 for (let n = 3; n <= 10; n++) deckDef(n, {});

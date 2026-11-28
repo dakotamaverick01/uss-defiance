@@ -70,7 +70,10 @@ function uvSet(m, name, metres, o) {
 }
 
 // ---------- world-mapped detail ("triplanar": the texture is projected from three sides and blended) ----------
-const TRI_DECL = `uniform sampler2D triN, triO, triC; uniform float triS, triNS, triRV, triEdge, triLow; uniform vec3 triTint;
+// shared by every patched material: the floor height of the deck you are on (grime is measured from it) and whether
+// the bridge's walkway wear applies (its paths are the bridge's own; other decks get theirs from the kit later)
+const SURFU = { deckFloor: { value: 0 }, walkOn: { value: 1 } };
+const TRI_DECL = `uniform sampler2D triN, triO, triC; uniform float triS, triNS, triRV, triEdge, triLow, deckFloor; uniform vec3 triTint;
 vec3 triW(vec3 n) { vec3 w = pow(abs(n), vec3(4.0)); return w / dot(w, vec3(1.0)); }
 vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture(t, p.zy) * w.x + texture(t, p.xz) * w.y + texture(t, p.xy) * w.z; }
 `;
@@ -78,7 +81,7 @@ vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture(t, p.zy) * w.x + textu
 function triSurface(m, o) {
   const U = {
     triN: { value: PH.n }, triO: { value: PH.orm }, triC: { value: PH.c }, triS: { value: 1 / (o.metres || 0.6) }, triNS: { value: o.ns ?? 0.8 },
-    triRV: { value: o.rv ?? 0.6 }, triEdge: { value: o.edge || 0 }, triLow: { value: o.low ?? 1 }, triTint: { value: new THREE.Color(1, 1, 1) },
+    triRV: { value: o.rv ?? 0.6 }, triEdge: { value: o.edge || 0 }, triLow: { value: o.low ?? 1 }, triTint: { value: new THREE.Color(1, 1, 1) }, deckFloor: SURFU.deckFloor,
   };
   TX(o.set + '_n.jpg', 'n', (t) => { U.triN.value = t; });
   TX(o.set + '_orm.jpg', 'orm', (t) => { U.triO.value = t; });
@@ -90,7 +93,7 @@ function triSurface(m, o) {
     at: {
       map_fragment: `vec3 tP = vWP * triS; vec3 tWN = normalize(vWN); vec3 tw = triW(tWN); vec4 tO = triTex(triO, tP, tw); float tEdge = 0.0;
         ${o.color ? 'diffuseColor.rgb *= triTex(triC, tP, tw).rgb * triTint;' : ''}
-        float tLow = (1.0 - smoothstep(0.0, 0.35, vWP.y)) * (1.0 - abs(tWN.y)) * triLow; diffuseColor.rgb *= 1.0 - 0.35 * tLow;
+        float tLow = (1.0 - smoothstep(0.0, 0.35, vWP.y - deckFloor)) * (1.0 - abs(tWN.y)) * triLow; diffuseColor.rgb *= 1.0 - 0.35 * tLow;
         ${o.edge ? `{ vec3 an = abs(normalize(vON)); tEdge = smoothstep(0.09, 0.25, 1.0 - max(an.x, max(an.y, an.z))) * smoothstep(0.25, 0.55, tO.g + 0.1) * triEdge;
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.56, 0.55, 0.52), tEdge * 0.8); }` : ''}`,
       roughnessmap_fragment: o.absRough ? 'roughnessFactor *= tO.g;' :
@@ -106,7 +109,7 @@ function triSurface(m, o) {
 }
 
 // ---------- bridge floor wear: walkways scuffed where the crew actually walks ----------
-const WALK_DECL = `uniform float walkAmt, walkRough, walkFlat; uniform vec3 walkTint;
+const WALK_DECL = `uniform float walkAmt, walkRough, walkFlat, walkOn; uniform vec3 walkTint;
 float wHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float wNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(wHash(i), wHash(i + vec2(1.0, 0.0)), f.x), mix(wHash(i + vec2(0.0, 1.0)), wHash(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -123,9 +126,9 @@ float walkMask(vec2 p) {
 function walkWear(m, o) {
   return patchMat(m, 'walk', {
     world: true, decl: WALK_DECL,
-    uniforms: { walkAmt: { value: o.amt }, walkRough: { value: o.rough }, walkFlat: { value: o.flat }, walkTint: { value: new THREE.Color().setRGB(...o.tint) } },
+    uniforms: { walkAmt: { value: o.amt }, walkRough: { value: o.rough }, walkFlat: { value: o.flat }, walkOn: SURFU.walkOn, walkTint: { value: new THREE.Color().setRGB(...o.tint) } },
     at: {
-      map_fragment: 'float wk = walkMask(vWP.xz) * walkAmt; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * walkTint, wk);',
+      map_fragment: 'float wk = walkMask(vWP.xz) * walkAmt * walkOn; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * walkTint, wk);',
       roughnessmap_fragment: 'roughnessFactor = mix(roughnessFactor, roughnessFactor * walkRough, wk);',
       normal_fragment_maps: 'normal = normalize(mix(normal, flatN, wk * walkFlat));',
     },
