@@ -38,7 +38,7 @@ async def run():
       pg = await ctx.new_page(); errs = []; warns = []
       pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
       pg.on('console', lambda m: (warns.append(m.text[:200]) if m.type in ('warning', 'error') else None))
-      await pg.add_init_script('window.PLANET_RES=1024;')
+      await pg.add_init_script('window.PLANET_RES=1024; window.DEFIANCE_BUILD_ALL = 1;')
       await pg.route('**/*', route); await pg.goto('https://example.test/')
       await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED', timeout=180000)
       res = await pg.evaluate(PRESS_ALL)

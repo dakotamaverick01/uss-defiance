@@ -3,10 +3,11 @@
 // was about 1,550 a frame because every trim strip, frame and bolt was its own object. This merges fixed objects that
 // share a material into one object per deck, per material and per 6 m zone (zones let the camera still skip what is
 // behind it). It runs three times:
-//   1. at load, once the decks are built and the light-map atlas is laid out (bake.js): fixed parts and furniture;
-//   2. once the baked light has loaded: the light-mapped walls, floors and ceilings. They have to wait, because the
-//      bake swaps their materials as it loads; each keeps its own light-map coordinates (uvLM), so merging them does
-//      not change the light;
+//   1. once a deck is built and its light-map atlas is laid out (bake.js): fixed parts and furniture (batchDeck; the
+//      bridge at load, other decks when the lift first heads there, decks.js deckBuild);
+//   2. once that deck's baked light is in place: its light-mapped walls, floors and ceilings (batchLightmapped). They
+//      have to wait, because the bake swaps their materials; each keeps its own light-map coordinates (uvLM), so merging
+//      them does not change the light;
 //   3. from lift.js, once the lift car and the sealed lobby are built: their fixed parts, in the car's own frame so the
 //      car still rides as one.
 // Chairs and doors are "sleepers": at rest they are drawn as part of the merged objects (their own parts hidden).
@@ -162,23 +163,32 @@ function batchSleep() {
   }
 }
 
-// pass 1: the decks' fixed parts, at load
-{
-  const skip = new Set([EXTSET, holo, ...DECALS]); // decals are switched on and off with the bake
+// pass 1: a deck's fixed parts, once it is built (the bridge at load, other decks from decks.js deckBuild)
+function batchDeck(top) {
+  const skip = new Set([EXTSET, holo, ...DECALS].filter(Boolean)); // decals are switched on and off with the bake
   SHUTTERS.forEach((s) => s.slats.forEach((x) => skip.add(x)));
   // the bridge's lift door frame takes the lift car's materials later (lift.js), so it must still be its own object
   const ld = DOORS.find((q) => q.station === 'lift'); if (ld) ld.reveal.forEach((x) => skip.add(x));
   // moving parts: what rides on one is merged in that part's own frame, so it still moves as one
   // (the lift's doors are run by lift.js every frame, so they stay movers); chairs and other doors sleep
-  const movers = new Set(), sleepers = new Map();
+  const movers = new Set(), sleepers = new Map(), seen = new Set(SLEEPERS.map((sl) => sl.chair || sl.door));
   DOORS.forEach((d) => {
     if (d.station === 'lift') { movers.add(d.L); movers.add(d.Rr); return; }
+    if (seen.has(d)) return;
     const sl = { door: d, parts: [], awake: false }; sleepers.set(d.L, sl); sleepers.set(d.Rr, sl);
   });
   if (D2.door) { movers.add(D2.door.L); movers.add(D2.door.Rr); } // Deck 2's lift landing doors (lift.js slides them)
-  CHAIRS.forEach((c) => sleepers.set(c.g, { chair: c, parts: [], awake: false }));
-  batchMerge(scene, { movers, skip, sleepers, label: 'parts' });
+  CHAIRS.forEach((c) => { if (!seen.has(c)) sleepers.set(c.g, { chair: c, parts: [], awake: false }); });
+  return batchMerge(top, { movers, skip, sleepers, label: 'parts ' + (top === scene ? 'd1' : top.name) });
 }
-// pass 2: the light-mapped walls, floors and ceilings, once the bake has swapped their materials. This runs before
-// render.js's own hand-over (promise callbacks run in the order they were added, and render.js loads later).
-BAKE.ready.then((ok) => { if (ok) batchMerge(scene, { only: new Set(BAKE.receivers), skip: new Set([EXTSET]), label: 'lightmapped' }); });
+batchDeck(scene);
+// pass 2: a deck's light-mapped walls, floors and ceilings, once its bake has swapped their materials (bake.js bakeApply)
+function batchLightmapped(n) {
+  const B = BAKE.decks[n]; if (!B) return null;
+  const top = n === 1 ? scene : deckOf(n).root();
+  const st = batchMerge(top, { only: new Set(B.receivers), skip: new Set([EXTSET].filter(Boolean)), label: 'lightmapped d' + n });
+  B.receivers = B.receivers.filter((o) => BAKE.receivers.includes(o));
+  return st;
+}
+// Deck 1's runs before render.js's own hand-over (promise callbacks run in the order they were added; render.js loads later)
+BAKE.ready.then((ok) => { if (ok) batchLightmapped(1); });

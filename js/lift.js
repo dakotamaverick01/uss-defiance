@@ -276,14 +276,17 @@ function liftSetDeck(n) {
   if (n !== 1 && !LIFT.deck1) {
     // first time away: gather everything that makes up Deck 1 into one group so it can be hidden in one go
     LIFT.deck1 = new THREE.Group(); LIFT.deck1.name = 'Deck 1';
-    scene.children.slice().forEach((o) => { if (o !== LIFT.root && o !== LIFT.stub && o !== DECK2 && !o.userData.keep && !o.isLight && !o.isCamera) LIFT.deck1.add(o); });
+    const roots = new Set(Object.values(DECKS).map((d) => (d.n === 1 ? null : d.root())));
+    scene.children.slice().forEach((o) => { if (o !== LIFT.root && o !== LIFT.stub && !roots.has(o) && !o.userData.keep && !o.isLight && !o.isCamera) LIFT.deck1.add(o); });
     scene.add(LIFT.deck1);
   }
+  deckBuild(n); // the first visit builds the deck (decks.js); the car's doors are shut while it runs
   LIFT.deck = n;
   // show only this deck: its own group if it is built, otherwise the sealed placeholder lobby at its height
   Object.values(DECKS).forEach((d) => { const r = d.root(); if (r) r.visible = d.n === n; });
   LIFT.stub.visible = !deckOf(n).built; LIFT.stub.position.y = deckY(n);
   SURFU.deckFloor.value = deckY(n); SURFU.walkOn.value = n === 1 ? 1 : 0;
+  bakeUse(n); // this deck's baked light (bake.js)
   bakeEnv(); // this deck's reflections (cached after the first visit)
   LIFT.panels.forEach(liftPanelDraw);
 }
@@ -320,7 +323,7 @@ function liftUpdate(dt) {
     want = 1; if (LIFT.door > 0.97) LIFT.phase = 'idle';
   }
   LIFT.door += (want - LIFT.door) * Math.min(1, dt * 4.5);
-  [LIFT.stubDoor, D2.door].forEach((s) => { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; });
+  [LIFT.stubDoor, D2.door].forEach((s) => { if (s) { s.L.position.x = -0.3 - LIFT.door * 0.56; s.Rr.position.x = 0.3 + LIFT.door * 0.56; } }); // (Deck 2's exist once it is built)
   LIFT.carDoor.L.position.x = LIFT_DX - 0.3 - LIFT.door * 0.56; LIFT.carDoor.Rr.position.x = LIFT_DX + 0.3 + LIFT.door * 0.56;
   // light level follows the ship's lighting setting and dims at red alert, like the baked decks
   const k = LIGHT_LEVELS[state.light] * (state.alert === 'red' ? 0.34 : 1);

@@ -252,7 +252,7 @@ function frame() {
     extGeo.attributes.position.needsUpdate = true;
   } else extStreaks.visible = false;
   // the exterior's moving parts: shuttlebay doors, impulse plumes, thruster puffs, blinking hull lights
-  if (EXTSET.userData.update) EXTSET.userData.update(dt, elapsed);
+  if (EXTSET && EXTSET.userData.update) EXTSET.userData.update(dt, elapsed); // (built with Deck 2)
 
   if (state.alert === 'red') {
     const k = 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(elapsed * 4));
@@ -293,5 +293,7 @@ requestAnimationFrame(frame);
 // hand-over to the baked light once its files arrive (or to the fallback rig if they can't)
 BAKE.ready.then((ok) => {
   if (ok) { renderer.shadowMap.enabled = false; applyLights(); } else { fallbackLights(); DECALS.forEach((m) => { m.visible = true; }); applyLights(); }
+  // checks that look at every deck at once ask for them all to be built now (normally each is built on its first visit)
+  if (window.DEFIANCE_BUILD_ALL) Object.values(DECKS).forEach((d) => deckBuild(d.n));
   window.DEFIANCE_BAKED = ok ? 'baked' : 'fallback';
 });

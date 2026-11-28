@@ -105,7 +105,7 @@ async def run():
     ctx = await b.new_context(viewport={'width': 1280, 'height': 720}); pg = await ctx.new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
     # layout checks look at each part on its own, so the scene is left unmerged (batch.js); tools/check_budget.py checks the merged one
-    await pg.add_init_script('window.DEFIANCE_NO_BATCH = 1;')
+    await pg.add_init_script('window.DEFIANCE_NO_BATCH = 1; window.DEFIANCE_BUILD_ALL = 1;')
     await pg.route('**/*', route); await pg.goto('https://example.test/')
     await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED', timeout=180000)
     res = await pg.evaluate(CHECK_JS); await b.close()

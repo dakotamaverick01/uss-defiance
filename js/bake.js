@@ -4,11 +4,15 @@
 //   - flat room surfaces (floors, walls, ceilings) carry a light map: one image laid out like a sewing pattern;
 //   - everything else reads a light-probe grid: points every 30 cm that recorded the light arriving from six directions.
 // Two layers are stored: W (every fixture except the deck strips) and S (the deck strips alone, in white), so light
-// level and alert colour can be changed live without re-baking. Files: bake/*.png and bake/bake.json.
+// level and alert colour can be changed live without re-baking. Each deck has its own bake (roadmap F4):
+// bake/d<n>/lm_w.png, lm_s.png, pr_w.png, pr_s.png and bake.json, its own light-map layout and its own probe grid, so
+// changing one deck never re-bakes another. Every built deck's files load at start-up; the lift switches the shared
+// uniforms (BKU) to the deck you arrive on (bakeUse).
 // Files share one global scope and load in order (see index.html).
 'use strict';
 
-const BAKE = { ok: false, receivers: [], atlas: null, failed: false };
+const BAKE = { ok: false, receivers: [], atlas: null, failed: false, decks: {}, cur: 0, meta: null }; // decks[n]: { receivers, atlas, ok }
+const BKD = {}; // each deck's loaded bake: { meta, lmW, lmS, pr }
 const BKU = {
   bkW: { value: new THREE.Color(0, 0, 0) }, bkS: { value: new THREE.Color(0, 0, 0) }, bkIbl: { value: 1 },
   bkLmW: { value: null }, bkLmS: { value: null }, bkLmMax: { value: new THREE.Vector2(1, 1) },
@@ -17,19 +21,28 @@ const BKU = {
 
 // ---------- which surfaces get a light map: big flat opaque surfaces of the fixed rooms ----------
 const PLANAR = { PlaneGeometry: 1, ShapeGeometry: 1, CircleGeometry: 1 };
-function bakeLive(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
+// shown, not counting a deck's own group (a deck is laid out while it is still hidden, as the lift heads there)
+function bakeLive(o) { for (let p = o; p; p = p.parent) if (!p.visible && !(p.parent === scene && Object.values(DECKS).some((d) => d.n !== 1 && d.root() === p))) return false; return true; }
 function isReceiver(o) {
   if (!o.isMesh || o.layers.mask !== 1 || !PLANAR[o.geometry.type] || Array.isArray(o.material)) return false;
   const m = o.material; if (!m.isMeshStandardMaterial || m.transparent || !bakeLive(o)) return false;
   o.geometry.computeBoundingBox(); const s = new THREE.Vector3(); o.geometry.boundingBox.getSize(s);
   return s.x * s.y + s.y * s.z + s.x * s.z > 0.25;
 }
-// Lay every receiver out in one atlas. Coplanar pieces (a wall split by a door) share one rectangle.
-// Deterministic: the same scene always gives the same layout, which the bake tool relies on.
-function buildAtlas() {
+// One deck's meshes: deck n's group, or for Deck 1 everything that is not another deck's group (nor the lift, whose
+// materials carry their own light). fn(o) for each object.
+function bakeWalk(n, fn) {
+  const others = new Set(); Object.values(DECKS).forEach((d) => { if (d.n !== n) { const r = d.n === 1 ? null : d.root(); if (r) others.add(r); } });
+  if (typeof LIFT !== 'undefined') [LIFT.root, LIFT.stub].forEach((g) => others.add(g));
+  const top = n === 1 ? ((typeof LIFT !== 'undefined' && LIFT.deck1) || scene) : deckOf(n).root();
+  (function walk(o) { if (others.has(o)) return; fn(o); o.children.forEach(walk); })(top);
+}
+// Lay deck n's receivers out in its own atlas. Coplanar pieces (a wall split by a door) share one rectangle.
+// Deterministic: the same deck always gives the same layout, which the bake tool relies on.
+function buildAtlas(dn) {
   scene.updateMatrixWorld(true);
   const groups = new Map(), list = [], seenGeo = new Set(), PAD = 3, AW = 2048;
-  scene.traverse((o) => { if (isReceiver(o)) list.push(o); });
+  bakeWalk(dn, (o) => { if (isReceiver(o) && !(typeof EXTSET !== 'undefined' && EXTSET && o.parent && bakeUnder(o, EXTSET))) list.push(o); });
   const nm = new THREE.Matrix3(), n = new THREE.Vector3(), p = new THREE.Vector3();
   list.forEach((o) => {
     if (seenGeo.has(o.geometry)) o.geometry = o.geometry.clone(); seenGeo.add(o.geometry);
@@ -67,9 +80,12 @@ function buildAtlas() {
     }
     o.geometry.setAttribute('uvLM', new THREE.BufferAttribute(uv, 2));
   }));
-  BAKE.receivers = list;
-  BAKE.atlas = { w: AW, h: AH, rects: G.length, sig: G.map((g) => g.w + 'x' + g.h).join(';').length + ':' + list.length };
+  const atlas = { w: AW, h: AH, rects: G.length, sig: G.map((g) => g.w + 'x' + g.h).join(';').length + ':' + list.length };
+  BAKE.decks[dn] = { receivers: list, atlas, ok: false };
+  BAKE.receivers = BAKE.receivers.concat(list); // every deck's, for batch.js
+  if (dn === 1) BAKE.atlas = atlas;
 }
+function bakeUnder(o, g) { for (let p = o; p; p = p.parent) if (p === g) return true; return false; }
 
 // ---------- shaders: add baked light to three.js's standard material ----------
 const BK_IBL_LINE = 'iblIrradiance += getIBLIrradiance( geometryNormal );';
@@ -138,15 +154,10 @@ function bakeEnv() {
 function bakeImg(url) { return new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; }); }
 function bakeTex(img) { const t = new THREE.Texture(img); t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.needsUpdate = true; return t; }
 function bakePixels(img) { const c = cnv(img.width, img.height), g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0); return g.getImageData(0, 0, img.width, img.height).data; }
-buildAtlas();
-BAKE.ready = (async () => {
-  await SURF.ready(); // textures first, so every material is final before it is patched
-  if (window.DEFIANCE_NO_BAKE) throw new Error('bake disabled');
-  const meta = await (await fetch('bake/bake.json')).json();
-  if (meta.atlas.w !== BAKE.atlas.w || meta.atlas.h !== BAKE.atlas.h || meta.atlas.sig !== BAKE.atlas.sig) throw new Error('bake does not match the scene; re-run the bake (see README)');
-  const [lw, ls, pw, ps] = await Promise.all(['lm_w', 'lm_s', 'pr_w', 'pr_s'].map((n) => bakeImg('bake/' + n + '.png')));
-  BAKE.meta = meta;
-  BKU.bkLmW.value = bakeTex(lw); BKU.bkLmS.value = bakeTex(ls); BKU.bkLmMax.value.set(meta.lm_max[0], meta.lm_max[1]);
+// fetch one deck's bake files and turn them into textures (needs nothing built)
+async function bakeFetch(n) {
+  const dir = 'bake/d' + n + '/', meta = await (await fetch(dir + 'bake.json')).json();
+  const [lw, ls, pw, ps] = await Promise.all(['lm_w', 'lm_s', 'pr_w', 'pr_s'].map((f) => bakeImg(dir + f + '.png')));
   // probes: the image stacks six direction blocks; rebuild them side by side in one 3D texture
   const [X, Y, Z] = meta.grid.dims, a = bakePixels(pw), b = bakePixels(ps), d = new Uint8Array(6 * X * Y * Z * 4);
   for (let f = 0; f < 6; f++) for (let y = 0; y < Y; y++) for (let z = 0; z < Z; z++) for (let x = 0; x < X; x++) {
@@ -154,26 +165,61 @@ BAKE.ready = (async () => {
     d[t] = a[s]; d[t + 1] = a[s + 1]; d[t + 2] = a[s + 2]; d[t + 3] = b[s];
   }
   const pt = new THREE.Data3DTexture(d, 6 * X, Y, Z); pt.minFilter = pt.magFilter = THREE.LinearFilter; pt.unpackAlignment = 1; pt.needsUpdate = true;
-  BKU.bkPr.value = pt; BKU.bkPrMin.value.fromArray(meta.grid.origin); BKU.bkPrInv.value = 1 / meta.grid.step; BKU.bkPrDim.value.set(X, Y, Z); BKU.bkPrMax.value.set(meta.pr_max[0], meta.pr_max[1]);
-  // patch materials: receivers get the light map; every other lit interior material reads the probes
-  const recv = new Set(BAKE.receivers), mats = new Map();
-  scene.traverse((o) => {
-    if (!o.isMesh || !(o.layers.mask & 1)) return;
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
-      if (!m || !m.isMeshStandardMaterial || m.userData.noBake) return; // the lift car and lobbies carry their own light (lift.js)
-      const e = mats.get(m) || { r: 0, o: 0 }; recv.has(o) ? e.r++ : e.o++; mats.set(m, e);
-    });
+  BKD[n] = { meta, lmW: bakeTex(lw), lmS: bakeTex(ls), pr: pt };
+  return BKD[n];
+}
+// Point the shared uniforms at deck n's bake (on arrival; lift.js). False if that deck has no bake applied.
+function bakeUse(n) {
+  const D = BKD[n]; if (!D || !BAKE.decks[n] || !BAKE.decks[n].ok) return false;
+  const m = D.meta; BAKE.meta = m; BAKE.cur = n;
+  BKU.bkLmW.value = D.lmW; BKU.bkLmS.value = D.lmS; BKU.bkLmMax.value.set(m.lm_max[0], m.lm_max[1]);
+  BKU.bkPr.value = D.pr; BKU.bkPrMin.value.fromArray(m.grid.origin); BKU.bkPrInv.value = 1 / m.grid.step;
+  BKU.bkPrDim.value.set(...m.grid.dims); BKU.bkPrMax.value.set(m.pr_max[0], m.pr_max[1]);
+  if (typeof applyLights === 'function') applyLights(); // light level and alert colour, with this deck's exposure
+  return true;
+}
+// Give deck n's materials the baked light, once the deck is built and its files have loaded: light-map receivers get
+// the light map, every other lit interior material the probes. A material used both ways is copied for the other use.
+// Returns true when the deck's bake is in place (batch.js then merges its light-mapped surfaces).
+function bakeApply(n) {
+  const B = BAKE.decks[n], D = BKD[n]; if (!B || !D || B.ok) return false;
+  const A = D.meta.atlas;
+  if (A.w !== B.atlas.w || A.h !== B.atlas.h || A.sig !== B.atlas.sig) { console.warn('Deck ' + n + ': bake does not match the deck; re-run its bake (see README)'); return false; }
+  const recv = new Set(B.receivers);
+  bakeWalk(n, (o) => {
+    if (!o.isMesh || !(o.layers.mask & (1 | (1 << 30)))) return; // (1 << 30: chairs and doors drawn merged, batch.js)
+    if (Array.isArray(o.material)) { o.material.forEach((m) => { if (m && m.isMeshStandardMaterial && !m.userData.noBake) bakePatch(m, 'pr'); }); return; }
+    const m = o.material; if (!m || !m.isMeshStandardMaterial || m.userData.noBake) return;
+    o.material = bakeFor(m, recv.has(o) ? 'lm' : 'pr');
   });
-  const lmCopy = new Map();
-  mats.forEach((e, m) => { if (e.o) bakePatch(m, 'pr'); else bakePatch(m, 'lm'); });
-  BAKE.receivers.forEach((o) => {
-    if (o.material.userData.bk === 'lm') return;
-    // the copy keeps the material's own patches but not its probe patch (two bake patches would redefine the uniforms)
-    let c = lmCopy.get(o.material); if (!c) { c = copyPatches(o.material, o.material.clone()); c._patches = c._patches.filter((q) => !q.key.startsWith('bk-')); c.userData = {}; bakePatch(c, 'lm'); lmCopy.set(o.material, c); }
-    o.material = c;
-  });
+  B.ok = true; return true;
+}
+// m itself if it is (or can become) patched for this use, else its copy for that use
+function bakeFor(m, mode) {
+  if (!m.userData.bk) { bakePatch(m, mode); return m; }
+  if (m.userData.bk === mode) return m;
+  const alt = m.userData.bkAlt || (m.userData.bkAlt = {});
+  if (!alt[mode]) {
+    // the copy keeps the material's own patches but not its bake patch (two bake patches would redefine the uniforms)
+    const c = copyPatches(m, m.clone()); c._patches = c._patches.filter((q) => !q.key.startsWith('bk-')); c.userData = {}; bakePatch(c, mode); alt[mode] = c;
+  }
+  return alt[mode];
+}
+// Deck 1 is laid out now (the decks below are laid out when they are built, decks.js deckBuild)
+buildAtlas(1);
+BAKE.ready = (async () => {
+  await SURF.ready(); // textures first, so every material is final before it is patched
+  if (window.DEFIANCE_NO_BAKE) throw new Error('bake disabled');
+  // every built deck's files, side by side; only Deck 1's are needed to start
+  const loads = Object.values(DECKS).filter((d) => d.built).map((d) => bakeFetch(d.n).catch((e) => console.warn('Deck ' + d.n + ' bake unavailable:', e.message)));
+  await Promise.all(loads);
+  if (!BKD[1]) throw new Error('no bake for Deck 1');
+  if (!bakeApply(1)) throw new Error('bake does not match the scene; re-run the bake (see README)');
+  bakeUse(1);
   DECALS.forEach((m) => { m.visible = false; });
   BAKE.ok = true;
+  // a deck built before its files arrived (a very quick lift ride) gets its light now
+  Object.keys(BAKE.decks).forEach((k) => { const n = +k; if (n !== 1 && bakeApply(n) && typeof batchLightmapped === 'function') batchLightmapped(n); });
   return true;
 })().catch((e) => { console.warn('Baked lighting unavailable, using fallback light:', e.message); BAKE.failed = true; return false; });
 // render.js finishes the hand-over (applyLights, reflections) once every file has loaded.

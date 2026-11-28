@@ -1,12 +1,12 @@
 # Step 3 of the light bake: clean up Blender's output and save it as small PNGs the ship loads (bake/).
-# usage: python3 tools/bake_encode.py <work_dir> <site_dir>
+# usage: python3 tools/bake_encode.py <work_dir> <site_dir>   (writes bake/d<deck>/ for the deck the work dir was exported for)
 # Values are stored as sqrt(value / max) so dark areas keep their precision in 8 bits; bake.json holds each max.
 import sys, os, json
 import numpy as np
 from PIL import Image
 work, site = sys.argv[1], sys.argv[2]
-out = os.path.join(site, 'bake'); os.makedirs(out, exist_ok=True)
 scn = json.load(open(os.path.join(work, 'scene.json'))); pj = json.load(open(os.path.join(work, 'probes.json')))
+out = os.path.join(site, 'bake', 'd%d' % scn.get('deck', 1)); os.makedirs(out, exist_ok=True)
 EXPOSURE = float(os.environ.get('EXPOSURE', 7.0))  # brightness the ship was tuned at
 
 def blur_masked(a, mask, it=1):
@@ -21,7 +21,7 @@ def blur_masked(a, mask, it=1):
   return a
 def enc(a, mx): return (np.sqrt(np.clip(a / mx, 0, 1)) * 255 + 0.5).astype(np.uint8)
 
-meta = {'atlas': scn['atlas'], 'exposure': EXPOSURE, 'strip': 1.0, 'env': 1.0, 'rig': pj['rig'], 'samples': pj['samples']}
+meta = {'deck': scn.get('deck', 1), 'atlas': scn['atlas'], 'exposure': EXPOSURE, 'strip': 1.0, 'env': 1.0, 'rig': pj['rig'], 'samples': pj['samples']}
 # light map
 lw, ls = np.load(os.path.join(work, 'lm_w.npy')), np.load(os.path.join(work, 'lm_s.npy')).mean(2, keepdims=True)
 mask = lw.sum(2) > 0

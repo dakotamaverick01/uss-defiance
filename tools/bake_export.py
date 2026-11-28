@@ -1,24 +1,25 @@
 # Step 1 of the light bake: open the ship in headless Chromium and write out its fixed geometry for Blender.
-# usage: python3 tools/bake_export.py <site_dir> <work_dir>
+# usage: python3 tools/bake_export.py <site_dir> <work_dir> [deck]   (deck: 1 by default; each deck is baked on its own)
 # Writes <work_dir>/scene.json (surfaces, materials, fixtures, light-map layout) and scene.bin (vertex data).
 # Needs Playwright with Chromium, and a local three@0.186.0 (npm) at THREE_DIR; see tools/hero_shots.py.
 import asyncio, sys, os, json, base64, mimetypes
 from playwright.async_api import async_playwright
 root, work = sys.argv[1], sys.argv[2]
+DECK = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 THREE_DIR = os.environ.get('THREE_DIR', '/tmp/claude-0/pw/t186/node_modules/three')
 CHROME = os.environ.get('CHROME', '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome')
 
-EXPORT_JS = r"""() => {
-  // every deck is lit in one bake, so show them all while exporting
-  if (typeof DECK2 !== 'undefined') DECK2.visible = true;
+EXPORT_JS = r"""(deck) => {
+  // one deck at a time: build it if need be and show it (each deck has its own bake, bake/d<n>/)
+  deckBuild(deck); const R = deck === 1 ? null : deckOf(deck).root(); if (R) R.visible = true;
   scene.updateMatrixWorld(true);
-  const recv = new Set(BAKE.receivers), skip = new Set();
+  const recv = new Set(BAKE.decks[deck].receivers), skip = new Set();
   // moving parts are not baked: door leaves, window shutters, the cup
   DOORS.forEach((d) => [d.L, d.Rr].forEach((o) => o.traverse((c) => skip.add(c))));
   SHUTTERS.forEach((s) => s.slats.forEach((o) => skip.add(o)));
   if (typeof cupGroup !== 'undefined' && cupGroup) cupGroup.traverse((c) => skip.add(c));
   // the exterior set piece outside Deck 2's windows is not part of the bake
-  if (typeof EXTSET !== 'undefined') EXTSET.traverse((c) => skip.add(c));
+  if (typeof EXTSET !== 'undefined' && EXTSET) EXTSET.traverse((c) => skip.add(c));
   // the Lift 1 car and the sealed lobbies are lit by their own painted light maps (lift.js), not the bake
   if (typeof LIFT !== 'undefined') [LIFT.root, LIFT.stub].forEach((g) => g.traverse((c) => skip.add(c)));
   const live = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
@@ -53,7 +54,7 @@ EXPORT_JS = r"""() => {
   };
   const groups = new Map(), spots = [], v = new THREE.Vector3(), nm = new THREE.Matrix3();
   const bb = new THREE.Box3();
-  scene.traverse((o) => {
+  bakeWalk(deck, (o) => {
     if (!o.isMesh || o.layers.mask !== 1 || skip.has(o) || !live(o)) return;
     const geo = o.geometry, pos = geo.attributes.position; if (!pos) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -88,7 +89,8 @@ EXPORT_JS = r"""() => {
     out.push({ kind: g.kind, layer: g.layer, cat: g.cat, col: g.col, metal: g.metal, rough: g.rough, recv: g.recv,
       pos: b64(new Float32Array(g.pos)), idx: b64(new Uint32Array(g.idx)), uv: g.recv ? b64(new Float32Array(g.uv)) : null });
   });
-  return { groups: out, spots, atlas: BAKE.atlas, bounds: [bb.min.toArray(), bb.max.toArray()], wallH: WALL_H };
+  // bounds of the deck's light-mapped surfaces (floor to ceiling): the probe grid fills them
+  return { groups: out, spots, deck, atlas: BAKE.decks[deck].atlas, bounds: [bb.min.toArray(), bb.max.toArray()], wallH: WALL_H, top: bb.max.y };
 }"""
 
 def ctype(p): return mimetypes.guess_type(p)[0] or 'application/octet-stream'
@@ -113,7 +115,7 @@ async def run():
     await pg.route('**/*', route); await pg.goto('https://example.test/')
     await pg.wait_for_function('window.DEFIANCE_BAKED', timeout=120000)
     await pg.evaluate('DEFIANCE_HERO(1)'); await pg.wait_for_timeout(1500)  # lets every screen draw once
-    data = await pg.evaluate(EXPORT_JS)
+    data = await pg.evaluate(EXPORT_JS, DECK)
     await b.close()
   if errs: print('page errors:', errs)
   os.makedirs(work, exist_ok=True)

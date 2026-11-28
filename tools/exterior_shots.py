@@ -42,9 +42,9 @@ async def run():
     b = await p.chromium.launch(executable_path=CHROME, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
     pg = await (await b.new_context(viewport={'width': W, 'height': H})).new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
-    await pg.add_init_script('window.PLANET_RES=256;')
+    await pg.add_init_script('window.PLANET_RES=256; window.DEFIANCE_BUILD_ALL = 1;')
     await pg.route('**/*', route); await pg.goto('https://example.test/')
-    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED && typeof EXTSET !== "undefined"', timeout=240000)
+    await pg.wait_for_function('typeof window.DEFIANCE_HERO === "function" && window.DEFIANCE_BAKED && typeof EXTSET !== "undefined" && EXTSET', timeout=240000)
     await pg.wait_for_timeout(4000)  # the baked plating patch and the hull font arrive
     if os.environ.get('PHONE'): await pg.evaluate('window.PHONE_EXT = buildExterior({ lite: true })')
     await pg.evaluate("DEFIANCE_HERO(1)")
