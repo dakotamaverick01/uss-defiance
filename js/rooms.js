@@ -174,6 +174,7 @@ let cupLiquid, cupGroup;
 {
   const g = roomFrame(3, DOOR_GAPS[3]);
   const XA = -0.85, XB = 5.15, D = 6.7, H = ROOM_H, MX = (XA + XB) / 2, MZ = (0.2 + D) / 2;
+  const PBOX = [XA + 0.04, XB - 0.04, 0.24, D - 0.04]; // wall faces (roomShell), for plants' leaves
   roomShell(g, { xa: XA, xb: XB, d: D, H, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: 0.15, x1: 4.15, y0: 0.95, y1: 2.35 }, light: [MX, H - 0.35, MZ], lightI: 1.0, label: 'Ready Room' });
   viewport(g, 0.15, 4.15, 0.95, 2.35, D);
   // rug under the sitting area and the front of the desk
@@ -264,9 +265,9 @@ let cupLiquid, cupGroup;
     mesh(CYL(0.05, 0.06, 0.7, 16), MAT.gun, 0, 0.37, 0, t); mesh(CYL(0.3, 0.32, 0.03, 32), MAT.gun, 0, 0.015, 0, t);
     lobs(g, RT.x, RT.z, 0.48); lao(g, RT.x, RT.z, 1.2, 1.2, 0.55);
     [[-1, -Math.PI / 2], [1, Math.PI / 2]].forEach(([sd, ry]) => { const x = RT.x + sd * 0.72; const c = group(x, 0, RT.z, ry, g); makeChair(c, 'station'); lobs(g, x, RT.z, 0.3); lao(g, x, RT.z, 0.8, 0.8, 0.5); }); }
-  plantAt(g, XA + 0.38, 0.68, 1.0); lobs(g, XA + 0.38, 0.68, 0.28);
-  plantAt(g, XA + 0.4, D - 0.4, 0.9); lobs(g, XA + 0.4, D - 0.4, 0.26);
-  plantAt(g, XB - 0.4, D - 0.4, 0.85); lobs(g, XB - 0.4, D - 0.4, 0.26);
+  plantAt(g, XA + 0.38, 0.68, 1.0, PBOX); lobs(g, XA + 0.38, 0.68, 0.28);
+  plantAt(g, XA + 0.4, D - 0.4, 0.9, PBOX); lobs(g, XA + 0.4, D - 0.4, 0.26);
+  plantAt(g, XB - 0.4, D - 0.4, 0.85, PBOX); lobs(g, XB - 0.4, D - 0.4, 0.26);
   // ceiling: a central light disc, downlights over the desk, the settee and the meal table
   { const dc = mesh(new THREE.CircleGeometry(0.7, 40), lightDiscMat, MX, H - 0.005, MZ, g); dc.rotation.x = Math.PI / 2; const rim = mesh(new THREE.TorusGeometry(0.71, 0.025, 8, 48), MAT.steel, MX, H - 0.01, MZ, g); rim.rotation.x = Math.PI / 2; }
   [[DK.x, DK.z + 0.25], [ST.x + 0.2, ST.z], [3.95, 1.75], [0.9, 6.0], [XB - 0.8, CZ], [0.3, 1.3], [ST.x + 0.2, 5.6], [4.2, 6.0]].forEach(([x, z]) => { mesh(new THREE.CircleGeometry(0.09, 20), downlightMat, x, H - 0.003, z, g).rotation.x = Math.PI / 2; lpool(g, x, z, 1.4, 1.4, 0xffd2a0, 0.1); });
@@ -277,6 +278,7 @@ let cupLiquid, cupGroup;
 {
   const g = roomFrame(4, DOOR_GAPS[4]);
   const XA = -4.0, XB = 4.0, D = 6.7, H = ROOM_H;
+  const PBOX = [XA + 0.04, XB - 0.04, 0.24, D - 0.04]; // wall faces (roomShell), for plants' leaves
   roomShell(g, { xa: XA, xb: XB, d: D, H, mat: roomWarm, floor: MAT.roomCarpet, window: { x0: -3.0, x1: 3.0, y0: 1.0, y1: 2.3 }, light: [0, H - 0.35, 3.5], lightI: 1.1, label: 'Conference Room' });
   viewport(g, -3.0, 3.0, 1.0, 2.3, D);
   // table: dark glass top with an underglow and the crest inlaid
@@ -327,8 +329,8 @@ let cupLiquid, cupGroup;
     const hp = group(XB - 0.02, 1.72, T.z, -Math.PI / 2, g); mesh(RBOX(1.28, 0.76, 0.04, 0.01), MAT.gunDark, 0, 0, -0.02, hp);
     mesh(new THREE.PlaneGeometry(1.2, 0.68), new THREE.MeshStandardMaterial({ map: pt, metalness: 0.75, roughness: 0.35, envMapIntensity: 1.2 }), 0, 0, 0.002, hp);
     addHit(BOX(1.3, 0.8, 0.3), { station: 'honors' }, hp, 0, 0, 0.1); }
-  plantAt(g, XB - 0.4, 0.62, 1.0); lobs(g, XB - 0.4, 0.62, 0.28);
-  plantAt(g, XA + 0.4, D - 0.4, 1.0); lobs(g, XA + 0.4, D - 0.4, 0.28);
+  plantAt(g, XB - 0.4, 0.62, 1.0, PBOX); lobs(g, XB - 0.4, 0.62, 0.28);
+  plantAt(g, XA + 0.4, D - 0.4, 1.0, PBOX); lobs(g, XA + 0.4, D - 0.4, 0.28);
   plantAt(g, XB - 0.4, D - 0.4, 0.9); lobs(g, XB - 0.4, D - 0.4, 0.26);
   // ceiling: a long light panel over the table, rows of downlights over the walkways on both sides
   { const lp = mesh(new THREE.PlaneGeometry(4.0, 0.6), downlightMat, T.x, H - 0.045, T.z, g); lp.rotation.x = Math.PI / 2; mesh(RBOX(4.16, 0.04, 0.76, 0.015), MAT.steel, T.x, H - 0.02, T.z, g);
