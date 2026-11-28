@@ -105,7 +105,28 @@ CHECK_JS = r"""() => {
       if (Math.hypot(tx - x, tz - z) > 0.08) bad.push(`${s.id} stuck at ${x.toFixed(2)},${z.toFixed(2)}`); else { player.x = tx; player.z = tz; if (liftLocation().indexOf(s.n) < 0) bad.push(s.id + ' readout ' + liftLocation()); } });
     DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
     ok('walk into every fitted room through its door; the readout names it', !bad.length, bad.join('; '));
-    const sealed = ['Sickbay', 'Lift 2'].map((nm) => { const sp = F.spaces.find((q) => q.n === nm); return DOORS.find((q) => q.station === 'd3:' + (sp.id || sp.n)); }); ok('sickbay and Lift 2 still sealed', sealed.every((d) => d && !d.auto)); }
+    const l2 = DOORS.find((q) => q.station === 'd3:Lift 2'); ok('Lift 2 still sealed', l2 && !l2.auto); }
+  // D2: sickbay built from its shared layout: the fittings, glass rooms, lights; walk in through the door, round the
+  // ward to the foot of bed 8, and into the surgery and the CMO's office through their glass doors; the readout names each
+  { const S = D3.sickbay, c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0, bad = [];
+    ok('sickbay fitted: 9 biobeds with wall panels, operating table and lamp, consoles, station, stores, office desk', S && c('biobed') === 9 && c('bedhead') === 9 && c('optable') === 1 && c('oplamp') === 1 && c('surgcon') === 2 && c('medstation') === 1 && c('cmodesk') === 1 && c('replicator') === 1 && c('medcab') >= 8,
+      ['biobed', 'bedhead', 'bedside', 'optable', 'surgcon', 'medstation', 'cmodesk', 'replicator', 'medcab'].map((k) => k + ' ' + c(k)).join(', '));
+    ok('three glass rooms, each with a doorway', S && S.glassRooms.length === 3 && S.glassRooms.every((g) => g.door), S && S.glassRooms.map((g) => g.q.k + (g.door ? '' : ' (no door)')).join(', '));
+    ok('sickbay lit by its own lights', S && S.lights.length >= 9, S && S.lights.length);
+    const sp = F.spaces.find((q) => q.n === 'Sickbay'), L = shipSickbayLayout(sp), W = (p) => [p[1], p[0] - 64], dd = D3.doors.find((q) => q.s === sp), n = [Math.sin(dd.rot), Math.cos(dd.rot)];
+    const walk = (pts, name) => { let [x, z] = pts[0]; for (const [tx, tz] of pts.slice(1)) { for (let k = 0; k < 400; k++) { const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz); if (l < 0.03) break; [x, z] = collide(x + dx / l * Math.min(0.04, l), z + dz / l * Math.min(0.04, l)); }
+      if (Math.hypot(tx - x, tz - z) > 0.08) { bad.push(`${name} stuck at ${x.toFixed(2)},${z.toFixed(2)} on the way to ${tx.toFixed(2)},${tz.toFixed(2)}`); return false; } } return true; };
+    const said = (x, z, want, name) => { player.x = x; player.z = z; const r = liftLocation(); if (r.indexOf(want) < 0) bad.push(name + ' readout ' + r); };
+    DOORS.forEach((d) => { if (d.deck === 3 && d.auto) d.open = 1; });
+    const inDoor = [dd.x - n[0] * 1.0, dd.z - n[1] * 1.0], b8 = L.items.find((q) => q.k === 'bed' && q.n === 8), foot8 = W([b8.c[0] + b8.f[0] * 1.45, b8.c[1] + b8.f[1] * 1.45]);
+    const ward = [inDoor, W([64.6, -3.2]), W([65.8, -8.6]), W(L.at(13.0, 40)), W(L.at(13.0, 62)), W(L.at(12.8, 76)), foot8];
+    if (walk([[dd.x + n[0] * 0.75, dd.z + n[1] * 0.75]].concat(ward), 'ward')) said(...foot8, 'Sickbay', 'ward');
+    S && S.glassRooms.filter((g) => g.q.k !== 'isolation').forEach((g) => { const o = g.door.out, p0 = [g.door.door[0] + o[0] * 0.8, g.door.door[1] + o[1] * 0.8], p1 = [g.door.door[0] - o[0] * 0.8, g.door.door[1] - o[1] * 0.8];
+      const way = g.q.k === 'surgery' ? [inDoor, W([64.6, -3.2]), p0, p1] : [inDoor, W([64.6, -3.2]), W([65.8, -8.6]), p0, p1];
+      if (walk(way, g.q.k)) said(...p1, { surgery: 'surgery', office: 'CMO' }[g.q.k], g.q.k); });
+    { const g = S.glassRooms.find((q) => q.q.k === 'isolation'), o = g.door.out; if (walk([inDoor, W([64.6, -3.2]), [g.door.door[0] + o[0] * 0.8, g.door.door[1] + o[1] * 0.8], [g.door.door[0] - o[0] * 0.45, g.door.door[1] - o[1] * 0.45]], 'isolation')) said(g.door.door[0] - o[0] * 0.45, g.door.door[1] - o[1] * 0.45, 'isolation', 'isolation'); }
+    DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
+    ok('walk into sickbay, round the ward to bed 8, into surgery, isolation and the CMO’s office; the readout names each', !bad.length, bad.join('; ')); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;

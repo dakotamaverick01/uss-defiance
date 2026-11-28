@@ -199,9 +199,12 @@ function kitAtlas(K, cells, name) {
 }
 // A small prop (parts = [{ geo, mat }] in its own frame, +z facing out of the wall) drawn as instances at
 // places = [{ x, z, ry }] on the deck floor.
+// Parts sharing a material are merged first, so a prop costs one draw per material, not one per part.
 function kitProps(K, parts, places, name) {
   const q = new THREE.Quaternion(), m4 = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
-  return parts.map(({ geo, mat }) => { const im = new THREE.InstancedMesh(geo, mat, places.length); im.name = name || 'props';
+  const byMat = new Map(); parts.forEach(({ geo, mat }) => { if (!byMat.has(mat)) byMat.set(mat, []); byMat.get(mat).push([geo, null]); });
+  const merged = [...byMat].map(([mat, list]) => ({ geo: list.length > 1 ? kitGeo(list) : list[0][0], mat }));
+  return merged.map(({ geo, mat }) => { const im = new THREE.InstancedMesh(geo, mat, places.length); im.name = name || 'props';
     places.forEach((p, i) => { q.setFromAxisAngle(up, p.ry); m4.compose(new THREE.Vector3(p.x, p.y || 0, p.z), q, one); im.setMatrixAt(i, m4); });
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); return im; });
 }

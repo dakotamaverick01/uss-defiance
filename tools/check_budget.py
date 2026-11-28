@@ -11,9 +11,9 @@ root = sys.argv[1] if len(sys.argv) > 1 else '.'; check_stations.root = root
 # bridge is about 290 and Deck 2 about 360). Tighten once John's Mac and a phone are measured.
 BUDGET = {'1': {'calls': 450, 'triangles': 450000}, '2': {'calls': 450, 'triangles': 450000}, '3': {'calls': 450, 'triangles': 450000}}
 TARGET = 450
-VIEWS = {'1': ([0, 1.7, 3.2], [0, 1.4, -6]), '2': ([1.3, -1.9, 3.6], [1.0, -2.6, 16]), '3': ([0.4, -5.4, 4.0], [0, -5.6, 40])}  # Deck 3: from the lift lobby, looking aft down the spoke
+VIEWS = {'1': ([0, 1.7, 3.2], [0, 1.4, -6]), '2': ([1.3, -1.9, 3.6], [1.0, -2.6, 16]), '3': ([0.4, -5.4, 4.0], [0, -5.6, 40]), '3 sickbay': ([-13.0, -5.4, -4.0], [-6.0, -5.9, 3.6])}  # Deck 3: from the lift lobby, looking aft down the spoke; and across sickbay's ward from bed 8
 MEASURE = r"""(views) => { const out = {}; const cam = new THREE.PerspectiveCamera(70, 16 / 9, 0.05, 2000);
-  for (const [n, [p, t]] of Object.entries(views)) { liftSetDeck(+n); scene.updateMatrixWorld(true); cam.position.set(...p); cam.lookAt(...t); cam.updateMatrixWorld();
+  for (const [n, [p, t]] of Object.entries(views)) { liftSetDeck(parseInt(n)); scene.updateMatrixWorld(true); cam.position.set(...p); cam.lookAt(...t); cam.updateMatrixWorld(); if (parseInt(n) === 3 && typeof d3Cull === 'function') { D3.cullRoom = undefined; d3Cull(cam.position); } // as the render loop does each frame
     renderer.info.autoReset = false; renderer.info.reset(); renderer.setRenderTarget(null); renderer.render(scene, cam);
     out[n] = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }; renderer.info.autoReset = true; }
   liftSetDeck(1); return { decks: out, batch: typeof BATCH !== 'undefined' ? BATCH : null }; }"""
@@ -36,7 +36,7 @@ async def run():
       print(f"batched: {r['batch']['before']} parts into {r['batch']['after']} objects")
       for k, v in (r['batch'].get('passes') or {}).items(): print(f"  {k}: {v['before']} into {v['after']}")
     for n, v in r['decks'].items():
-      B = BUDGET[n]; ok = v['calls'] <= B['calls'] and v['triangles'] <= B['triangles']; bad += 0 if ok else 1
+      B = BUDGET[n.split(' ')[0]]; ok = v['calls'] <= B['calls'] and v['triangles'] <= B['triangles']; bad += 0 if ok else 1
       print(('PASS ' if ok else 'FAIL ') + f'Deck {n}: {v["calls"]} draw calls (limit {B["calls"]}, target {TARGET}), {v["triangles"]} triangles (limit {B["triangles"]})')
     if errs: print('FAIL page errors:', errs); bad += 1
     sys.exit(1 if bad else 0)

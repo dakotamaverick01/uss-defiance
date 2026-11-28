@@ -35,6 +35,15 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = 'rgba(255,255,255,0.18)'; [0, 96].forEach((x) => g.fillRect(x + 2, 0, 1, Hp));
     g.fillStyle = '#5d6062'; g.fillRect(0, Y(0.9), Wd, Y(0.12) - Y(0.9)); g.fillStyle = '#3c3f41'; g.fillRect(0, 0, Wd, Y(H - 0.22));
     g.fillStyle = '#b8873a'; g.fillRect(0, Y(1.35), Wd, 6); g.fillStyle = '#222'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
+  } else if (kind === 'med') { // sickbay: white wall panels, a teal band at hand height, a teal kick band
+    g.fillStyle = '#e2e6e5'; g.fillRect(0, 0, Wd, Hp);
+    const r = mulberry(53);
+    for (let i = 0; i < 3000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'; g.fillRect(r() * Wd, r() * Hp, 1.2, 1.2); }
+    g.fillStyle = 'rgba(60,80,82,0.28)'; [0, 96].forEach((x) => g.fillRect(x, 0, 2, Hp)); g.fillRect(0, Y(2.2), Wd, 2);
+    g.fillStyle = 'rgba(255,255,255,0.5)'; [0, 96].forEach((x) => g.fillRect(x + 2, 0, 1, Hp));
+    g.fillStyle = '#2a9d97'; g.fillRect(0, Y(1.12), Wd, Y(1.02) - Y(1.12)); g.fillRect(0, Y(1.2), Wd, 3);
+    g.fillStyle = '#9fb3b1'; g.fillRect(0, 0, Wd, Y(H - 0.22));
+    g.fillStyle = '#2f5e5b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   } else {
     g.fillStyle = '#58514a'; g.fillRect(0, 0, Wd, Y(H - 0.26));
     const gr = g.createLinearGradient(0, Y(H - 0.26), 0, Y(1.02)); gr.addColorStop(0, '#c2b39c'); gr.addColorStop(1, '#b3a48d');
@@ -48,7 +57,7 @@ function roomWallCanvases(H, kind) {
     g.fillStyle = '#211e1b'; g.fillRect(0, Y(0.12), Wd, Hp - Y(0.12));
   }
   ge.fillStyle = '#000'; ge.fillRect(0, 0, Wd, Hp);
-  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : kind === 'bulk' ? 0.22 : 0.26)) - 2, Wd, 3);
+  ge.fillStyle = '#fff'; ge.fillRect(0, Y(H - (kind === 'tile' ? 0.18 : kind === 'bulk' || kind === 'med' ? 0.22 : 0.26)) - 2, Wd, 3);
   return [c, e];
 }
 function roomWallMat(H, kind) {

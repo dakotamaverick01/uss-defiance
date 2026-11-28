@@ -362,6 +362,7 @@ function d3Cabins(Lt) {
     D3.rooms.unshift({ label: (s.n === 'Crew quarters' ? 'Crew cabin ' : 'Cabin ') + s.id, test: (x, z) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const [ax, az] = wp[i], [bx, bz] = wp[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; } });
   });
   const extra = d3Rooms(Lt, { shell, put, wall, place, W2, RH, I });
+  Object.assign(extra, d3Sickbay(Lt, { shell, put, place, RH }));
   geo.forEach((list, mat) => { const m = mesh(kitGeo(list), mat, 0, 0, 0, DECK3); m.name = 'Deck 3 rooms'; });
   // the fittings, each drawn as instances; local frames: +z faces into the room (beds: +z toward the foot)
   const P = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, MIR = CKIT.mirror || (CKIT.mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 1, roughness: 0.06, envMapIntensity: 1.4 }));
@@ -522,4 +523,131 @@ function d3Rooms(Lt, C) {
     pad: [P(BOX(0.16, 0.012, 0.22), MAT.gunDark, 0, 0.006, 0), P(R(new THREE.PlaneGeometry(0.14, 0.2), -Math.PI / 2), padFace, 0, 0.013, 0)],
     case: [P(BOX(0.45, 0.12, 0.32), caseMat, 0, 0.06, 0), P(BOX(0.16, 0.03, 0.03), MAT.gunDark, 0, 0.135, 0)],
   };
+}
+
+// ---------- sickbay (roadmap D2): the deck's hero room ----------
+// Built from the shared layout (shipSickbayLayout, the same one the floor plan and its check use): white panel walls
+// with a teal band, a pale polished floor; eight biobeds round the curved wall, each with its wall panel (a live-looking
+// readout) and a bedside cabinet; the glass-walled surgery in the middle (operating table under a lamp ring, two
+// consoles), the isolation room and the CMO's office in glass; staff station, stores, replicator; ceiling lights (one
+// light space in d3Light). Glass walls, frames and trim are merged into the deck's room meshes; fittings are instanced.
+// Returns the fittings' kits (d3Cabins instances them with the rest).
+function d3Sickbay(Lt, C) {
+  const { shell, put, place, RH } = C, s = Lt.F.spaces.find((q) => q.n === 'Sickbay'), Lay = s && shipSickbayLayout(s); if (!Lay) return {};
+  const W = (p) => [p[1], p[0] - 64], Wd = (f) => [f[1], f[0]], neg = (v) => [-v[0], -v[1]];
+  // materials (kept on CKIT so a rebuild reuses them)
+  const white = CKIT.medWhite || (CKIT.medWhite = new THREE.MeshStandardMaterial({ color: 0xdfe4e4, roughness: 0.38, metalness: 0.04, envMapIntensity: 0.7 }));
+  const teal = CKIT.medTeal || (CKIT.medTeal = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.03, 0.3, 0.28), roughness: 0.45, metalness: 0.05, envMapIntensity: 0.5 }));
+  const tealCloth = CKIT.medCloth || (CKIT.medCloth = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.05, 0.26, 0.25), roughness: 0.95 }));
+  const glow = CKIT.medGlow || (CKIT.medGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.35, 0.95, 0.9), toneMapped: false }));
+  const glass = CKIT.medGlass || (CKIT.medGlass = Object.assign(GLASS.clone(), { side: THREE.DoubleSide, opacity: 0.13 }));
+  const floor = CKIT.medFloor || (CKIT.medFloor = (() => { const c = cnv(256, 256), g = c.getContext('2d'); g.fillStyle = '#d4d9d8'; g.fillRect(0, 0, 256, 256);
+    const r = mulberry(61); for (let i = 0; i < 2500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.035)'; g.fillRect(r() * 256, r() * 256, 1.5, 1.5); }
+    g.fillStyle = 'rgba(70,90,92,0.35)'; g.fillRect(0, 0, 256, 2); g.fillRect(0, 0, 2, 256); g.fillStyle = 'rgba(70,90,92,0.15)'; g.fillRect(0, 127, 256, 1); g.fillRect(127, 0, 1, 256);
+    const t = tex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.3, metalness: 0.02, envMapIntensity: 0.55 }); })());
+  const wallMat = CKIT.medWall || (CKIT.medWall = roomWallMat(RH, 'med'));
+  const face = (w, h, draw) => { const c = cnv(w, h), g = c.getContext('2d'); draw(g, w, h); return new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }); };
+  const bioFace = CKIT.bioFace || (CKIT.bioFace = face(256, 144, (g, w, h) => { g.fillStyle = '#020708'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2a9d97'; g.fillRect(8, 8, 70, 14); g.fillStyle = '#9fe3dc'; g.font = `600 15px ${DISP}`; g.fillText('BIOBED', 86, 21);
+    [['#7fe0d6', 44], ['#E8A06A', 76], ['#B693C4', 108]].forEach(([c, y], k) => { g.strokeStyle = c; g.lineWidth = 2; g.beginPath();
+      for (let x = 10; x < 180; x += 2) { const t = (x + k * 17) % 46; const v = k === 0 ? (t < 3 ? -16 : t < 5 ? 10 : 0) : Math.sin(x * (0.11 + k * 0.05)) * 7; g.lineTo(x, y + v); } g.stroke(); });
+    [['72', '#7fe0d6'], ['98', '#E8A06A'], ['36.8', '#B693C4']].forEach(([t, c], k) => { g.fillStyle = c; g.font = `600 22px ${DISP}`; g.fillText(t, 192, 52 + k * 32); }); }));
+  const conFace = CKIT.surgFace || (CKIT.surgFace = face(256, 128, (g, w, h) => { g.fillStyle = '#020708'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2a9d97'; g.fillRect(6, 6, 60, 12); g.fillStyle = '#9fe3dc'; g.font = `600 13px ${DISP}`; g.fillText('SURGICAL FIELD', 72, 17);
+    g.strokeStyle = '#7fe0d6'; g.lineWidth = 2; g.strokeRect(14, 30, 110, 88); g.beginPath(); g.ellipse(69, 74, 22, 36, 0, 0, Math.PI * 2); g.stroke();
+    [0, 1, 2, 3].forEach((i) => { g.fillStyle = ['#E8A06A', '#B693C4', '#7fe0d6', '#F2C88F'][i]; g.fillRect(140, 34 + i * 21, 30 + i * 18, 12); }); }));
+  const { dd, wp } = shell(s, floor, wallMat);
+  const lights = [], seg = (A, B) => kitSeg(D3, A[0], A[1], B[0], B[1], 0.2);
+  // a box of length L along direction u (world [x, z]) centred at p, height h from y0, depth d
+  const bar = (mat, p, u, L, y0, h, d) => { const g = BOX(L, h, d); g.rotateY(-Math.atan2(u[1], u[0])); g.translate(p[0], y0 + h / 2, p[1]); put(mat, g); };
+  const quad = (mat, A, B, y0, y1) => { const u = [B[0] - A[0], B[1] - A[1]], L = Math.hypot(...u); put(mat, kitQuad([[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]], [[0, 0], [L, 0], [L, y1 - y0], [0, y1 - y0]], [-u[1] / L, 0, u[0] / L])); };
+  // ---------- glass rooms: a white frame (kick, header, posts), full-height glass, a teal line at hand height, a
+  // doorway with its glass door slid open beside it; edges along the room's own walls get no glass
+  const nearWall = (p) => wp.some((A, i) => { const B = wp[(i + 1) % wp.length], L2 = (B[0] - A[0]) ** 2 + (B[1] - A[1]) ** 2, t = Math.max(0, Math.min(1, ((p[0] - A[0]) * (B[0] - A[0]) + (p[1] - A[1]) * (B[1] - A[1])) / L2));
+    return Math.hypot(A[0] + t * (B[0] - A[0]) - p[0], A[1] + t * (B[1] - A[1]) - p[1]) < 0.3; });
+  const glassRooms = [];
+  Lay.items.filter((q) => q.glass).forEach((q) => {
+    const P = q.poly.map(W), inn = W(q.c), edges = [];
+    for (let i = 0; i < 4; i++) { const A = P[i], B = P[(i + 1) % 4], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2]; if (nearWall(M)) continue;
+      const L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], hole = i === 0 ? q.w / 2 - q.door : null; // edge 0 is the front, corner 0 at +w/2
+      let nn = [-u[1], u[0]]; if ((inn[0] - A[0]) * nn[0] + (inn[1] - A[1]) * nn[1] < 0) nn = neg(nn); // nn: into the glass room
+      const at = (t) => [A[0] + u[0] * t, A[1] + u[1] * t], runs = hole === null ? [[0, L]] : [[0, hole - 0.6], [hole + 0.6, L]];
+      runs.forEach(([a, b]) => { if (b - a < 0.05) return; quad(glass, at(a), at(b), 0.1, RH - 0.12); bar(white, at((a + b) / 2), u, b - a, 0, 0.1, 0.09); seg(at(a), at(b));
+        [-1, 1].forEach((k) => bar(glow, [at((a + b) / 2)[0] + nn[0] * k * 0.006, at((a + b) / 2)[1] + nn[1] * k * 0.006], u, b - a - 0.04, 1.07, 0.035, 0.002)); });
+      bar(white, at(L / 2), u, L + 0.08, RH - 0.12, 0.12, 0.1);
+      const posts = [0, L]; if (hole !== null) posts.push(hole - 0.6, hole + 0.6); for (const [a, b] of runs) { const n = Math.floor((b - a) / 1.6); for (let k = 1; k <= n; k++) posts.push(a + (b - a) * k / (n + 1)); }
+      posts.forEach((t) => bar(white, at(t), u, 0.06, 0, RH, 0.09));
+      if (hole !== null) { quad(glass, at(hole - 0.6), at(hole + 0.6), 2.3, RH - 0.12); bar(white, at(hole), u, 1.2, 2.24, 0.06, 0.09);
+        // the door, slid open inside the room over the glass beside the doorway
+        const side = hole + 1.2 <= L - 0.05 ? 1 : -1, d0 = at(hole + side * 0.6), d1 = at(hole + side * 1.8), o = (p) => [p[0] + nn[0] * 0.07, p[1] + nn[1] * 0.07];
+        quad(glass, o(d0), o(d1), 0.04, 2.26); bar(white, o(at(hole + side * 1.2)), u, 1.2, 2.24, 0.04, 0.03); bar(white, o(at(hole + side * 0.62)), u, 0.04, 0.04, 2.22, 0.03); bar(white, o(at(hole + side * 1.78)), u, 0.04, 0.04, 2.22, 0.03);
+        edges.push({ door: at(hole), out: neg(nn) }); }
+    }
+    glassRooms.push({ q, door: edges[0] });
+  });
+  // ---------- fittings
+  const KK = { bed: 'biobed', bedhead: 'bedhead', bedside: 'bedside', optable: 'optable', lamp: 'oplamp', surgcon: 'surgcon', station: 'medstation', desk: 'cmodesk', chair: 'chair', medcab: 'medcab', replicator: 'replicator' };
+  const box4 = (q) => { const P = q.poly.map(W); for (let i = 0; i < 4; i++) seg(P[i], P[(i + 1) % 4]); };
+  Lay.items.forEach((q) => { const k = KK[q.k]; if (!k) return; const c = W(q.c), f = Wd(q.f);
+    place(k, c[0], c[1], f, q.k === 'lamp' ? RH : 0);
+    if (q.k === 'bed') [-0.5, 0.5].forEach((o) => kitObs(D3, c[0] + f[0] * o, c[1] + f[1] * o, 0.5));
+    else if (/optable|surgcon|station|desk|replicator/.test(q.k)) box4(q);
+    else if (q.k === 'medcab' || q.k === 'bedside') kitObs(D3, c[0], c[1], q.k === 'medcab' ? 0.36 : 0.28); });
+  // signs over the glass doors, on the ward side
+  glassRooms.forEach(({ q, door }) => { if (!door) return; const t = { surgery: 'SURGERY', isolation: 'ISOLATION', office: 'CMO' }[q.k];
+    kitLabel(D3, t, door.door[0] + door.out[0] * 0.07, RH - 0.3, door.door[1] + door.out[1] * 0.07, Math.atan2(door.out[0], door.out[1]), t.length > 4 ? 0.62 : 0.4); });
+  // ---------- ceiling lights: round the ward between the surgery and the beds, the alcove, each glass room
+  const L = (p, k) => { place('roomlight', p[0], p[1], [0, 1], RH); lights.push([p[0], RH - 0.05, p[1], k]); };
+  [24, 38, 52, 66, 80].forEach((t) => L(W(Lay.at(13.0, t)), 1.3));
+  [W(Lay.at(6.5, 80)), W([64.4, -3.0])].forEach((p) => L(p, 1.2));
+  glassRooms.forEach(({ q }) => { if (q.k !== 'surgery') L(W(q.c), q.k === 'office' ? 0.9 : 1.0); });
+  { const c = W(Lay.items.find((q) => q.k === 'surgery').c); lights.push([c[0], RH - 0.5, c[1], 2.4]); }
+  // a light band hung round the ward, following the curved wall over the foot of the beds
+  { const r = 14.2, t0 = 18, t1 = 84, n = 22; for (let i = 0; i < n; i++) { const A = W(Lay.at(r, t0 + (t1 - t0) * i / n)), B = W(Lay.at(r, t0 + (t1 - t0) * (i + 1) / n)), M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], u = [B[0] - A[0], B[1] - A[1]], l = Math.hypot(...u);
+    bar(white, M, u, l + 0.01, RH - 0.06, 0.06, 0.26); bar(downlightMat, M, u, l + 0.01, RH - 0.075, 0.015, 0.18); bar(glow, M, u, l + 0.01, RH - 0.1, 0.012, 0.03); } }
+  // ---------- the room in the deck's lists: a light space, the readout, its door open, its panel
+  const xs = wp.map((p) => p[0]), zs = wp.map((p) => p[1]), entry = { s, kind: 'sickbay', wpoly: wp, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], lights, glassRooms };
+  D3.fitted.push(entry); D3.sickbay = entry;
+  const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
+  const sub = { surgery: 'Sickbay · surgery', isolation: 'Sickbay · isolation', office: 'Sickbay · CMO’s office' };
+  D3.rooms.unshift({ label: 'Sickbay', test: (x, z) => inP(wp, x, z) });
+  glassRooms.forEach(({ q }) => { const P = q.poly.map(W); D3.rooms.unshift({ label: sub[q.k], test: (x, z) => inP(P, x, z) }); });
+  const door = DOORS.find((q) => q.station === 'd3:' + s.id); if (door) door.auto = true;
+  STATIONS['d3:' + s.id] = { title: 'Sickbay ' + s.id, role: 'Deck 3', panel: () => ({ read: [['Ward', 'Eight biobeds'], ['Also', 'Surgery, isolation room, the CMO’s office, staff station, stores']],
+    note: 'Walk up to the door to go in.', acts: [] }) };
+  // ---------- the kits: +z faces out from the wall into the room (beds: +z toward the foot)
+  const Pp = (g, mat, x, y, z) => { const q = g.clone(); q.translate(x, y, z); return { geo: q, mat }; }, R = (g, rx, ry) => { const q = g.clone(); if (rx) q.rotateX(rx); if (ry) q.rotateY(ry); return q; };
+  const flat = (w, h) => new THREE.PlaneGeometry(w, h);
+  return {
+    biobed: [Pp(RBOX(0.62, 0.42, 1.5, 0.05), white, 0, 0.21, 0), Pp(BOX(0.64, 0.04, 1.52), teal, 0, 0.4, 0), Pp(RBOX(0.96, 0.08, 2.06, 0.03), white, 0, 0.46, 0),
+      Pp(RBOX(0.88, 0.12, 1.96, 0.05), CERAMIC, 0, 0.56, 0), Pp(RBOX(0.92, 0.04, 0.95, 0.02), tealCloth, 0, 0.63, 0.48), Pp(RBOX(0.56, 0.09, 0.32, 0.04), CERAMIC, 0, 0.66, -0.78),
+      Pp(BOX(0.025, 0.035, 0.9), MAT.steel, 0.47, 0.76, 0.05), Pp(BOX(0.025, 0.035, 0.9), MAT.steel, -0.47, 0.76, 0.05),
+      ...[-0.35, 0.45].flatMap((z) => [0.47, -0.47].map((x) => Pp(CYL(0.012, 0.012, 0.22, 6), MAT.steel, x, 0.64, z)))],
+    bedhead: [Pp(RBOX(1.3, 0.95, 0.06, 0.02), white, 0, 1.45, 0), Pp(flat(0.86, 0.48), bioFace, 0, 1.5, 0.032), Pp(BOX(1.2, 0.03, 0.02), glow, 0, 0.99, 0.03), Pp(BOX(1.3, 0.05, 0.08), teal, 0, 1.95, 0.01)],
+    bedside: [Pp(RBOX(0.48, 0.72, 0.42, 0.02), white, 0, 0.36, 0), Pp(BOX(0.5, 0.03, 0.44), teal, 0, 0.735, 0), Pp(BOX(0.3, 0.015, 0.01), MAT.steel, 0, 0.55, 0.212)],
+    optable: [Pp(RBOX(0.7, 0.05, 0.9, 0.02), white, 0, 0.025, 0), Pp(CYL(0.16, 0.22, 0.72, 20), white, 0, 0.41, 0), Pp(RBOX(0.64, 0.08, 2.0, 0.03), white, 0, 0.81, 0), Pp(RBOX(0.58, 0.06, 1.9, 0.03), tealCloth, 0, 0.88, 0)],
+    oplamp: [Pp(CYL(0.03, 0.03, 0.42, 8), MAT.steel, 0, -0.21, 0), Pp(R(new THREE.TorusGeometry(0.55, 0.06, 10, 40), Math.PI / 2), white, 0, -0.45, 0), Pp(R(new THREE.CircleGeometry(0.5, 32), Math.PI / 2), downlightMat, 0, -0.47, 0),
+      Pp(R(new THREE.TorusGeometry(0.56, 0.012, 6, 40), Math.PI / 2), glow, 0, -0.51, 0)],
+    surgcon: [Pp(RBOX(1.0, 0.85, 0.5, 0.02), white, 0, 0.425, 0), Pp(BOX(1.0, 0.06, 0.46), teal, 0, 0.03, 0.02), Pp(R(RBOX(1.0, 0.05, 0.5, 0.015), -0.45), white, 0, 0.96, 0.02), Pp(R(flat(0.86, 0.38), -Math.PI / 2 - 0.45), conFace, 0, 0.99, 0.03)],
+    medstation: [Pp(RBOX(2.2, 0.95, 0.62, 0.02), white, 0, 0.475, -0.02), Pp(BOX(2.18, 0.1, 0.58), teal, 0, 0.05, 0), Pp(RBOX(2.24, 0.04, 0.7, 0.015), CERAMIC, 0, 0.97, 0), Pp(BOX(2.1, 0.025, 0.02), glow, 0, 0.8, 0.31),
+      ...[-0.55, 0.55].flatMap((x) => [Pp(RBOX(0.62, 0.42, 0.04, 0.01), MAT.gunDark, x, 1.25, -0.24), Pp(flat(0.56, 0.36), x < 0 ? bioFace : D3.screenMat, x, 1.25, -0.218)])],
+    cmodesk: [Pp(RBOX(1.5, 0.04, 0.65, 0.015), white, 0, 0.74, 0), Pp(RBOX(0.42, 0.72, 0.6, 0.015), white, 0.5, 0.36, 0), Pp(RBOX(0.04, 0.72, 0.6, 0.01), white, -0.72, 0.36, 0), Pp(BOX(1.4, 0.04, 0.02), teal, 0, 0.7, 0.32),
+      Pp(RBOX(0.55, 0.34, 0.03, 0.01), MAT.gunDark, -0.15, 1.0, -0.2), Pp(flat(0.5, 0.3), D3.screenMat, -0.15, 1.0, -0.184)],
+    medcab: [Pp(RBOX(0.88, 2.0, 0.48, 0.015), white, 0, 1.0, 0), Pp(flat(0.78, 1.05), glass, 0, 1.4, 0.245), Pp(BOX(0.78, 0.02, 0.4), CERAMIC, 0, 1.15, 0.02), Pp(BOX(0.78, 0.02, 0.4), CERAMIC, 0, 1.55, 0.02),
+      ...[1.17, 1.57].flatMap((y) => [-0.22, 0, 0.22].map((x) => Pp(RBOX(0.14, 0.12, 0.12, 0.02), x ? CERAMIC : tealCloth, x, y + 0.07, 0.02))), Pp(BOX(0.86, 0.06, 0.02), teal, 0, 0.84, 0.245), Pp(BOX(0.012, 0.6, 0.012), MAT.steel, 0.36, 0.5, 0.25)],
+    replicator: [Pp(RBOX(1.0, 2.1, 0.58, 0.02), white, 0, 1.05, -0.01), Pp(BOX(0.72, 0.56, 0.04), MAT.gunDark, 0, 1.2, 0.27), Pp(flat(0.66, 0.5), glow, 0, 1.2, 0.292), Pp(BOX(0.98, 0.08, 0.02), teal, 0, 0.6, 0.285)],
+  };
+}
+
+// From inside a fitted room you see the corridor only through the room's own door, so the far doors' own parts
+// (leaves, frames, labels and their text: what batch.js can't merge, about eight draws a door) are hidden while you are
+// in a room. render.js calls this every frame on Deck 3; it only changes anything when you move into or out of a room.
+function d3Cull(p) {
+  if (!D3.fitted) return; const x = p.x, z = p.z; let room = null;
+  for (const f of D3.fitted) { const b = f.bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3]) { const P = f.wpoly; let c = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } if (c) { room = f; break; } } }
+  if (room === D3.cullRoom) return; D3.cullRoom = room;
+  D3.doorObjs = D3.doorObjs || DOORS.filter((d) => d.deck === 3 && d.station !== 'lift').map((d) => ({ g: d.L.parent, x: d.wx, z: d.wz }));
+  const dd = room && D3.doors.find((q) => q.s === room.s);
+  D3.doorObjs.forEach((o) => { o.g.visible = !dd || Math.hypot(o.x - dd.x, o.z - dd.z) < 7; });
 }

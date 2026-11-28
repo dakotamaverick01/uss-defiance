@@ -106,8 +106,12 @@ for (const n of Object.keys(G.SHIPGEO.plans).map(Number)) {
     const reach = (p) => { for (let a = -0.3; a <= 0.31; a += h) for (let b = -0.3; b <= 0.31; b += h) if (seen.has(key(p[0] + a, p[1] + b))) return true; return false; };
     obs.filter((q) => /^(bed|surgery|isolation|office|station|medcab|replicator)$/.test(q.k)).forEach((q) => { const sd = [-q.f[1], q.f[0]], o = q.door || 0, e = q.glass ? 0.5 : 0.55;
       if (!reach([q.c[0] + q.f[0] * (q.d / 2 + e) + sd[0] * o, q.c[1] + q.f[1] * (q.d / 2 + e) + sd[1] * o])) bad.push('no clear way to the ' + nm(q)); });
+    // the surgery stands free in the ward: at least 1.0 m clear to every other fitting and to the walls
+    { const sg = L.items.find((q) => q.k === 'surgery'), pd = (A, B) => Math.min(...A.map((p) => dpoly(B, p)), ...B.map((p) => dpoly(A, p)));
+      its.filter((q) => !q.in && q !== sg).forEach((q) => { const d = pd(sg.poly, q.poly); if (d < 1.0) bad.push(`surgery only ${d.toFixed(2)} m from ${nm(q)}`); });
+      const dw = Math.min(...sg.poly.map((p) => dpoly(sp.poly, p))); if (dw < 1.0) bad.push(`surgery only ${dw.toFixed(2)} m from a wall`); }
   }
-  ok('D3 sickbay laid out: 8 ward beds, surgery, isolation and the CMO\'s office in glass, all inside, no overlaps, a clear way from the entrance to every bed, door and cabinet', !bad.length, [...new Set(bad)].slice(0, 6).join('; ')); }
+  ok('D3 sickbay laid out: 8 ward beds, surgery, isolation and the CMO\'s office in glass, all inside, no overlaps, a clear way from the entrance to every bed, door and cabinet, the surgery 1 m clear all round', !bad.length, [...new Set(bad)].slice(0, 6).join('; ')); }
 // the saucer's top stays below Deck 2's floor (depth 7.0) under Deck 2's rooms, so its skin never shows inside them
 { let worst = 99, at = ''; for (let m = 54.5; m <= 95; m += 0.5) for (let x = 0; x <= 7.5; x += 0.5) { const H = G.shipHull(m); if (x < H.w) { const t = G.shipTopAt(m, x); if (t < worst) { worst = t; at = `m ${m}, x ${x}`; } } }
   ok(`saucer top below Deck 2's floor (highest point depth ${worst.toFixed(2)} at ${at})`, worst >= 7.05, 'raise saucer.top.up less'); }

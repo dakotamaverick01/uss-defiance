@@ -433,13 +433,14 @@ function shipSickbayLayout(sp) {
     beds.push(it('bed', at(R - I - 0.12 - 1.05, t), neg(dir(t)), 1.0, 2.1, { n: i + 1 }));
     it('bedhead', at(R - I - 0.05, t), neg(dir(t)), 1.3, 0.1);
     if (i < 7) it('bedside', at(R - I - 0.3, t + (T1 - T0) / 14), neg(dir(t + (T1 - T0) / 14)), 0.5, 0.45); }
-  // surgery: the centrepiece, square to the ward's middle bearing
-  const TS = 57, sc = at(9.5, TS), sf = neg(dir(TS));
-  it('surgery', sc, sf, 4.2, 4.2, { glass: true, door: -0.8, side: 'lr' });
+  // surgery: the centrepiece, turned 30 degrees off the ward's radius so its door looks toward the entrance and it
+  // keeps a clear walk (over 1.2 m) all round: past the CMO's office, the stores and the foot of the beds
+  const TS = 58, sc = at(9.7, TS), sf = neg(dir(TS + 30));
+  it('surgery', sc, sf, 4.0, 4.0, { glass: true, door: -0.8, side: 'lr' });
   it('optable', sc, [-sf[1], sf[0]], 0.8, 2.1, { in: 'surgery' });
   it('lamp', sc, sf, 1.5, 1.5, { in: 'surgery', high: true });
-  it('surgcon', [sc[0] - sf[0] * 1.7 + sf[1] * 1.4, sc[1] - sf[1] * 1.7 - sf[0] * 1.4], sf, 1.0, 0.5, { in: 'surgery' });
-  it('surgcon', [sc[0] - sf[0] * 1.7 - sf[1] * 1.4, sc[1] - sf[1] * 1.7 + sf[0] * 1.4], sf, 1.0, 0.5, { in: 'surgery' });
+  it('surgcon', [sc[0] - sf[0] * 1.55 + sf[1] * 1.3, sc[1] - sf[1] * 1.55 - sf[0] * 1.3], sf, 1.0, 0.5, { in: 'surgery' });
+  it('surgcon', [sc[0] - sf[0] * 1.55 - sf[1] * 1.3, sc[1] - sf[1] * 1.55 + sf[0] * 1.3], sf, 1.0, 0.5, { in: 'surgery' });
   // isolation: the whole end of the entry alcove, glass across its open side
   const iw = (xC - I) - (notch[1] + I), id = 3.1, ic = [mF + I + id / 2, (xC - I + notch[1] + I) / 2];
   it('isolation', ic, [1, 0], iw, id, { glass: true, door: -0.4 });
