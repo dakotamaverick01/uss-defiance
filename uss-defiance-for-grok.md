@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `8b0076b`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `5897060`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -717,6 +717,12 @@ renderer.toneMappingExposure = 1.1;
 // No shadow maps: shadows are baked (bake.js). The fallback light rig turns them back on.
 renderer.shadowMap.enabled = false; renderer.shadowMap.type = THREE.PCFShadowMap;
 const isMobile = isTouch || Math.min(window.innerWidth, window.innerHeight) < 600;
+// Picture quality (roadmap F5): 'phone', 'desktop' or 'cinematic', chosen in the performance panel (P, perf.js) and
+// remembered in this browser. Read this early because Deck 2's exterior model is built to it (deck2.js extOpts).
+const QUALITY = (() => {
+  let t = window.DEFIANCE_QUALITY; try { t = t || (JSON.parse(localStorage.getItem('defiance-perf')) || {}).quality; } catch (e) { /* storage may be unavailable */ }
+  return { tier: ['phone', 'desktop', 'cinematic'].includes(t) ? t : (isMobile ? 'phone' : 'desktop') };
+})();
 const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
@@ -1882,7 +1888,7 @@ function buildExterior(opts) {
     fPos: { value: FL.map(([p]) => new THREE.Vector3(...p)) }, fDir: { value: FL.map(([p, q]) => new THREE.Vector3(...q).sub(new THREE.Vector3(...p)).normalize()) },
     fCol: { value: new THREE.Color(...HULL_PAINT.flood).multiplyScalar(7) },
     // the fine plating: an 8 m patch modelled and baked in Blender (tools/detail_tile_blender.py), repeated over the hull
-    detail: { value: HULL_DETAIL.tex(lite) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
+    detail: { value: HULL_DETAIL.tex(lite && K < 1) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
   };
   HULL_DETAIL.onReady((t) => { uniforms.detail.value = t; uniforms.detailOn.value = 1; });
   const paint = new THREE.ShaderMaterial({ uniforms, fog: false,
@@ -2064,7 +2070,7 @@ void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); if (r > 1
       if (u.age >= u.life) { s.visible = false; return; } const q = u.age / u.life; s.scale.setScalar(0.5 + u.age * 3.2); s.material.opacity = 0.24 * Math.pow(1 - q, 1.6); });
     LPTS.material.uniforms.time.value = t;
   };
-  root.userData.puff = puff; root.userData.lights = LT.length;
+  root.userData.puff = puff; root.userData.lights = LT.length; root.userData.lite = lite; root.userData.atlasScale = K;
   root.userData.docks = DOCKS; root.userData.bay = { m0: BAY.m0, dA: BAY.dA, dB: BAY.dB, door: () => DY.door, leaves: LEAVES.map((L) => L.m) };
   root.userData.plumeLength = () => IMP[0].plume[IMP[0].plume.length - 1].position.z - ZS;
   root.userData.update(0, 0);
@@ -4296,6 +4302,16 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
 // Everything below runs the first time the lift heads for Deck 2 (decks.js deckBuild, roadmap F4), not at start-up,
 // so the ship opens on the bridge faster. The lift doors are shut and the car is moving while it runs.
 let EXTSET = null; // the exterior model outside Deck 2's windows, built with the deck
+// how detailed it is (roadmap F5): seen through windows, the lighter build is enough; Cinematic gets the full one
+// (and so will the orbit view, exterior stage 4)
+// Desktop: the lighter shape with full-size paint (the plating detail is in the paint); Phone: lighter shape and paint
+function extOpts() { return QUALITY.tier === 'cinematic' ? { lite: false } : QUALITY.tier === 'desktop' ? { lite: true, atlasScale: 1 } : { lite: true }; }
+// the quality setting changed after Deck 2 was built: swap the model for one built to the new setting
+function extRebuild() {
+  const o = extOpts(); if (!EXTSET || (EXTSET.userData.lite === o.lite && EXTSET.userData.atlasScale === (o.atlasScale || (o.lite ? 0.5 : 1)))) return;
+  const old = EXTSET; DECK2.remove(old); old.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  EXTSET = buildExterior(extOpts()); EXTSET.name = 'Exterior'; DECK2.add(EXTSET); DECK2.updateMatrixWorld(true);
+}
 function buildDeck2() {
   // ---------- lift lobby ----------
   {
@@ -4634,7 +4650,7 @@ function buildDeck2() {
   // The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the saucer's back under the spine (its top
   // below every window sill), the rollbar and weapons pod aft of the lounge, a nacelle out to either side. It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
   // lighter build.
-  EXTSET = buildExterior({ lite: isMobile }); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
+  EXTSET = buildExterior(extOpts()); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
   DECK2.updateMatrixWorld(true);
 }
 
@@ -7426,6 +7442,15 @@ BAKE.ready.then((ok) => {
   // better, so a choice saved under the old settings (often switched off while testing) is reset to on, once.
   if ((opt.v || 1) < 2) { opt.aa = true; opt.v = 2; save(); }
   const RES = { full: DPR, standard: 1, low: 0.75 };
+  // Quality presets (roadmap F5). Phone and Desktop are the settings each already had; Cinematic turns everything up and
+  // uses the full exterior model outside Deck 2's windows. The switches below still fine-tune a preset.
+  const TIERS = {
+    phone: { res: 'standard', ao: false, aa: false, screens: 'normal' },
+    desktop: { res: 'standard', ao: false, aa: true, screens: 'normal' },
+    cinematic: { res: 'full', ao: true, aa: true, screens: 'smooth' },
+  };
+  opt.quality = QUALITY.tier;
+  function setTier(t) { QUALITY.tier = opt.quality = t; Object.assign(opt, TIERS[t]); if (typeof extRebuild === 'function') extRebuild(); }
   function apply() {
     // edge smoothing first: changing it rebuilds the composer's buffers, and resize() re-flags the new ones
     if (composer && 'multisampling' in composer && !isMobile) { const ms = opt.aa ? 4 : 0; if (composer.multisampling !== ms) composer.multisampling = ms; }
@@ -7444,6 +7469,7 @@ BAKE.ready.then((ok) => {
   document.head.appendChild(css);
   const el = document.createElement('div'); el.id = 'perf'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Performance');
   el.innerHTML = `<button class="x" aria-label="Close">✕</button><h2>PERFORMANCE · P TO CLOSE</h2><div><span class="big" id="pf-fps">--</span> fps &nbsp; <span id="pf-ms">--</span></div><div id="pf-calls">--</div>
+<div class="row"><span>Quality</span></div><div class="row" data-k="quality"></div>
 <div class="row"><span>Resolution</span></div><div class="row" data-k="res"></div>
 <div class="row"><span>Soft contact shadows</span></div><div class="row" data-k="ao"></div>
 <div class="row"><span>Edge smoothing</span></div><div class="row" data-k="aa"></div>
@@ -7451,12 +7477,13 @@ BAKE.ready.then((ok) => {
 <div class="row"><button id="pf-test">Run speed test (stand still, ~20 s)</button></div><div id="pf-res"></div><small id="pf-info"></small>`;
   document.body.appendChild(el);
   const CH = {
+    quality: [['phone', 'Phone'], ['desktop', 'Desktop'], ['cinematic', 'Cinematic']],
     res: [['full', `Sharp ×${DPR}`], ['standard', 'Standard ×1'], ['low', 'Low ×0.75']],
     ao: [[true, 'On'], [false, 'Off']], aa: [[true, 'On'], [false, 'Off']], screens: [['normal', 'Normal'], ['smooth', 'Smoother']],
   };
   const draw = () => el.querySelectorAll('.row[data-k]').forEach((r) => { const k = r.dataset.k; r.replaceChildren(...CH[k].map(([v, t]) => {
     const b = document.createElement('button'); b.textContent = t; b.className = opt[k] === v ? 'on' : ''; b.disabled = (k === 'ao' && !aoPass) || (k === 'aa' && (isMobile || !composer));
-    b.addEventListener('click', () => { opt[k] = v; save(); apply(); draw(); info(); canvas.focus({ preventScroll: true }); }); return b; })); });
+    b.addEventListener('click', () => { if (k === 'quality') setTier(v); else opt[k] = v; save(); apply(); draw(); info(); canvas.focus({ preventScroll: true }); }); return b; })); });
   const gpu = (() => { try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return 'unknown'; } })();
   const info = () => { const pr = renderer.getPixelRatio(); $('pf-info').textContent = `Graphics: ${gpu} · window ${innerWidth}×${innerHeight} · drawing ${Math.round(innerWidth * pr)}×${Math.round(innerHeight * pr)} · post: ${POST.kind}`; };
   draw(); info();

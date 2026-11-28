@@ -770,7 +770,7 @@ function buildExterior(opts) {
     fPos: { value: FL.map(([p]) => new THREE.Vector3(...p)) }, fDir: { value: FL.map(([p, q]) => new THREE.Vector3(...q).sub(new THREE.Vector3(...p)).normalize()) },
     fCol: { value: new THREE.Color(...HULL_PAINT.flood).multiplyScalar(7) },
     // the fine plating: an 8 m patch modelled and baked in Blender (tools/detail_tile_blender.py), repeated over the hull
-    detail: { value: HULL_DETAIL.tex(lite) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
+    detail: { value: HULL_DETAIL.tex(lite && K < 1) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
   };
   HULL_DETAIL.onReady((t) => { uniforms.detail.value = t; uniforms.detailOn.value = 1; });
   const paint = new THREE.ShaderMaterial({ uniforms, fog: false,
@@ -952,7 +952,7 @@ void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); if (r > 1
       if (u.age >= u.life) { s.visible = false; return; } const q = u.age / u.life; s.scale.setScalar(0.5 + u.age * 3.2); s.material.opacity = 0.24 * Math.pow(1 - q, 1.6); });
     LPTS.material.uniforms.time.value = t;
   };
-  root.userData.puff = puff; root.userData.lights = LT.length;
+  root.userData.puff = puff; root.userData.lights = LT.length; root.userData.lite = lite; root.userData.atlasScale = K;
   root.userData.docks = DOCKS; root.userData.bay = { m0: BAY.m0, dA: BAY.dA, dB: BAY.dB, door: () => DY.door, leaves: LEAVES.map((L) => L.m) };
   root.userData.plumeLength = () => IMP[0].plume[IMP[0].plume.length - 1].position.z - ZS;
   root.userData.update(0, 0);

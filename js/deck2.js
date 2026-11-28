@@ -97,6 +97,16 @@ const D2_XO = { x0: -5.4, x1: 0.2, z0: 8.6, z1: 15.0, door: 9.6 };
 // Everything below runs the first time the lift heads for Deck 2 (decks.js deckBuild, roadmap F4), not at start-up,
 // so the ship opens on the bridge faster. The lift doors are shut and the car is moving while it runs.
 let EXTSET = null; // the exterior model outside Deck 2's windows, built with the deck
+// how detailed it is (roadmap F5): seen through windows, the lighter build is enough; Cinematic gets the full one
+// (and so will the orbit view, exterior stage 4)
+// Desktop: the lighter shape with full-size paint (the plating detail is in the paint); Phone: lighter shape and paint
+function extOpts() { return QUALITY.tier === 'cinematic' ? { lite: false } : QUALITY.tier === 'desktop' ? { lite: true, atlasScale: 1 } : { lite: true }; }
+// the quality setting changed after Deck 2 was built: swap the model for one built to the new setting
+function extRebuild() {
+  const o = extOpts(); if (!EXTSET || (EXTSET.userData.lite === o.lite && EXTSET.userData.atlasScale === (o.atlasScale || (o.lite ? 0.5 : 1)))) return;
+  const old = EXTSET; DECK2.remove(old); old.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  EXTSET = buildExterior(extOpts()); EXTSET.name = 'Exterior'; DECK2.add(EXTSET); DECK2.updateMatrixWorld(true);
+}
 function buildDeck2() {
   // ---------- lift lobby ----------
   {
@@ -435,6 +445,6 @@ function buildDeck2() {
   // The exterior model (exterior.js), built from the deck plan's SHIPGEO block: the saucer's back under the spine (its top
   // below every window sill), the rollbar and weapons pod aft of the lounge, a nacelle out to either side. It carries its own shader and light, so the bake ignores it (bake_export skips EXTSET). Phones get the
   // lighter build.
-  EXTSET = buildExterior({ lite: isMobile }); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
+  EXTSET = buildExterior(extOpts()); EXTSET.name = 'Exterior'; DECK2.add(EXTSET);
   DECK2.updateMatrixWorld(true);
 }

@@ -35,6 +35,12 @@ renderer.toneMappingExposure = 1.1;
 // No shadow maps: shadows are baked (bake.js). The fallback light rig turns them back on.
 renderer.shadowMap.enabled = false; renderer.shadowMap.type = THREE.PCFShadowMap;
 const isMobile = isTouch || Math.min(window.innerWidth, window.innerHeight) < 600;
+// Picture quality (roadmap F5): 'phone', 'desktop' or 'cinematic', chosen in the performance panel (P, perf.js) and
+// remembered in this browser. Read this early because Deck 2's exterior model is built to it (deck2.js extOpts).
+const QUALITY = (() => {
+  let t = window.DEFIANCE_QUALITY; try { t = t || (JSON.parse(localStorage.getItem('defiance-perf')) || {}).quality; } catch (e) { /* storage may be unavailable */ }
+  return { tier: ['phone', 'desktop', 'cinematic'].includes(t) ? t : (isMobile ? 'phone' : 'desktop') };
+})();
 const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();

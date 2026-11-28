@@ -12,6 +12,15 @@
   // better, so a choice saved under the old settings (often switched off while testing) is reset to on, once.
   if ((opt.v || 1) < 2) { opt.aa = true; opt.v = 2; save(); }
   const RES = { full: DPR, standard: 1, low: 0.75 };
+  // Quality presets (roadmap F5). Phone and Desktop are the settings each already had; Cinematic turns everything up and
+  // uses the full exterior model outside Deck 2's windows. The switches below still fine-tune a preset.
+  const TIERS = {
+    phone: { res: 'standard', ao: false, aa: false, screens: 'normal' },
+    desktop: { res: 'standard', ao: false, aa: true, screens: 'normal' },
+    cinematic: { res: 'full', ao: true, aa: true, screens: 'smooth' },
+  };
+  opt.quality = QUALITY.tier;
+  function setTier(t) { QUALITY.tier = opt.quality = t; Object.assign(opt, TIERS[t]); if (typeof extRebuild === 'function') extRebuild(); }
   function apply() {
     // edge smoothing first: changing it rebuilds the composer's buffers, and resize() re-flags the new ones
     if (composer && 'multisampling' in composer && !isMobile) { const ms = opt.aa ? 4 : 0; if (composer.multisampling !== ms) composer.multisampling = ms; }
@@ -30,6 +39,7 @@
   document.head.appendChild(css);
   const el = document.createElement('div'); el.id = 'perf'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Performance');
   el.innerHTML = `<button class="x" aria-label="Close">✕</button><h2>PERFORMANCE · P TO CLOSE</h2><div><span class="big" id="pf-fps">--</span> fps &nbsp; <span id="pf-ms">--</span></div><div id="pf-calls">--</div>
+<div class="row"><span>Quality</span></div><div class="row" data-k="quality"></div>
 <div class="row"><span>Resolution</span></div><div class="row" data-k="res"></div>
 <div class="row"><span>Soft contact shadows</span></div><div class="row" data-k="ao"></div>
 <div class="row"><span>Edge smoothing</span></div><div class="row" data-k="aa"></div>
@@ -37,12 +47,13 @@
 <div class="row"><button id="pf-test">Run speed test (stand still, ~20 s)</button></div><div id="pf-res"></div><small id="pf-info"></small>`;
   document.body.appendChild(el);
   const CH = {
+    quality: [['phone', 'Phone'], ['desktop', 'Desktop'], ['cinematic', 'Cinematic']],
     res: [['full', `Sharp ×${DPR}`], ['standard', 'Standard ×1'], ['low', 'Low ×0.75']],
     ao: [[true, 'On'], [false, 'Off']], aa: [[true, 'On'], [false, 'Off']], screens: [['normal', 'Normal'], ['smooth', 'Smoother']],
   };
   const draw = () => el.querySelectorAll('.row[data-k]').forEach((r) => { const k = r.dataset.k; r.replaceChildren(...CH[k].map(([v, t]) => {
     const b = document.createElement('button'); b.textContent = t; b.className = opt[k] === v ? 'on' : ''; b.disabled = (k === 'ao' && !aoPass) || (k === 'aa' && (isMobile || !composer));
-    b.addEventListener('click', () => { opt[k] = v; save(); apply(); draw(); info(); canvas.focus({ preventScroll: true }); }); return b; })); });
+    b.addEventListener('click', () => { if (k === 'quality') setTier(v); else opt[k] = v; save(); apply(); draw(); info(); canvas.focus({ preventScroll: true }); }); return b; })); });
   const gpu = (() => { try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return 'unknown'; } })();
   const info = () => { const pr = renderer.getPixelRatio(); $('pf-info').textContent = `Graphics: ${gpu} · window ${innerWidth}×${innerHeight} · drawing ${Math.round(innerWidth * pr)}×${Math.round(innerHeight * pr)} · post: ${POST.kind}`; };
   draw(); info();
