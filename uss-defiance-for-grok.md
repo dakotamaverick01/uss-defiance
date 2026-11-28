@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `e5801f3`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `d1c04d7`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -2090,7 +2090,7 @@ function buildExterior(opts) {
   // the sun's shadow: the ship's depth seen from the sun, rendered once (the ship and the sun never move relative to each other)
   const shadow = (() => {
     if (typeof renderer === 'undefined' || !renderer || opts.noShadow) return null;
-    const size = lite ? 1024 : 2048, bs = shipGeo.boundingSphere, Rr = bs.radius * 1.01;
+    const size = lite ? (K < 1 ? 1024 : 2048) : 4096, bs = shipGeo.boundingSphere, Rr = bs.radius * 1.01;
     const rt = new THREE.WebGLRenderTarget(size, size); rt.depthTexture = new THREE.DepthTexture(size, size); rt.depthTexture.type = THREE.UnsignedIntType;
     const cam = new THREE.OrthographicCamera(-Rr, Rr, Rr, -Rr, 1, Rr * 4); cam.position.copy(bs.center).addScaledVector(sun, Rr * 2); cam.lookAt(bs.center); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
     const sc = new THREE.Scene(); sc.add(new THREE.Mesh(shipGeo, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide })));
@@ -2106,13 +2106,18 @@ function buildExterior(opts) {
     [[0, Y(HT(108)) + 0.8, Z(108)], [0, Y(POD.d), Z(116)]],                    // the pod's launchers, from the saucer's back
     [[-26, Y(19), Z(138)], [-15, Y(24.5), Z(164)]], [[26, Y(19), Z(138)], [15, Y(24.5), Z(164)]], // the flank lettering, from the rim
   ];
+  // exterior stage 3: the rim docking ports, each lit from above and outboard of it, and the shuttlebay's doors from
+  // above the stern
+  [-1, 1].forEach((sd) => { const f = sideFrame(DOCK_RIM.m, DOCK_RIM.d, sd), q = f.p.clone(), o = f.p.clone().addScaledVector(f.n, 7).add(new THREE.Vector3(0, 5, -3)); FL.push([o.toArray(), q.toArray()]); });
+  FL.push([[0, Y(BAY.dA) + 5, ZS + 7], [0, Y((BAY.dA + BAY.dB) / 2), ZS]]);
+  const NF = FL.length;
   const uniforms = {
     map: { value: map }, emap: { value: emap }, shadowMap: { value: shadow ? shadow.tex : null }, shadowMtx: { value: shadow ? shadow.mtx : new THREE.Matrix4() },
     shadowOn: { value: shadow ? 1 : 0 }, texel: { value: shadow ? shadow.texel : 0 }, sbias: { value: shadow ? 0.35 / shadow.range : 0 },
     sunDir: { value: sun }, sunCol: { value: new THREE.Color(1.0, 0.95, 0.88).multiplyScalar(opts.sunPower || 1.3) },
     rimDir: { value: HULL_RIM.clone() }, rimCol: { value: new THREE.Color(0.2, 0.27, 0.38) },
     sky: { value: new THREE.Color(0.08, 0.09, 0.11) }, ground: { value: new THREE.Color(0.035, 0.04, 0.048) },
-    glow: { value: opts.glow || 2.6 }, bump: { value: lite ? 2.0 : 3.0 }, flood: { value: 1 },
+    glow: { value: opts.glow || 2.6 }, bump: { value: lite ? 2.0 : 3.0 }, flood: { value: 1 }, alert: { value: 0 },
     fPos: { value: FL.map(([p]) => new THREE.Vector3(...p)) }, fDir: { value: FL.map(([p, q]) => new THREE.Vector3(...q).sub(new THREE.Vector3(...p)).normalize()) },
     fCol: { value: new THREE.Color(...HULL_PAINT.flood).multiplyScalar(7) },
     // the fine plating: an 8 m patch modelled and baked in Blender (tools/detail_tile_blender.py), repeated over the hull
@@ -2125,7 +2130,7 @@ void main() { vUv = uv; vP = position; vNo = normal; vec4 w = modelMatrix * vec4
   vS = shadowMtx * vec4(position + normal * 0.22, 1.0); gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: `uniform sampler2D map; uniform sampler2D emap; uniform sampler2D shadowMap; uniform float shadowOn; uniform float texel; uniform float sbias;
 uniform vec3 sunDir; uniform vec3 sunCol; uniform vec3 rimDir; uniform vec3 rimCol; uniform vec3 sky; uniform vec3 ground;
-uniform float glow; uniform float bump; uniform float flood; uniform vec3 fPos[6]; uniform vec3 fDir[6]; uniform vec3 fCol;
+uniform float glow; uniform float bump; uniform float flood; uniform vec3 fPos[${NF}]; uniform vec3 fDir[${NF}]; uniform float alert; uniform vec3 fCol;
 uniform sampler2D detail; uniform float detailOn; uniform float detailScale; uniform float detailStr;
 varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS; varying vec3 vNo;
 // the baked plating patch, projected along the ship's three axes and blended by which way the surface faces
@@ -2143,7 +2148,7 @@ vec4 plating(vec3 N) {
 }
 float sunShadow() {
   vec3 c = vS.xyz / vS.w; if (shadowOn < 0.5 || c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0 || c.z > 1.0) return 1.0;
-  float s = 0.0; for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) s += (c.z - sbias <= texture2D(shadowMap, c.xy + vec2(float(i), float(j)) * texel * 1.25).r) ? 1.0 : 0.0;
+  float s = 0.0; for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) s += (c.z - sbias <= texture2D(shadowMap, c.xy + vec2(float(i), float(j)) * texel * 0.9).r) ? 1.0 : 0.0;
   return s / 9.0;
 }
 void main() {
@@ -2166,10 +2171,11 @@ void main() {
   vec3 col = base * (sunCol * max(nl, 0.0) * sh + (rimCol * max(dot(N, rimDir), 0.0) + mix(ground, sky, N.y * 0.5 + 0.5)) * ao);
   col += sunCol * D * F * max(nl, 0.0) * sh * 0.22 * seam;
   vec3 R = reflect(-V, N); col += (mix(ground, sky * 2.5, smoothstep(-0.3, 0.9, R.y)) * F * 0.6 + rimCol * F * pow(max(dot(R, rimDir), 0.0), 8.0) * 0.6) * ao;
-  for (int i = 0; i < 6; i++) { vec3 L = fPos[i] - vP; float dist = length(L); L /= dist;
+  for (int i = 0; i < ${NF}; i++) { vec3 L = fPos[i] - vP; float dist = length(L); L /= dist;
     float cone = smoothstep(0.7, 0.95, dot(-L, fDir[i])), att = 1.0 / (1.0 + dist * dist * 0.018);
     col += base * fCol * max(dot(N, L), 0.0) * cone * att * flood * ao; }
-  col += texture2D(emap, vUv).rgb * glow;
+  // red alert: the lit windows and glows shift toward red-orange and pulse with the alert (exterior stage 3)
+  col += texture2D(emap, vUv).rgb * glow * mix(vec3(1.0), vec3(1.35, 0.32, 0.22), alert);
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -2190,9 +2196,11 @@ void main() {
       quad(1.18, 0.03, [0.04, 0.045, 0.05]); quad(1.0, 0.045, glow); });
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-    m.name = 'Deck 3 nook windows'; root.add(m); root.userData.nookWindows = pos.length / 36; } }
+    m.name = 'Deck 3 nook windows'; root.add(m); root.userData.nookWindows = pos.length / 36; root.userData.nookMat = m.material; } }
   // floods go dark at red alert (the lounge board says so)
-  ship.onBeforeRender = () => { uniforms.flood.value = typeof state !== 'undefined' && state.alert === 'red' ? 0 : 1; };
+  ship.onBeforeRender = () => { const red = typeof state !== 'undefined' && state.alert === 'red'; uniforms.flood.value = red ? 0 : 1;
+    uniforms.alert.value = red ? 0.55 + 0.35 * Math.sin(performance.now() / 1000 * 4) : 0; // with the bridge's strip pulse
+    if (root.userData.nookMat) root.userData.nookMat.color.setRGB(1, red ? 0.45 : 1, red ? 0.38 : 1); };
   // running lights: red to port and green to starboard at the widest beam and on each nacelle's outboard side
   { const halo = (() => { const c = cnv(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return tex(c); })();
     const lights = new THREE.Group(); lights.name = 'Running lights'; root.add(lights); root.userData.runningLights = lights;
