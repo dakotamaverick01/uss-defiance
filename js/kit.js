@@ -102,6 +102,8 @@ function kitFrames(K, x0, x1, z0, z1, H) { // structural frames every 2.4 m alon
 // variant and material), placed by kitCorridorBuild from a deck's floor plan (deck3.js).
 // Module frame: x across (-1.1 left to +1.1 right), y up from the floor, z along (start edge at -len/2).
 const CKIT = { variants: new Map() };
+// the section colour band along the walls: white paint, tinted per copy (InstancedMesh instance colours)
+CKIT.band = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.3 });
 // merge [geometry, Matrix4] pairs into one geometry (position, normal, uv), so a variant's parts per material are one mesh
 function kitGeo(list) {
   const pos = [], nor = [], uv = [];
@@ -147,6 +149,8 @@ function kitModule(L, R, lin, lout, wallMat) {
     const xi = x - s * 0.13;
     put(SLOT, BOX(0.03, 0.03, len - 0.1), kitM4(xi, H - 0.28, 0, yaw)); put(MAT.gunDark, RBOX(0.12, 0.08, len, 0.015), kitM4(x - s * 0.06, H - 0.23, 0, yaw));
     put(STRIP, BOX(0.02, 0.02, len - 0.2), kitM4(x - s * 0.02, 0.06, 0, yaw));
+    // the section colour band at shoulder height, broken at a door's frame
+    (k === 'd' ? [[z0, -0.84], [0.84, z1]] : [[z0, z1]]).forEach(([a, b]) => put(CKIT.band, BOX(0.012, 0.09, b - a), kitM4(x - s * 0.007, 1.62, (a + b) / 2, 0)));
     const rx = x - s * 0.06, runs = k === 'd' ? [[z0 + 0.15, -0.85], [0.85, z1 - 0.15]] : [[z0 + 0.15, z1 - 0.15]];
     runs.forEach(([a, b]) => { if (b - a < 0.25) return; put(MAT.steel, CYL(0.022, 0.022, b - a, 10), kitM4(rx, 0.95, (a + b) / 2, 0, Math.PI / 2));
       [a + 0.06, b - 0.06].forEach((zz) => put(MAT.steel, BOX(0.07, 0.025, 0.025), kitM4(x - s * 0.025, 0.95, zz, 0))); });
@@ -170,9 +174,34 @@ function kitCorridorBuild(K, mods, wallMat) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
     CKIT.variants.get(vk).forEach(({ geo, mat }) => {
       const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = 'corridor ' + key;
-      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4); });
+      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4);
+        if (mat === CKIT.band) im.setColorAt(i, new THREE.Color(d.band || 0xD9B07E).convertSRGBToLinear()); }); // palette hex as painted, like the canvas signs
       im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); out.push(im);
     });
   });
   return out;
+}
+
+// Signs and plates drawn into one canvas and one mesh (one draw for all of a deck's): cells = [{ w, h (pixels),
+// draw(g, x, y, w, h), quads: [{ c: [x, y, z] centre, n: [x, y, z] facing, w, h (metres) }] }], laid out in rows.
+function kitAtlas(K, cells, name) {
+  const AW = 2048; let x = 0, y = 0, rowH = 0;
+  cells.forEach((c) => { if (x + c.w > AW) { x = 0; y += rowH; rowH = 0; } c.px = x; c.py = y; x += c.w; rowH = Math.max(rowH, c.h); });
+  const AH = Math.pow(2, Math.ceil(Math.log2(Math.max(64, y + rowH)))), cv = cnv(AW, AH), g = cv.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, AW, AH);
+  const list = [], up = new THREE.Vector3(0, 1, 0);
+  cells.forEach((c) => { g.save(); g.beginPath(); g.rect(c.px, c.py, c.w, c.h); g.clip(); c.draw(g, c.px, c.py, c.w, c.h); g.restore();
+    const u0 = c.px / AW, u1 = (c.px + c.w) / AW, v1 = 1 - c.py / AH, v0 = 1 - (c.py + c.h) / AH;
+    c.quads.forEach((q) => { const n = new THREE.Vector3(...q.n).normalize(), r = new THREE.Vector3().crossVectors(up, n).multiplyScalar(q.w / 2), h = up.clone().multiplyScalar(q.h / 2), C = new THREE.Vector3(...q.c);
+      const P = [C.clone().sub(r).sub(h), C.clone().add(r).sub(h), C.clone().add(r).add(h), C.clone().sub(r).add(h)].map((v) => v.toArray());
+      list.push([kitQuad(P, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], n.toArray()), null]); }); });
+  const m = mesh(kitGeo(list), new THREE.MeshBasicMaterial({ map: tex(cv), toneMapped: false }), 0, 0, 0, K.root); m.name = name || 'atlas'; return m;
+}
+// A small prop (parts = [{ geo, mat }] in its own frame, +z facing out of the wall) drawn as instances at
+// places = [{ x, z, ry }] on the deck floor.
+function kitProps(K, parts, places, name) {
+  const q = new THREE.Quaternion(), m4 = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+  return parts.map(({ geo, mat }) => { const im = new THREE.InstancedMesh(geo, mat, places.length); im.name = name || 'props';
+    places.forEach((p, i) => { q.setFromAxisAngle(up, p.ry); m4.compose(new THREE.Vector3(p.x, p.y || 0, p.z), q, one); im.setMatrixAt(i, m4); });
+    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); return im; });
 }

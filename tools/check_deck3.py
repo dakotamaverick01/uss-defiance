@@ -11,7 +11,7 @@ import check_stations; check_stations.root = root
 
 CHECK_JS = r"""() => {
   const out = [], ok = (name, pass, info) => out.push([name, !!pass, info === undefined ? '' : String(info)]);
-  liftSetDeck(3);
+  deckBuild(2); liftSetDeck(3);
   const Lt = D3.layout, F = Lt.F, W = Lt.W, w2p = (x, z) => [z + 64, x]; // world to plan [m, x]
   const inPoly = (P, m, x) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [am, ax] = P[i], [bm, bx] = P[j]; if ((ax > x) !== (bx > x) && m < (bm - am) * (x - ax) / (bx - ax) + am) c = !c; } return c; };
   ok('Deck 3 built and shown', deckOf(3).made && DECK3.visible && !LIFT.stub.visible);
@@ -52,6 +52,19 @@ CHECK_JS = r"""() => {
     const unreached = D3.doors.filter((d) => { const n = [Math.sin(d.rot), Math.cos(d.rot)], tx = d.x + n[0] * 0.75, tz = d.z + n[1] * 0.75;
       return ![...seen].some((k) => { const [x, z] = cells.get(k); return Math.hypot(x - tx, z - tz) < 0.3; }); }).map((d) => d.s.id || d.s.n);
     ok(`every door can be walked to from Lift 1 (${seen.size} of ${cells.size} floor cells reached)`, cells.has(start) && !unreached.length, unreached.join(', ')); }
+  // B2b: signs where each stretch of corridor leaves a crossing, a frame number on every walled frame, wall screens and
+  // benches against a wall (never a door), a call panel beside every room door on Decks 2 and 3, section colour bands
+  { const legs = new Set(Lt.mods.filter((d) => d.leg).map((d) => d.leg)), want = [...legs].reduce((s, k) => s + (k[0] === 'o' ? 1 : 2), 0);
+    ok(`a sign at each crossing end of every corridor stretch (${want})`, D3.signs.length === want && D3.signs.every((S) => S.items.length || /SPOKE/.test(S.name)), D3.signs.length);
+    ok('Lift 1 shown on the signs pointing toward it', D3.signs.filter((S) => S.lift).length === 5, D3.signs.filter((S) => S.lift).length);
+    const plates = Lt.mods.filter((d) => d.frame && d.L !== 'o').length, frames = new Set(Lt.mods.filter((d) => d.frame).map((d) => d.frame));
+    ok(`frame numbers on ${plates} frames, all different`, plates > 100 && frames.size === Lt.mods.filter((d) => d.frame).length && D3.atlas && D3.atlas.isMesh, plates);
+    const badW = D3.screens.concat(D3.benches).filter((p) => (p.sd < 0 ? p.d.L : p.d.R) !== 'w');
+    ok(`${D3.screens.length} wall screens and ${D3.benches.length} benches, each against a plain wall`, D3.screens.length >= 8 && D3.benches.length >= 4 && !badW.length);
+    const bells = (n) => DOORS.filter((d) => d.deck === n && d.room && d.station !== 'lift').map((d) => { let k = 0; d.L.parent.children.forEach((c) => { if (c.material === DOORBELL.mat) k++; }); return k; });
+    ok('a call panel beside every room door on Decks 2 and 3', [2, 3].every((n) => bells(n).length && bells(n).every((k) => k === 1)), [2, 3].map((n) => bells(n).join('')).join(' / '));
+    const bands = D3.mods.filter((m) => m.material === CKIT.band);
+    ok('section colour bands on every walled corridor piece', bands.length && bands.every((m) => m.instanceColor && m.instanceColor.count === m.count)); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;

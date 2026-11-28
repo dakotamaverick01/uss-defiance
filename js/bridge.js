@@ -620,6 +620,19 @@ const DOORS = [];
 function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }
 // a sliding double door at (px, pz), frame on the local +z side; parent and deck default to the bridge (Deck 1);
 // w is the clear opening (1.2 m standard), each leaf half of it
+// a door's call panel: dark bezel, lit face (one shared texture), on the wall at x in the door's frame (+z is the corridor)
+const DOORBELL = {};
+function doorBell(g, x) {
+  if (!DOORBELL.geo) {
+    const c = cnv(64, 112), q = c.getContext('2d'); q.fillStyle = '#0b0a0c'; q.fillRect(0, 0, 64, 112);
+    q.fillStyle = '#E8A06A'; q.fillRect(8, 8, 48, 10); q.fillStyle = '#B693C4'; q.fillRect(8, 24, 22, 8); q.fillStyle = '#D9B07E'; q.fillRect(34, 24, 22, 8);
+    q.fillStyle = '#2B2229'; q.fillRect(8, 40, 48, 40); q.fillStyle = '#F2C88F'; q.beginPath(); q.arc(32, 60, 12, 0, Math.PI * 2); q.fill();
+    q.fillStyle = '#7E5C8E'; q.fillRect(8, 90, 48, 12);
+    DOORBELL.geo = RBOX(0.13, 0.21, 0.08, 0.012); DOORBELL.face = new THREE.PlaneGeometry(0.1, 0.175);
+    DOORBELL.mat = new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false });
+  }
+  mesh(DOORBELL.geo, MAT.gunDark, x, 1.32, 0.04, g); mesh(DOORBELL.face, DOORBELL.mat, x, 1.32, 0.081, g);
+}
 function doorAt(px, pz, rot, label, station, auto, room, parent, deck, w) {
   w = w || 1.2; const hw = w / 2, k = w / 1.2;
   const g = group(px, 0, pz, rot, parent), tx = Math.cos(rot), tz = -Math.sin(rot);
@@ -637,6 +650,8 @@ function doorAt(px, pz, rot, label, station, auto, room, parent, deck, w) {
   const Rr = mesh(RBOX(hw, 2.3, 0.06, 0.015), MAT.panel, hw / 2, 1.15, 0.06, g);
   [L, Rr].forEach((d, j) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, (j ? -1 : 1) * (hw / 2 - 0.03), 0, 0.04, d); mesh(BOX(0.4 * k, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
   addHit(BOX(w + 0.4, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
+  // below the bridge, a room door has a small call panel ("doorbell") on the corridor wall beside it: flat, no function
+  if (room && (deck || 1) >= 2 && station !== 'lift') doorBell(g, hw + 0.37);
   // each leaf sits hw/2 off centre when shut and slides hw - 0.04 into the wall when open (render.js)
   const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal, deck: deck || 1, q: hw / 2, slide: hw - 0.04, reach: w > 1.5 ? 2.0 : 1.7 };
   if (room) dd.seg = [px - tx * hw, pz - tz * hw, px + tx * hw, pz + tz * hw, 0.2];

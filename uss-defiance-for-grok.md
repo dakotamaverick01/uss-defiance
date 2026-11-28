@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `74ee59d`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `edf99dd`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -3432,6 +3432,19 @@ const DOORS = [];
 function door(ei, t, label, station, auto, room) { const e = EDGES[ei]; const [px, pz] = onEdge(ei, t, 0); return doorAt(px, pz, e.rot, label, station, auto, room); }
 // a sliding double door at (px, pz), frame on the local +z side; parent and deck default to the bridge (Deck 1);
 // w is the clear opening (1.2 m standard), each leaf half of it
+// a door's call panel: dark bezel, lit face (one shared texture), on the wall at x in the door's frame (+z is the corridor)
+const DOORBELL = {};
+function doorBell(g, x) {
+  if (!DOORBELL.geo) {
+    const c = cnv(64, 112), q = c.getContext('2d'); q.fillStyle = '#0b0a0c'; q.fillRect(0, 0, 64, 112);
+    q.fillStyle = '#E8A06A'; q.fillRect(8, 8, 48, 10); q.fillStyle = '#B693C4'; q.fillRect(8, 24, 22, 8); q.fillStyle = '#D9B07E'; q.fillRect(34, 24, 22, 8);
+    q.fillStyle = '#2B2229'; q.fillRect(8, 40, 48, 40); q.fillStyle = '#F2C88F'; q.beginPath(); q.arc(32, 60, 12, 0, Math.PI * 2); q.fill();
+    q.fillStyle = '#7E5C8E'; q.fillRect(8, 90, 48, 12);
+    DOORBELL.geo = RBOX(0.13, 0.21, 0.08, 0.012); DOORBELL.face = new THREE.PlaneGeometry(0.1, 0.175);
+    DOORBELL.mat = new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false });
+  }
+  mesh(DOORBELL.geo, MAT.gunDark, x, 1.32, 0.04, g); mesh(DOORBELL.face, DOORBELL.mat, x, 1.32, 0.081, g);
+}
 function doorAt(px, pz, rot, label, station, auto, room, parent, deck, w) {
   w = w || 1.2; const hw = w / 2, k = w / 1.2;
   const g = group(px, 0, pz, rot, parent), tx = Math.cos(rot), tz = -Math.sin(rot);
@@ -3449,6 +3462,8 @@ function doorAt(px, pz, rot, label, station, auto, room, parent, deck, w) {
   const Rr = mesh(RBOX(hw, 2.3, 0.06, 0.015), MAT.panel, hw / 2, 1.15, 0.06, g);
   [L, Rr].forEach((d, j) => { mesh(BOX(0.02, 1.9, 0.02), SLOT, (j ? -1 : 1) * (hw / 2 - 0.03), 0, 0.04, d); mesh(BOX(0.4 * k, 0.05, 0.02), MAT.steel, 0, 0.1, 0.04, d); });
   addHit(BOX(w + 0.4, 2.6, 0.8), { station }, g, 0, 1.3, 0.45);
+  // below the bridge, a room door has a small call panel ("doorbell") on the corridor wall beside it: flat, no function
+  if (room && (deck || 1) >= 2 && station !== 'lift') doorBell(g, hw + 0.37);
   // each leaf sits hw/2 off centre when shut and slides hw - 0.04 into the wall when open (render.js)
   const dd = { L, Rr, open: 0, station, auto, room, wx: px, wz: pz, reveal, deck: deck || 1, q: hw / 2, slide: hw - 0.04, reach: w > 1.5 ? 2.0 : 1.7 };
   if (room) dd.seg = [px - tx * hw, pz - tz * hw, px + tx * hw, pz + tz * hw, 0.2];
@@ -4327,6 +4342,8 @@ function kitFrames(K, x0, x1, z0, z1, H) { // structural frames every 2.4 m alon
 // variant and material), placed by kitCorridorBuild from a deck's floor plan (deck3.js).
 // Module frame: x across (-1.1 left to +1.1 right), y up from the floor, z along (start edge at -len/2).
 const CKIT = { variants: new Map() };
+// the section colour band along the walls: white paint, tinted per copy (InstancedMesh instance colours)
+CKIT.band = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.3 });
 // merge [geometry, Matrix4] pairs into one geometry (position, normal, uv), so a variant's parts per material are one mesh
 function kitGeo(list) {
   const pos = [], nor = [], uv = [];
@@ -4372,6 +4389,8 @@ function kitModule(L, R, lin, lout, wallMat) {
     const xi = x - s * 0.13;
     put(SLOT, BOX(0.03, 0.03, len - 0.1), kitM4(xi, H - 0.28, 0, yaw)); put(MAT.gunDark, RBOX(0.12, 0.08, len, 0.015), kitM4(x - s * 0.06, H - 0.23, 0, yaw));
     put(STRIP, BOX(0.02, 0.02, len - 0.2), kitM4(x - s * 0.02, 0.06, 0, yaw));
+    // the section colour band at shoulder height, broken at a door's frame
+    (k === 'd' ? [[z0, -0.84], [0.84, z1]] : [[z0, z1]]).forEach(([a, b]) => put(CKIT.band, BOX(0.012, 0.09, b - a), kitM4(x - s * 0.007, 1.62, (a + b) / 2, 0)));
     const rx = x - s * 0.06, runs = k === 'd' ? [[z0 + 0.15, -0.85], [0.85, z1 - 0.15]] : [[z0 + 0.15, z1 - 0.15]];
     runs.forEach(([a, b]) => { if (b - a < 0.25) return; put(MAT.steel, CYL(0.022, 0.022, b - a, 10), kitM4(rx, 0.95, (a + b) / 2, 0, Math.PI / 2));
       [a + 0.06, b - 0.06].forEach((zz) => put(MAT.steel, BOX(0.07, 0.025, 0.025), kitM4(x - s * 0.025, 0.95, zz, 0))); });
@@ -4395,11 +4414,36 @@ function kitCorridorBuild(K, mods, wallMat) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
     CKIT.variants.get(vk).forEach(({ geo, mat }) => {
       const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = 'corridor ' + key;
-      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4); });
+      list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4);
+        if (mat === CKIT.band) im.setColorAt(i, new THREE.Color(d.band || 0xD9B07E).convertSRGBToLinear()); }); // palette hex as painted, like the canvas signs
       im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); out.push(im);
     });
   });
   return out;
+}
+
+// Signs and plates drawn into one canvas and one mesh (one draw for all of a deck's): cells = [{ w, h (pixels),
+// draw(g, x, y, w, h), quads: [{ c: [x, y, z] centre, n: [x, y, z] facing, w, h (metres) }] }], laid out in rows.
+function kitAtlas(K, cells, name) {
+  const AW = 2048; let x = 0, y = 0, rowH = 0;
+  cells.forEach((c) => { if (x + c.w > AW) { x = 0; y += rowH; rowH = 0; } c.px = x; c.py = y; x += c.w; rowH = Math.max(rowH, c.h); });
+  const AH = Math.pow(2, Math.ceil(Math.log2(Math.max(64, y + rowH)))), cv = cnv(AW, AH), g = cv.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, AW, AH);
+  const list = [], up = new THREE.Vector3(0, 1, 0);
+  cells.forEach((c) => { g.save(); g.beginPath(); g.rect(c.px, c.py, c.w, c.h); g.clip(); c.draw(g, c.px, c.py, c.w, c.h); g.restore();
+    const u0 = c.px / AW, u1 = (c.px + c.w) / AW, v1 = 1 - c.py / AH, v0 = 1 - (c.py + c.h) / AH;
+    c.quads.forEach((q) => { const n = new THREE.Vector3(...q.n).normalize(), r = new THREE.Vector3().crossVectors(up, n).multiplyScalar(q.w / 2), h = up.clone().multiplyScalar(q.h / 2), C = new THREE.Vector3(...q.c);
+      const P = [C.clone().sub(r).sub(h), C.clone().add(r).sub(h), C.clone().add(r).add(h), C.clone().sub(r).add(h)].map((v) => v.toArray());
+      list.push([kitQuad(P, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], n.toArray()), null]); }); });
+  const m = mesh(kitGeo(list), new THREE.MeshBasicMaterial({ map: tex(cv), toneMapped: false }), 0, 0, 0, K.root); m.name = name || 'atlas'; return m;
+}
+// A small prop (parts = [{ geo, mat }] in its own frame, +z facing out of the wall) drawn as instances at
+// places = [{ x, z, ry }] on the deck floor.
+function kitProps(K, parts, places, name) {
+  const q = new THREE.Quaternion(), m4 = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+  return parts.map(({ geo, mat }) => { const im = new THREE.InstancedMesh(geo, mat, places.length); im.name = name || 'props';
+    places.forEach((p, i) => { q.setFromAxisAngle(up, p.ry); m4.compose(new THREE.Vector3(p.x, p.y || 0, p.z), q, one); im.setMatrixAt(i, m4); });
+    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); return im; });
 }
 
 ````
@@ -4881,6 +4925,9 @@ const D3Y = deckY(3), D3C = STD.corridor.h;
 const DECK3 = group(0, D3Y, 0, 0); DECK3.name = 'Deck 3';
 const D3 = { root: DECK3, segs: [], obs: [], rooms: [], door: null, labels: [], rails: [], mods: [], doors: [] };
 const d3xz = (m, x) => [x, m - 64]; // plan [m, x] to world [x, z]
+// section colours (palette A): the ring tan, each spoke its own; the band along the walls and the signs carry them
+const D3_BAND = { ring: '#D9B07E', 0: '#E8A06A', 90: '#F2C88F', 180: '#B693C4', 270: '#C67A86' };
+const D3_LETTER = { 0: 'A', 90: 'S', 180: 'F', 270: 'P' };
 
 // The corridor layout, worked out from the plan (no 3D objects, so checks can call it): modules (see kitCorridorBuild),
 // room doors snapped to the centre of a module, wall lines for collision, end caps, lobby openings.
@@ -4891,7 +4938,8 @@ function d3Layout() {
   const spokeA = P.spokes.map(([a]) => a), near0 = (a, s) => Math.abs(((a - s + 540) % 360) - 180) < 1e-6;
   // the ring: N identical tapered pieces, a crossing wherever a spoke meets it
   for (let k = 0; k < N; k++) { const a = k * 360 / N, cross = spokeA.some((s) => near0(a, s)), [x, z] = d3xz(cm + dc * Math.cos(a * rad), cx + dc * Math.sin(a * rad));
-    mods.push({ L: cross ? 'o' : 'w', R: cross ? 'o' : 'w', lin: rlin, lout: rlout, x, z, ry: (a - 90) * rad, ring: true, cross, full: !cross, a }); }
+    mods.push({ L: cross ? 'o' : 'w', R: cross ? 'o' : 'w', lin: rlin, lout: rlout, x, z, ry: (a - 90) * rad, ring: true, cross, full: !cross, a, k,
+      band: D3_BAND.ring, leg: cross ? null : 'r' + Math.floor(a / 90), frame: 'R' + String(k).padStart(2, '0') }); }
   // the spokes, from the centre crossing out: one run inside the ring, one outside; openings onto corridor-like spaces
   // (the lobby) split a run; each piece is whole 2.4 m modules from its start, then a stretched filler
   // the crossing at the centre, where the four spokes meet
@@ -4901,7 +4949,9 @@ function d3Layout() {
     const u = [Math.sin(a * rad), Math.cos(a * rad)], ry = Math.atan2(u[0], u[1]), side = [u[1], -u[0]], [ox, oz] = d3xz(cm, cx);
     const at = (t, l) => [ox + u[0] * t + side[0] * l, oz + u[1] * t + side[1] * l];
     const local = (wx, wz) => { const dx = wx - ox, dz = wz - oz; return [dx * u[0] + dz * u[1], dx * side[0] + dz * side[1]]; };
+    let fn = 0; const fr = () => D3_LETTER[a] + String(++fn).padStart(2, '0'), band = D3_BAND[a];
     [[W, dc - W], [dc + W, end]].forEach(([t0, t1], ri) => {
+      const leg = (ri ? 'o' : 'i') + a;
       const cuts = [t0, t1], open = [];
       lobbies.forEach((s) => { const pts = s.poly.map(([m, x]) => local(...d3xz(m, x))); [-1, 1].forEach((sd) => {
         const on = pts.filter(([, l]) => Math.abs(l - sd * W) < 0.15); if (on.length < 2) return;
@@ -4910,8 +4960,8 @@ function d3Layout() {
       for (let i = 0; i < cs.length - 1; i++) {
         const p0 = cs[i], p1 = cs[i + 1], o = open.find(([lo, hi]) => p0 >= lo - 1e-3 && p1 <= hi + 1e-3), L = o && o[2] < 0 ? 'o' : 'w', R = o && o[2] > 0 ? 'o' : 'w';
         const n = Math.floor((p1 - p0) / LEN + 1e-6), f = p1 - p0 - n * LEN;
-        for (let j = 0; j < n; j++) { const t = p0 + LEN * (j + 0.5), [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: 1, full: true, spoke: a, t }); }
-        if (f > 0.02) { const t = p1 - f / 2, [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: f / LEN, full: false, spoke: a, t }); }
+        for (let j = 0; j < n; j++) { const t = p0 + LEN * (j + 0.5), [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: 1, full: true, spoke: a, t, band, leg, frame: fr() }); }
+        if (f > 0.02) { const t = p1 - f / 2, [x, z] = at(t, 0); mods.push({ L, R, lin: LEN, lout: LEN, x, z, ry, sz: f / LEN, full: false, spoke: a, t, band, leg, frame: fr() }); }
       }
       if (ri === 1) { const [x0, z0] = at(end, -W), [x1, z1] = at(end, W); caps.push({ A: [x0, z0], B: [x1, z1], n: [-u[0], -u[1]], spoke: a }); }
     });
@@ -4931,7 +4981,7 @@ function d3Layout() {
     if (!best) { if (s.n !== 'Sickbay') console.warn('Deck 3: no corridor module for the door of', s.id || s.n); return; }
     const d = best.d; if (best.sd < 0) d.L = 'd'; else d.R = 'd';
     const px = d.x + d.ax[0] * best.sd * W, pz = d.z + d.ax[1] * best.sd * W, nrm = [-d.ax[0] * best.sd, -d.ax[1] * best.sd];
-    doors.push({ s, x: px, z: pz, rot: Math.atan2(nrm[0], nrm[1]), moved: Math.hypot(px - wx, pz - wz) });
+    doors.push({ s, x: px, z: pz, rot: Math.atan2(nrm[0], nrm[1]), moved: Math.hypot(px - wx, pz - wz), mod: d });
   });
   // collision: each walled side as a line (broken at a door), each end cap
   const segs = [];
@@ -5005,6 +5055,8 @@ function buildDeck3() {
   });
   D3.doors = all;
 
+  d3Dress(Lt);
+
   // ---------- where you are: the corridor runs (rectangles) and the ring ----------
   const [ocx, ocz] = d3xz(...Lt.F.P.c), W = Lt.W;
   Lt.F.P.spokes.forEach(([a, end]) => { const r = a * Math.PI / 180, ux = Math.sin(r), uz = Math.cos(r), ex = ocx + ux * end, ez = ocz + uz * end;
@@ -5012,6 +5064,92 @@ function buildDeck3() {
     D3.rooms.push({ label, x0: Math.min(ocx, ex) - (uz ? W : 0), x1: Math.max(ocx, ex) + (uz ? W : 0), z0: Math.min(ocz, ez) - (ux ? W : 0), z1: Math.max(ocz, ez) + (ux ? W : 0) }); });
   D3.rooms.unshift({ label: 'Ring corridor', test: (x, z) => { const r = Math.hypot(x - ocx, z - ocz); return r > Lt.dc - W - 0.2 && r < Lt.dc + W + 0.2; } });
   DECK3.updateMatrixWorld(true);
+}
+
+// a point in a corridor module's own frame (x across, y up, z along; lz = -1..1 of its half-length at that x) in world terms
+function d3ModPt(d, lx, y, lz) {
+  const W = STD.corridor.w / 2, h = (d.lin + (d.lout - d.lin) * (lx + W) / (2 * W)) * d.sz / 2 * lz;
+  return [d.x + d.ax[0] * lx + d.az[0] * h, y, d.z + d.ax[1] * lx + d.az[1] * h];
+}
+// sign text for the rooms whose doors are on a stretch of corridor: lifts and named rooms first, cabins as number ranges
+function d3Contents(doors) {
+  const nums = (k) => { const v = doors.filter((d) => d.s.n === k).map((d) => +d.s.id.slice(2)).sort((p, q) => p - q), r = [];
+    v.forEach((x) => { const l = r[r.length - 1]; if (l && x === l[1] + 1) l[1] = x; else r.push([x, x]); });
+    return r.map(([p, q]) => p === q ? String(p).padStart(2, '0') : String(p).padStart(2, '0') + '-' + String(q).padStart(2, '0')).join(', '); };
+  const named = { 'Lift 2': 'LIFT 2', 'Sickbay': 'SICKBAY', 'Medical lab and morgue': 'MEDICAL LAB', 'Forward shield generator': 'SHIELD GENERATOR',
+    'Computer core, upper': 'COMPUTER CORE', 'Damage control station': 'DAMAGE CONTROL', 'Pod feeds and torpedo magazine': 'MAGAZINE' };
+  const out = [...new Set(doors.map((d) => named[d.s.n]).filter(Boolean))];
+  if (doors.some((d) => d.s.n === 'Officers’ quarters')) out.push('OFFICERS ' + nums('Officers’ quarters'));
+  if (doors.some((d) => d.s.n === 'Crew quarters')) out.push('CREW ' + nums('Crew quarters'));
+  return out;
+}
+// Deck 3's signs, frame numbers, wall screens, benches, plants and the posts closing the ring crossings' outer corners
+function d3Dress(Lt) {
+  const W = Lt.W, H = D3C, mods = Lt.mods, cells = [];
+  // frame numbers: a small plate on each frame's left post, facing along the corridor's width
+  mods.forEach((d) => { if (!d.frame || d.L === 'o') return;
+    const c = d3ModPt(d, -W + 0.102, 1.95, -1), lab = '3-' + d.frame;
+    cells.push({ w: 128, h: 56, quads: [{ c, n: [d.ax[0], 0, d.ax[1]], w: 0.13, h: 0.057 }],
+      draw: (g, x, y, w, h) => { g.fillStyle = '#0b0a0c'; g.fillRect(x, y, w, h); g.fillStyle = d.band; g.fillRect(x + 4, y + 6, 8, h - 12);
+        g.fillStyle = '#F5E6CF'; g.font = `600 32px ${DISP}`; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(lab, x + w / 2 + 6, y + h / 2 + 1); } }); });
+  // overhead signs where each stretch of corridor leaves a crossing: its name and what is along it; "LIFT 1" on the way there
+  const legs = new Map(); mods.forEach((d) => { if (d.leg) { if (!legs.has(d.leg)) legs.set(d.leg, []); legs.get(d.leg).push(d); } });
+  const legName = (k) => k[0] === 'r' ? ['RING · AFT STARBOARD', 'RING · FORWARD STARBOARD', 'RING · FORWARD PORT', 'RING · AFT PORT'][+k[1]]
+    : ({ 0: k[0] === 'i' ? 'AFT SPOKE' : 'AFT CORRIDOR', 90: 'STARBOARD SPOKE', 180: 'FORWARD SPOKE', 270: 'PORT SPOKE' })[+k.slice(1)];
+  const signs = [];
+  legs.forEach((list, k) => {
+    const ring = k[0] === 'r', sorted = list.slice().sort((p, q) => ring ? p.a - q.a : p.t - q.t), on = new Set(list);
+    const doors = D3.doors.filter((d) => on.has(d.mod)), items = d3Contents(doors), a = ring ? null : +k.slice(1);
+    if (k === 'i0') items.unshift('LIFT 1');
+    const band = ring ? D3_BAND.ring : D3_BAND[a];
+    // ends at a crossing: [module, facing sign (+1 along the module's z, -1 against), lift badge]
+    const ends = ring ? [[sorted[0], 1, false], [sorted[sorted.length - 1], -1, false]]
+      : k[0] === 'i' ? [[sorted[0], -1, k === 'i0'], [sorted[sorted.length - 1], 1, true]] : [[sorted[0], -1, false]];
+    ends.forEach(([d, f, lift]) => signs.push({ d, f, lift, name: legName(k), items, band }));
+  });
+  signs.forEach((S) => {
+    const d = S.d, c = d3ModPt(d, 0, 2.36, 0), n = [d.az[0] * S.f, 0, d.az[1] * S.f];
+    // the sign's body and two hanger rods
+    const body = mesh(RBOX(1.56, 0.32, 0.04, 0.012), MAT.gunDark, c[0] - n[0] * 0.02, c[1], c[2] - n[2] * 0.02, DECK3); body.rotation.y = Math.atan2(n[0], n[2]);
+    [-0.6, 0.6].forEach((o) => mesh(CYL(0.008, 0.008, H - 2.52, 6), MAT.steel, c[0] - n[2] * o, (H + 2.52) / 2, c[2] + n[0] * o, DECK3));
+    cells.push({ w: 1024, h: 208, quads: [{ c: [c[0] + n[0] * 0.002, c[1], c[2] + n[2] * 0.002], n, w: 1.5, h: 0.305 }], draw: (g, x, y, w, h) => {
+      g.fillStyle = '#000'; g.fillRect(x, y, w, h); g.fillStyle = S.band; g.fillRect(x + 14, y + 16, 22, h - 32); hexTab(g, x + 48, y + 18, 26, 58, true, false); g.fill();
+      const right = S.lift ? 214 : 20; g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+      g.fillStyle = S.band; g.font = `600 58px ${DISP}`; g.fillText(S.name, x + 88, y + 70, w - 88 - right);
+      g.fillStyle = '#D9B07E'; g.font = `500 36px ${DISP}`; const lines = [''];
+      S.items.forEach((it) => { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' · ' + it : it; if (g.measureText(t).width < w - 92 - right || !lines[lines.length - 1]) lines[lines.length - 1] = t; else lines.push(it); });
+      if (!S.items.length) lines[0] = S.name.startsWith('RING') ? 'CABINS' : 'TO THE CENTRE';
+      lines.slice(0, 2).forEach((t, i) => g.fillText(t, x + 92, y + 124 + i * 44, w - 92 - right));
+      if (S.lift) { const bx = x + w - 196, by = y + 54; g.fillStyle = '#E8A06A'; g.beginPath(); g.roundRect(bx, by, 176, 100, 50); g.fill();
+        g.fillStyle = '#000'; g.font = `600 44px ${DISP}`; g.fillText('LIFT 1', bx + 24, by + 66); g.beginPath(); g.moveTo(bx + 140, by + 30); g.lineTo(bx + 162, by + 50); g.lineTo(bx + 140, by + 70); g.fill(); }
+    } });
+  });
+  D3.signs = signs;
+  D3.atlas = kitAtlas(D3, cells, 'Deck 3 signs');
+  // wall screens and benches on the ring's inner wall (no doors there), a screen now and then on the long aft corridor
+  const screen = [], bench = [];
+  const place = (d, sd) => { const p = d3ModPt(d, sd * W, 0, 0), dir = [-d.ax[0] * sd, -d.ax[1] * sd]; return { x: p[0], z: p[2], ry: Math.atan2(dir[0], dir[1]), d, sd }; };
+  mods.forEach((d) => { if (d.ring && !d.cross) { if (d.k % 12 === 3 || d.k % 12 === 9) screen.push(place(d, -1)); else if (d.k % 12 === 6) bench.push(place(d, -1)); }
+    else if (d.leg === 'o0' && d.full && d.L === 'w' && d.R === 'w' && Math.round(d.t / 2.4) % 6 === 0) screen.push(place(d, (Math.round(d.t / 2.4) % 12) ? 1 : -1)); });
+  { const c = cnv(512, 296), g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 512, 296);
+    elbow(g, 12, 12, 56, 16, 260, 26, true, '#E8A06A'); g.fillStyle = '#E8A06A'; g.font = `600 34px ${DISP}`; g.fillText('DECK 3', 300, 40);
+    g.fillStyle = '#B693C4'; g.font = `500 26px ${DISP}`; g.fillText('MEDICAL AND OFFICERS', 84, 84);
+    [['ENVIRONMENT', 'NOMINAL', '#8DBF84'], ['SICKBAY', 'READY', '#8DBF84'], ['LIFT 1', 'IN SERVICE', '#8DBF84'], ['LIFT 2', 'OFFLINE', '#F0B44C'], ['ALERT', 'CONDITION GREEN', '#8DBF84']].forEach(([a, b, col], i) => {
+      g.fillStyle = '#D9B07E'; g.font = `500 24px ${DISP}`; g.fillText(a, 84, 126 + i * 34); g.fillStyle = col; g.fillText(b, 300, 126 + i * 34); });
+    g.fillStyle = '#7E5C8E'; g.fillRect(12, 270, 488, 12);
+    D3.screenMat = new THREE.MeshBasicMaterial({ map: tex(c), toneMapped: false }); }
+  kitProps(D3, [{ geo: RBOX(0.9, 0.56, 0.04, 0.015), mat: MAT.gunDark }, { geo: (() => { const g = new THREE.PlaneGeometry(0.82, 0.474); g.translate(0, 0, 0.0415); return g; })(), mat: D3.screenMat }]
+    .map((p) => { p.geo = p.geo.clone(); p.geo.translate(0, 1.45, 0.02); return p; }), screen, 'Deck 3 wall screens');
+  kitProps(D3, [{ geo: RBOX(1.4, 0.08, 0.42, 0.02), mat: MAT.leather }, { geo: RBOX(1.3, 0.4, 0.34, 0.02), mat: MAT.gunDark }]
+    .map((p, i) => { p.geo = p.geo.clone(); p.geo.translate(0, i ? 0.2 : 0.44, i ? 0.2 : 0.23); return p; }), bench, 'Deck 3 benches');
+  bench.forEach((b) => { const d = b.d; [-0.45, 0.45].forEach((o) => { const p = d3ModPt(d, b.sd * (W - 0.28), 0, o / (d.lin * d.sz / 2)); kitObs(D3, p[0], p[2], 0.28); }); });
+  D3.screens = screen; D3.benches = bench;
+  // plants at the far ends of the forward and lateral spokes
+  Lt.caps.forEach((c) => { if (c.spoke === 0) return; const mx = (c.A[0] + c.B[0]) / 2, mz = (c.A[1] + c.B[1]) / 2, ax = (c.B[0] - c.A[0]) / 2.2, az = (c.B[1] - c.A[1]) / 2.2;
+    kitPlant(D3, mx + c.n[0] * 0.45 + ax * 0.6, mz + c.n[1] * 0.45 + az * 0.6, 0.85); });
+  // posts closing the ring crossings' outer corners (the ring's outer edge is a little wider than the spoke)
+  Lt.F.P.spokes.forEach(([a]) => { const r = a * Math.PI / 180, u = [Math.sin(r), Math.cos(r)], v = [u[1], -u[0]], [ox, oz] = d3xz(...Lt.F.P.c), t = Lt.dc + W + 0.1;
+    [-1, 1].forEach((sd) => { const p = mesh(RBOX(0.3, H, 0.3, 0.03), MAT.gunDark, ox + u[0] * t + v[0] * sd * (W + 0.08), H / 2, oz + u[1] * t + v[1] * sd * (W + 0.08), DECK3); p.rotation.y = Math.atan2(u[0], u[1]); }); });
 }
 
 ````
