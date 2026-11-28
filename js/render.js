@@ -153,6 +153,8 @@ function frame() {
   // the ship model runs on real time (not the capped frame time) so it keeps pace on slow phones
   { const now = performance.now(); simUpdate(Math.min(1, (now - simLast) / 1000)); simLast = now; drainSimEvents(dt); }
   if (state.open) { livePanelT += dt; if (livePanelT > 0.25) { livePanelT = 0; renderPanel(); } }
+  // outside view (orbit.js): draw her from outside instead, and leave everything inside as it is
+  if (typeof ORBIT !== 'undefined' && ORBIT.on) { orbitFrame(dt); PERF_OPT.cpu = performance.now() - _t0; requestAnimationFrame(frame); return; }
 
   liftUpdate(dt);
   chairsUpdate(dt);

@@ -5,7 +5,7 @@ out = sys.argv[1] if len(sys.argv) > 1 else 'uss-defiance-for-grok.md'
 branch = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], capture_output=True, text=True).stdout.strip()
 commit = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 DOCS = ['README.md', 'docs/superpowers/specs/2026-11-22-captain-sim-design.md', 'docs/superpowers/plans/2026-11-22-stage1-ship-state.md', 'docs/interface-style-sheet.md']
-FILES = ['index.html'] + ['js/' + f + '.js' for f in ['core', 'decks', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'kit', 'deck2', 'deck3', 'lighting', 'bake', 'batch', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'render', 'perf']] + ['tests/sim.test.js']
+FILES = ['index.html'] + ['js/' + f + '.js' for f in ['core', 'decks', 'shipgeo', 'exterior', 'sim', 'surfaces', 'materials', 'bridge', 'space', 'rooms', 'kit', 'deck2', 'deck3', 'lighting', 'bake', 'batch', 'collision', 'screens', 'sound', 'ui', 'lift', 'controls', 'orbit', 'render', 'perf']] + ['tests/sim.test.js']
 LANG = {'.js': 'javascript', '.html': 'html', '.md': 'markdown'}
 parts = [f'# USS Defiance: one-file bundle for review\n\nBranch `{branch}` at `{commit}`. Read-only copy for review: suggest changes in words; do not edit the repository.\n\nContents: the docs first, then every source file in load order.\n']
 for p in DOCS + FILES:
