@@ -301,4 +301,48 @@ function shipRoomLayout(sp) {
   // room that widens, so partitions run on to the real wall)
   return { o, ux, uy, w, d, items, at: (u, v) => [o[0] + ux[0] * u + uy[0] * v, o[1] + ux[1] * u + uy[1] * v], span: (v) => { const q = span(v + I); return q ? [q[0] - xa, q[1] - xa] : [0, w]; } };
 }
+// Sickbay's fittings (Deck 3): eight biobeds in an arc against the curved wall (the ring corridor's inner wall), heads to
+// the wall; a glass-walled surgery in the middle of the ward, its door toward the entrance; the isolation room closing the
+// quiet end of the entry alcove; the chief medical officer's small glass office beside the entrance, looking over the ward;
+// the staff station and the stores along the straight walls. Plan [m, x]. Each item is a rectangle: c centre, f the unit
+// way it faces (its front), w across, d deep; glass rooms have door (offset across the front, from the centre) and side
+// (the other glass walls: 'l', 'r' seen from inside looking out of the front). in names the glass room an item sits in.
+function shipSickbayLayout(sp) {
+  if (!sp || sp.n !== 'Sickbay') return null;
+  const F = shipFloorPlan(3), [cm, cx] = F.P.c, R = Math.max(...sp.poly.map(([m, x]) => Math.hypot(m - cm, x - cx))), I = 0.12;
+  const dir = (t) => [Math.cos(t * Math.PI / 180), -Math.sin(t * Math.PI / 180)], at = (r, t) => [cm + r * dir(t)[0], cx + r * dir(t)[1]], neg = (v) => [-v[0], -v[1]];
+  const ms = sp.poly.map(([m]) => m), xs = sp.poly.map(([, x]) => x), mF = Math.min(...ms), xC = Math.max(...xs);
+  const dr = sp.door, notch = sp.poly[2], items = [], it = (k, c, f, w, d, o) => { const q = Object.assign({ k, c, f, w, d }, o || {}); items.push(q); return q; };
+  // the ward: beds from just past the CMO's office round to the port spoke's wall
+  const T0 = 22, T1 = 80, beds = [];
+  for (let i = 0; i < 8; i++) { const t = T0 + (T1 - T0) * i / 7;
+    beds.push(it('bed', at(R - I - 0.12 - 1.05, t), neg(dir(t)), 1.0, 2.1, { n: i + 1 }));
+    it('bedhead', at(R - I - 0.05, t), neg(dir(t)), 1.3, 0.1);
+    if (i < 7) it('bedside', at(R - I - 0.3, t + (T1 - T0) / 14), neg(dir(t + (T1 - T0) / 14)), 0.5, 0.45); }
+  // surgery: the centrepiece, square to the ward's middle bearing
+  const TS = 57, sc = at(9.5, TS), sf = neg(dir(TS));
+  it('surgery', sc, sf, 4.2, 4.2, { glass: true, door: -0.8, side: 'lr' });
+  it('optable', sc, [-sf[1], sf[0]], 0.8, 2.1, { in: 'surgery' });
+  it('lamp', sc, sf, 1.5, 1.5, { in: 'surgery', high: true });
+  it('surgcon', [sc[0] - sf[0] * 1.7 + sf[1] * 1.4, sc[1] - sf[1] * 1.7 - sf[0] * 1.4], sf, 1.0, 0.5, { in: 'surgery' });
+  it('surgcon', [sc[0] - sf[0] * 1.7 - sf[1] * 1.4, sc[1] - sf[1] * 1.7 + sf[0] * 1.4], sf, 1.0, 0.5, { in: 'surgery' });
+  // isolation: the whole end of the entry alcove, glass across its open side
+  const iw = (xC - I) - (notch[1] + I), id = 3.1, ic = [mF + I + id / 2, (xC - I + notch[1] + I) / 2];
+  it('isolation', ic, [1, 0], iw, id, { glass: true, door: -0.4 });
+  it('bed', [mF + I + 0.12 + 1.05, ic[1] - 0.35], [1, 0], 1.0, 2.1, { in: 'isolation', n: 'iso' });
+  it('bedhead', [mF + I + 0.05, ic[1] - 0.35], [1, 0], 1.3, 0.1, { in: 'isolation' });
+  // the staff station along the alcove's straight wall, between the isolation room and the entrance
+  it('station', [(mF + I + id + dr[0]) / 2 - 0.2, xC - I - 0.35], [0, -1], 2.2, 0.7);
+  // the CMO's office: beside the entrance, against the lobby's wall, glass toward the ward
+  const ow = 2.8, od = 2.6, oc = [notch[0] + 0.15 + ow / 2, notch[1] - I - od / 2];
+  it('office', oc, [0, -1], ow, od, { glass: true, door: -0.55, side: 'r' });
+  it('desk', [oc[0] + 0.35, oc[1] - 0.05], [0, 1], 1.5, 0.65, { in: 'office' });
+  it('chair', [oc[0] + 0.35, oc[1] + 0.65], [0, -1], 0.55, 0.55, { in: 'office' });
+  // stores: cabinets along the port spoke's wall, the replicator and a scanner alcove along the lobby's wall past the office
+  for (let x = notch[1] - 1.0; x > -12.6; x -= 0.95) it('medcab', [mF + I + 0.25, x - 0.45], [1, 0], 0.9, 0.5);
+  it('replicator', [oc[0] + ow / 2 + 0.75, notch[1] - I - 0.3], [0, -1], 1.0, 0.6);
+  const poly = (q) => { const s = [-q.f[1], q.f[0]], a = q.d / 2, b = q.w / 2; return [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([p, r]) => [q.c[0] + q.f[0] * a * p + s[0] * b * r, q.c[1] + q.f[1] * a * p + s[1] * b * r]); };
+  items.forEach((q) => { q.poly = poly(q); });
+  return { items, beds, R, dir, at, poly, label: [(mF + I + id + dr[0]) / 2, (xC + notch[1]) / 2 - 0.35] }; // label: open floor in the entry alcove, for the plan's name
+}
 // SHIPGEO-END

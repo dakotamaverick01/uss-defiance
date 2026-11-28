@@ -2,7 +2,7 @@
 // plan and prints [{ name, ok, info }] as JSON. See check_plan.py for what each check means.
 'use strict';
 const src = require('fs').readFileSync(0, 'utf8'), STD = JSON.parse(process.argv[2]);
-const G = new Function(src + '\nreturn { SHIPGEO, shipFloorPlan, shipSkinTop, shipTopAt, shipHull, shipRoomLayout };')();
+const G = new Function(src + '\nreturn { SHIPGEO, shipFloorPlan, shipSkinTop, shipTopAt, shipHull, shipRoomLayout, shipSickbayLayout };')();
 const res = [], ok = (name, cond, info) => res.push({ name, ok: !!cond, info: cond ? '' : info || '' });
 const inPoly = (P, m, x) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [am, ax] = P[i], [bm, bx] = P[j]; if ((ax > x) !== (bx > x) && m < (bm - am) * (x - ax) / (bx - ax) + am) c = !c; } return c; };
 const bbox = (P) => P.reduce((b, [m, x]) => [Math.min(b[0], m), Math.max(b[1], m), Math.min(b[2], x), Math.max(b[3], x)], [1e9, -1e9, 1e9, -1e9]);
@@ -84,6 +84,30 @@ for (const n of Object.keys(G.SHIPGEO.plans).map(Number)) {
         L.items.forEach((b, j) => { if (j > i && a.u0 < b.u1 - 0.01 && b.u0 < a.u1 - 0.01 && a.v0 < b.v1 - 0.01 && b.v0 < a.v1 - 0.01) bad.push(`${id} ${a.k}/${b.k} overlap`); }); }); });
     ok(D + `every cabin laid out: own head, a bed per berth, furniture inside and clear of the door (${cabs.length})`, !bad.length, bad.slice(0, 6).join('; ')); }
 }
+// sickbay's fittings (shipSickbayLayout): eight ward beds, three glass rooms; everything inside the room and off the walls'
+// line, nothing overlapping (except what sits inside a glass room), and a clear walk (0.3 m either side of you) from the
+// entrance to the foot of every bed, every glass room's door, the staff station and every cabinet
+{ const F = G.shipFloorPlan(3), sp = F.spaces.find((s) => s.n === 'Sickbay'), L = sp && G.shipSickbayLayout(sp), bad = [];
+  if (!L) bad.push('no layout');
+  else {
+    const dseg = (p, a, b) => { const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2)); return Math.hypot(a[0] + t * (b[0] - a[0]) - p[0], a[1] + t * (b[1] - a[1]) - p[1]); };
+    const dpoly = (P, p) => Math.min(...P.map((a, i) => dseg(p, a, P[(i + 1) % P.length])));
+    const nm = (q) => q.k + (q.n ? ' ' + q.n : ''), its = L.items.filter((q) => q.k !== 'lamp');
+    if (L.items.filter((q) => q.k === 'bed' && !q.in).length !== 8) bad.push('ward beds ' + L.items.filter((q) => q.k === 'bed' && !q.in).length + ', want 8');
+    if (L.items.filter((q) => q.glass).length !== 3) bad.push('glass rooms ' + L.items.filter((q) => q.glass).length + ', want 3');
+    its.forEach((q) => q.poly.forEach((p) => { if (!inPoly(sp.poly, p[0], p[1])) bad.push(nm(q) + ' outside the room'); }));
+    its.forEach((q) => { if (q.in && !q.poly.every((p) => inPoly(L.items.find((g) => g.k === q.in).poly, p[0], p[1]))) bad.push(nm(q) + ' not inside its ' + q.in); });
+    its.forEach((a, i) => its.forEach((b, j) => { if (j <= i || a.in === b.k || b.in === a.k || (a.in || '') !== (b.in || '')) return;
+      if (a.poly.some((p) => inPoly(b.poly, p[0], p[1])) || b.poly.some((p) => inPoly(a.poly, p[0], p[1]))) bad.push(nm(a) + ' / ' + nm(b) + ' overlap'); }));
+    const obs = its.filter((q) => !q.in), free = (m, x) => inPoly(sp.poly, m, x) && dpoly(sp.poly, [m, x]) >= 0.3 && obs.every((q) => !inPoly(q.poly, m, x) && dpoly(q.poly, [m, x]) >= 0.3);
+    const h = 0.1, key = (m, x) => Math.round(m / h) + ',' + Math.round(x / h), st = [sp.door[0] - 0.4, sp.door[1]], seen = new Set([key(...st)]), Q = [st];
+    if (!free(...st)) bad.push('the entrance is blocked');
+    while (Q.length) { const [m, x] = Q.pop(); [[h, 0], [-h, 0], [0, h], [0, -h]].forEach(([a, b]) => { const n = [m + a, x + b], kk = key(...n); if (!seen.has(kk) && free(...n)) { seen.add(kk); Q.push(n); } }); }
+    const reach = (p) => { for (let a = -0.3; a <= 0.31; a += h) for (let b = -0.3; b <= 0.31; b += h) if (seen.has(key(p[0] + a, p[1] + b))) return true; return false; };
+    obs.filter((q) => /^(bed|surgery|isolation|office|station|medcab|replicator)$/.test(q.k)).forEach((q) => { const sd = [-q.f[1], q.f[0]], o = q.door || 0, e = q.glass ? 0.5 : 0.55;
+      if (!reach([q.c[0] + q.f[0] * (q.d / 2 + e) + sd[0] * o, q.c[1] + q.f[1] * (q.d / 2 + e) + sd[1] * o])) bad.push('no clear way to the ' + nm(q)); });
+  }
+  ok('D3 sickbay laid out: 8 ward beds, surgery, isolation and the CMO\'s office in glass, all inside, no overlaps, a clear way from the entrance to every bed, door and cabinet', !bad.length, [...new Set(bad)].slice(0, 6).join('; ')); }
 // the saucer's top stays below Deck 2's floor (depth 7.0) under Deck 2's rooms, so its skin never shows inside them
 { let worst = 99, at = ''; for (let m = 54.5; m <= 95; m += 0.5) for (let x = 0; x <= 7.5; x += 0.5) { const H = G.shipHull(m); if (x < H.w) { const t = G.shipTopAt(m, x); if (t < worst) { worst = t; at = `m ${m}, x ${x}`; } } }
   ok(`saucer top below Deck 2's floor (highest point depth ${worst.toFixed(2)} at ${at})`, worst >= 7.05, 'raise saucer.top.up less'); }
