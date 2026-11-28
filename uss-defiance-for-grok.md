@@ -1,6 +1,6 @@
 # USS Defiance: one-file bundle for review
 
-Branch `captain-sim` at `5897060`. Read-only copy for review: suggest changes in words; do not edit the repository.
+Branch `captain-sim` at `99a66fc`. Read-only copy for review: suggest changes in words; do not edit the repository.
 
 Contents: the docs first, then every source file in load order.
 
@@ -1148,11 +1148,15 @@ const HULL_PAINT = {
 // until it arrives the hull shows a flat neutral patch
 const HULL_DETAIL = (() => {
   const flat = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flat.needsUpdate = true;
-  const D = { ready: false, cb: [], t: null, tex: (lite) => { if (!D.t) {
-    D.t = new THREE.TextureLoader().load(lite ? 'textures/hull_detail_1k.jpg' : 'textures/hull_detail.jpg', (t) => { D.ready = true; D.cb.forEach((f) => f(t)); }, undefined, () => console.warn('hull detail texture unavailable'));
-    D.t.wrapS = D.t.wrapT = THREE.RepeatWrapping; D.t.colorSpace = THREE.NoColorSpace; D.t.anisotropy = 8; }
-    return D.ready ? D.t : flat; }, onReady: (f) => { if (D.ready) f(D.t); else D.cb.push(f); } };
-  return D;
+  // one entry per size (small: the 1k copy for the half-size paint), so a quality switch gets the size it asks for
+  const C = {}, get = (small) => {
+    const k = small ? 's' : 'b'; if (C[k]) return C[k];
+    const e = C[k] = { ready: false, cb: [] };
+    e.t = new THREE.TextureLoader().load(small ? 'textures/hull_detail_1k.jpg' : 'textures/hull_detail.jpg', (t) => { e.ready = true; e.cb.forEach((f) => f(t)); }, undefined, () => console.warn('hull detail texture unavailable'));
+    e.t.wrapS = e.t.wrapT = THREE.RepeatWrapping; e.t.colorSpace = THREE.NoColorSpace; e.t.anisotropy = 8; return e;
+  };
+  return { tex: (small) => { const e = get(small); return e.ready ? e.t : flat; }, isReady: (small) => get(small).ready,
+    onReady: (small, f) => { const e = get(small); if (e.ready) f(e.t); else e.cb.push(f); } };
 })();
 // ---------- SHIPGEO curves, sampled the way shipCurve draws them ----------
 function shipSpline(pts, n) {
@@ -1888,9 +1892,9 @@ function buildExterior(opts) {
     fPos: { value: FL.map(([p]) => new THREE.Vector3(...p)) }, fDir: { value: FL.map(([p, q]) => new THREE.Vector3(...q).sub(new THREE.Vector3(...p)).normalize()) },
     fCol: { value: new THREE.Color(...HULL_PAINT.flood).multiplyScalar(7) },
     // the fine plating: an 8 m patch modelled and baked in Blender (tools/detail_tile_blender.py), repeated over the hull
-    detail: { value: HULL_DETAIL.tex(lite && K < 1) }, detailOn: { value: HULL_DETAIL.ready ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
+    detail: { value: HULL_DETAIL.tex(lite && K < 1) }, detailOn: { value: HULL_DETAIL.isReady(lite && K < 1) ? 1 : 0 }, detailScale: { value: 1 / 8 }, detailStr: { value: 1.0 },
   };
-  HULL_DETAIL.onReady((t) => { uniforms.detail.value = t; uniforms.detailOn.value = 1; });
+  HULL_DETAIL.onReady(lite && K < 1, (t) => { uniforms.detail.value = t; uniforms.detailOn.value = 1; });
   const paint = new THREE.ShaderMaterial({ uniforms, fog: false,
     vertexShader: `uniform mat4 shadowMtx; varying vec2 vUv; varying vec3 vN; varying vec3 vW; varying vec3 vP; varying vec4 vS; varying vec3 vNo;
 void main() { vUv = uv; vP = position; vNo = normal; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);
