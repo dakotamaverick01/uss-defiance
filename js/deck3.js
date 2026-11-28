@@ -374,7 +374,7 @@ function d3Cabins(Lt) {
       P(RBOX(0.5, 0.32, 0.03, 0.01), MAT.gunDark, 0, 1.0, -0.22), P(new THREE.PlaneGeometry(0.46, 0.28), D3.screenMat, 0, 1.0, -0.204)],
     chair: [P(RBOX(0.46, 0.06, 0.46, 0.02), MAT.leather, 0, 0.46, 0), P(RBOX(0.46, 0.5, 0.06, 0.02), MAT.leather, 0, 0.75, -0.22), P(CYL(0.03, 0.03, 0.42, 8), MAT.steel, 0, 0.22, 0), P(CYL(0.24, 0.24, 0.03, 16), MAT.steel, 0, 0.02, 0)],
     wardrobe: [P(RBOX(0.8, 2.05, 0.58, 0.02), WOOD, 0, 1.025, 0), P(BOX(0.012, 1.7, 0.012), MAT.steel, 0, 1.025, 0.295)],
-    sliding: [P(RBOX(0.72, 2.1, 0.03, 0.01), MAT.panel, 0, 1.05, 0)],
+    sliding: [P(RBOX(0.72, 2.1, 0.03, 0.01), CERAMIC, 0, 1.05, 0)],
     headfloor: [P((() => { const g = new THREE.PlaneGeometry(1.2, 1.9); g.rotateX(-Math.PI / 2); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 1.2, uv.getY(i) * 1.9); return g; })(),
       CKIT.bathFloor || (CKIT.bathFloor = (() => { const c = cnv(128, 128), g = c.getContext('2d'), r = mulberry(71); g.fillStyle = '#b9bcb8'; g.fillRect(0, 0, 128, 128);
         for (let y = 0; y < 128; y += 32) for (let x = 0; x < 128; x += 32) { const v = 178 + Math.round(r() * 14); g.fillStyle = `rgb(${v},${v + 2},${v})`; g.fillRect(x + 1, y + 1, 30, 30); }
@@ -395,7 +395,7 @@ function d3Cabins(Lt) {
 // ceiling lights (its own light space in d3Light), an opening door. Returns the fittings' kits (instanced by d3Cabins).
 // Small props (mugs, data pads, tool cases) go on desks, benches and consoles in cabins and rooms alike.
 function d3Rooms(Lt, C) {
-  const { shell, put, wall, place, W2, RH } = C, bulk = roomWallMat(RH, 'bulk'), labWall = roomWallMat(RH, 'tile'), neg = (v) => [-v[0], -v[1]];
+  const { shell, put, wall, place, W2, RH } = C, bulk = roomWallMat(RH, 'bulk'), labWall = CKIT.bathWall || (CKIT.bathWall = roomWallMat(RH, 'bath')), neg = (v) => [-v[0], -v[1]];
   const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
   const KINDS = { 'Medical lab and morgue': 'lab', 'Forward shield generator': 'shield', 'Computer core, upper': 'core', 'Pod feeds and torpedo magazine': 'magazine', 'Damage control station': 'dc' };
   D3.fitted = (D3.cabins || []).slice(); D3.roomsFitted = [];
@@ -505,7 +505,7 @@ function d3Rooms(Lt, C) {
   const padFace = CKIT.pad || (CKIT.pad = face(64, 96, (g, w, h) => { g.fillStyle = '#05070a'; g.fillRect(0, 0, w, h); g.fillStyle = '#E8A06A'; g.fillRect(6, 6, 30, 8); g.fillStyle = '#B693C4'; for (let y = 22; y < 86; y += 10) g.fillRect(8, y, 20 + ((y * 7) % 26), 4); }));
   // a photon torpedo: a turned casing (lathe) lying along x, nose to +x, a lit warhead band, four tail fins, a hazard ring
   const torpGeo = CKIT.torpGeo || (CKIT.torpGeo = (() => { const pts = [[0.0, -1.0], [0.1, -0.99], [0.15, -0.9], [0.19, -0.86], [0.23, -0.7], [0.25, -0.5], [0.25, 0.45], [0.235, 0.62], [0.19, 0.8], [0.11, 0.94], [0.0, 1.0]].map(([r, y]) => new THREE.Vector2(r, y));
-    const g = new THREE.LatheGeometry(pts, 28); g.rotateZ(-Math.PI / 2); return g; })());
+    const g = new THREE.LatheGeometry(pts, 20); g.rotateZ(-Math.PI / 2); return g; })());
   const torpCase = CKIT.torpCase || (CKIT.torpCase = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(0.025, 0.03, 0.036), metalness: 0.5, roughness: 0.45, envMapIntensity: 0.6 }));
   const torpGlow = CKIT.torpGlow || (CKIT.torpGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(1.0, 0.42, 0.22), toneMapped: false }));
   const torp = (y) => [P(torpGeo, torpCase, 0, y, 0), P(R(CYL(0.255, 0.255, 0.05, 28), 0, 0, Math.PI / 2), torpGlow, 0.52, y, 0), P(R(CYL(0.255, 0.255, 0.03, 28), 0, 0, Math.PI / 2), torpGlow, 0.62, y, 0),
