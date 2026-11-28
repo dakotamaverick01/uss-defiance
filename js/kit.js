@@ -176,6 +176,7 @@ function kitCorridorBuild(K, mods, wallMat) {
       const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = 'corridor ' + key;
       list.forEach((d, i) => { q.setFromAxisAngle(up, d.ry); m4.compose(new THREE.Vector3(d.x, 0, d.z), q, new THREE.Vector3(1, 1, d.sz || 1)); im.setMatrixAt(i, m4);
         if (mat === CKIT.band) im.setColorAt(i, new THREE.Color(d.band || 0xD9B07E).convertSRGBToLinear()); }); // palette hex as painted, like the canvas signs
+      if (mat === CKIT.band) im.userData.bandMods = list; // so a deck can recolour a band copy later (red alert)
       im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); K.root.add(im); out.push(im);
     });
   });

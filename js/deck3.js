@@ -89,6 +89,9 @@ function d3DoorLabel(s) {
 
 function buildDeck3() {
   const Lt = d3Layout(), corrWall = roomWallMat(D3C, 'fabric');
+  // corridor pieces beside the magazines: their band turns hard red at red alert (d3Alert)
+  { const F = shipFloorPlan(3), mags = F.spaces.filter((s) => s.n === 'Pod feeds and torpedo magazine').map((s) => s.poly.map((p) => p[0]));
+    Lt.mods.forEach((d) => { const m = d.z + 64; d.mag = d.spoke === 0 && mags.some((ms) => m > Math.min(...ms) - 0.6 && m < Math.max(...ms) + 0.6); }); }
   D3.layout = Lt; D3.mods = kitCorridorBuild(D3, Lt.mods, corrWall);
   Lt.segs.forEach(([ax, az, bx, bz]) => kitSeg(D3, ax, az, bx, bz));
   // end caps
@@ -675,4 +678,17 @@ function d3Cull(p) {
   D3.doorObjs = D3.doorObjs || DOORS.filter((d) => d.deck === 3 && d.station !== 'lift').map((d) => ({ g: d.L.parent, x: d.wx, z: d.wz }));
   const dd = room && D3.doors.find((q) => q.s === room.s);
   D3.doorObjs.forEach((o) => { o.g.visible = !dd || Math.hypot(o.x - dd.x, o.z - dd.z) < 7; });
+}
+
+// Red alert (roadmap polish): every corridor band glows red in time with the bridge's strip pulse (one material, so one
+// update a frame), and the bands beside the magazines turn hard red (their copies recoloured once, when the alert
+// changes). render.js calls this every frame; k is the pulse (0..1).
+const _d3c = new THREE.Color();
+function d3Alert(red, k) {
+  const B = CKIT.band; if (!B || !D3.mods) return;
+  if (red) { B.emissive.setRGB(1, 0.05, 0.03); B.emissiveIntensity = 0.12 + 0.88 * k; } else if (B.emissiveIntensity) B.emissiveIntensity = 0;
+  if (D3.redBands === red) return; D3.redBands = red;
+  D3.mods.forEach((im) => { const L = im.userData.bandMods; if (!L) return; let ch = false;
+    L.forEach((d, i) => { if (!d.mag) return; im.setColorAt(i, _d3c.set(red ? 0xff1a10 : (d.band || 0xD9B07E)).convertSRGBToLinear()); ch = true; });
+    if (ch) im.instanceColor.needsUpdate = true; });
 }

@@ -127,6 +127,12 @@ CHECK_JS = r"""() => {
     { const g = S.glassRooms.find((q) => q.q.k === 'isolation'), o = g.door.out; if (walk([inDoor, W([64.6, -3.2]), [g.door.door[0] + o[0] * 0.8, g.door.door[1] + o[1] * 0.8], [g.door.door[0] - o[0] * 0.45, g.door.door[1] - o[1] * 0.45]], 'isolation')) said(g.door.door[0] - o[0] * 0.45, g.door.door[1] - o[1] * 0.45, 'isolation', 'isolation'); }
     DOORS.forEach((d) => { if (d.deck === 3) d.open = 0; });
     ok('walk into sickbay, round the ward to bed 8, into surgery, isolation and the CMO’s office; the readout names each', !bad.length, bad.join('; ')); }
+  // polish: at red alert the corridor bands glow red (pulsing) and the bands by the magazines turn hard red; back at green both go
+  { const bands = D3.mods.filter((m) => m.userData.bandMods), mag = []; bands.forEach((m) => m.userData.bandMods.forEach((d, i) => { if (d.mag) mag.push([m, i]); }));
+    const col = new THREE.Color(), redAt = () => mag.every(([m, i]) => { m.getColorAt(i, col); return col.r > 0.8 && col.g < 0.1; });
+    d3Alert(true, 1); const r1 = CKIT.band.emissiveIntensity > 0.9 && redAt(); d3Alert(true, 0); const r0 = CKIT.band.emissiveIntensity > 0 && CKIT.band.emissiveIntensity < 0.3;
+    d3Alert(false, 0); const g = CKIT.band.emissiveIntensity === 0 && !mag.some(([m, i]) => { m.getColorAt(i, col); return col.g < 0.1; });
+    ok('red alert: bands pulse red, hard red by the magazines; back to normal at green', mag.length >= 4 && r1 && r0 && g, mag.length + ' band copies by the magazines'); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
