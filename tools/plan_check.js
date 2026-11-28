@@ -1,0 +1,79 @@
+// Floor-plan checks for tools/check_plan.py: reads the SHIPGEO block (passed on stdin), works out each deck's floor
+// plan and prints [{ name, ok, info }] as JSON. See check_plan.py for what each check means.
+'use strict';
+const src = require('fs').readFileSync(0, 'utf8'), STD = JSON.parse(process.argv[2]);
+const G = new Function(src + '\nreturn { SHIPGEO, shipFloorPlan, shipSkinTop, shipTopAt, shipHull };')();
+const res = [], ok = (name, cond, info) => res.push({ name, ok: !!cond, info: cond ? '' : info || '' });
+const inPoly = (P, m, x) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [am, ax] = P[i], [bm, bx] = P[j]; if ((ax > x) !== (bx > x) && m < (bm - am) * (x - ax) / (bx - ax) + am) c = !c; } return c; };
+const bbox = (P) => P.reduce((b, [m, x]) => [Math.min(b[0], m), Math.max(b[1], m), Math.min(b[2], x), Math.max(b[3], x)], [1e9, -1e9, 1e9, -1e9]);
+for (const n of Object.keys(G.SHIPGEO.plans).map(Number)) {
+  const F = G.shipFloorPlan(n), P = F.P, [cm, cx] = P.c, D = 'D' + n + ' plan: ';
+  ok(D + 'room and corridor sizes match STD (core.js)', P.room === STD.room && P.corr === STD.corr && P.w === STD.w && P.ring[1] === STD.w,
+    `plan room ${P.room} corr ${P.corr} w ${P.w}, STD room ${STD.room} corridor ${STD.corr} x ${STD.w}`);
+  const rooms = F.spaces.filter((s) => s.t !== 'c'), cpieces = [{ ring: F.corr.ring }].concat(F.corr.runs.map((p) => ({ poly: p }))).concat(F.spaces.filter((s) => s.t === 'c'));
+  const inC = (c, m, x) => c.ring ? (() => { const r = Math.hypot(m - cm, x - cx); return r >= c.ring[0] && r <= c.ring[1]; })() : inPoly(c.poly, m, x);
+  rooms.forEach((s) => { s.bb = bbox(s.poly); }); cpieces.forEach((c) => { c.bb = c.ring ? [cm - c.ring[1], cm + c.ring[1], cx - c.ring[1], cx + c.ring[1]] : bbox(c.poly); });
+  const inB = (b, m, x) => m >= b[0] - 0.01 && m <= b[1] + 0.01 && x >= b[2] - 0.01 && x <= b[3] + 0.01;
+  // a grid over the deck, offset so points never sit on the round-number walls
+  const pts = []; { const b = rooms.concat(cpieces).reduce((a, s) => [Math.min(a[0], s.bb[0]), Math.max(a[1], s.bb[1]), Math.min(a[2], s.bb[2]), Math.max(a[3], s.bb[3])], [1e9, -1e9, 1e9, -1e9]);
+    for (let m = b[0] + 0.137; m < b[1]; m += 0.25) for (let x = b[2] + 0.113; x < b[3]; x += 0.25) pts.push([m, x]); }
+  // 1. headroom: every point of a room or lift has the room limit, every corridor point the corridor limit
+  const head = new Map(), skin = (m, x) => G.shipSkinTop(m, x);
+  let worstR = null, worstC = null;
+  for (const [m, x] of pts) {
+    const r = rooms.find((s) => s.t !== 'v' && inB(s.bb, m, x) && inPoly(s.poly, m, x));
+    const c = r ? null : cpieces.find((q) => inB(q.bb, m, x) && inC(q, m, x));
+    if (!r && !c) continue;
+    const t = skin(m, x), lim = r ? F.lim : F.limCorr;
+    if (t > lim + 1e-6) { const key = r ? (r.id || r.n) : 'corridor'; if (!head.has(key)) head.set(key, `${key} at m ${m.toFixed(1)}, x ${x.toFixed(1)} (skin ${t.toFixed(2)} > ${lim.toFixed(2)})`); }
+  }
+  ok(D + 'full headroom in every room and corridor (hull or spine at least ceiling + 0.35 m above the floor)', head.size === 0, [...head.values()].slice(0, 6).join('; '));
+  // 2. no two spaces share floor, and no room overlaps a corridor (corridors may cross each other)
+  const clash = new Set();
+  for (const [m, x] of pts) {
+    const hit = rooms.filter((s) => inB(s.bb, m, x) && inPoly(s.poly, m, x)), hc = cpieces.filter((q) => !q.n && inB(q.bb, m, x) && inC(q, m, x)).length + cpieces.filter((q) => q.n && inB(q.bb, m, x) && inC(q, m, x)).length;
+    if (hit.length > 1) clash.add(hit.map((s) => s.id || s.n).join(' / '));
+    if (hit.length && hc) clash.add((hit[0].id || hit[0].n) + ' / corridor');
+  }
+  ok(D + 'no overlapping spaces', clash.size === 0, [...clash].slice(0, 6).join('; '));
+  // 3. the corridors join up, every door opens from its room onto a corridor, and every room is reachable from a lift
+  const near = (m, x, f) => { for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; if (f(m + 0.3 * Math.cos(a), x + 0.3 * Math.sin(a))) return true; } return false; };
+  const edge = (c) => { if (c.ring) return [[cm + c.ring[0], cx], [cm - c.ring[1], cx]]; const o = []; c.poly.forEach((p, i) => { const q = c.poly[(i + 1) % c.poly.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]); for (let t = 0; t < L; t += 0.2) o.push([p[0] + (q[0] - p[0]) * t / L, p[1] + (q[1] - p[1]) * t / L]); }); return o; };
+  const comp = cpieces.map((_, i) => i), find = (i) => comp[i] === i ? i : (comp[i] = find(comp[i]));
+  cpieces.forEach((a, i) => cpieces.forEach((b, j) => { if (j > i && edge(a).concat(edge(b).length ? [] : []).some(([m, x]) => inC(b, m, x) || near(m, x, (p, q) => inC(b, p, q)))) comp[find(i)] = find(j); }));
+  const roots = new Set(cpieces.map((_, i) => find(i)));
+  ok(D + 'corridors form one network', roots.size === 1, `${roots.size} separate corridor networks`);
+  const badDoor = [], onto = new Map();
+  for (const s of rooms) { if (s.t === 'v') continue;
+    if (!s.door) { badDoor.push((s.id || s.n) + ' has no door'); continue; }
+    const [m, x] = s.door, ci = cpieces.findIndex((q) => near(m, x, (p, r) => inC(q, p, r)));
+    if (!near(m, x, (p, r) => inPoly(s.poly, p, r)) || ci < 0) badDoor.push(`${s.id || s.n} door at ${m.toFixed(1)}, ${x.toFixed(1)}`); else onto.set(s, find(ci)); }
+  ok(D + 'every room and lift has a door onto a corridor', badDoor.length === 0, badDoor.slice(0, 6).join('; '));
+  const liftNets = new Set(rooms.filter((s) => s.t === 'lift' && onto.has(s)).map((s) => onto.get(s)));
+  const unreached = rooms.filter((s) => s.t !== 'v' && s.t !== 'lift' && !(onto.has(s) && liftNets.has(onto.get(s))));
+  ok(D + 'every room reachable from a lift', liftNets.size > 0 && unreached.length === 0, unreached.map((s) => s.id || s.n).slice(0, 6).join(', ') || 'no lift door on a corridor');
+  // 4. the side cutaway agrees with the plan: along strips 2.6 m to either side of the centreline, each named space the
+  // plan has there is listed on the deck's side view over those metres on that side, and each listed span holds it
+  const side = G.SHIPGEO.rooms[n - 1], mis = new Set();
+  for (const [sd, x] of [['s', 2.6], ['p', -2.6]]) {
+    const ent = side.filter((r) => r[5] === '' || r[5] === sd), seen = new Map();
+    for (let m = 0.05; m < 200; m += 0.25) {
+      const sp = F.spaces.find((s) => s.t !== 'v' && inPoly(s.poly, m, x)), e = ent.find((r) => m >= r[0] - 0.05 && m <= r[1] + 0.05);
+      if (sp && !e) mis.add(`${sp.n} at m ${m.toFixed(1)} (${sd}) not on the side view`);
+      else if (sp && e[2] !== sp.n) mis.add(`side view says ${e[2]} at m ${m.toFixed(1)} (${sd}), plan has ${sp.n}`);
+      if (sp && e) seen.set(e, (seen.get(e) || 0) + 1);
+      if (!sp && e && m > e[0] + 0.4 && m < e[1] - 0.4 && F.spaces.every((s) => !inPoly(s.poly, m - 0.25, x) || s.t === 'v') && F.spaces.every((s) => !inPoly(s.poly, m + 0.25, x) || s.t === 'v')) mis.add(`side view's ${e[2]} at m ${m.toFixed(1)} (${sd}) has no room there in the plan`);
+    }
+    ent.forEach((e) => { if (!seen.get(e)) mis.add(`side view's ${e[2]} (${e[0]}-${e[1]}) not found on the ${sd === 's' ? 'starboard' : 'port'} strip`); });
+  }
+  ok(D + 'side cutaway matches the floor plan', mis.size === 0, [...mis].slice(0, 6).join('; '));
+  // 5. cabin sizes (singles about 4 x 5 m, doubles larger)
+  const area = (p) => { let a = 0; p.forEach(([q, w], i) => { const [e, r] = p[(i + 1) % p.length]; a += q * r - e * w; }); return Math.abs(a / 2); };
+  const cabs = rooms.filter((s) => s.b), one = cabs.filter((s) => s.b === 1).map((s) => area(s.poly)), two = cabs.filter((s) => s.b > 1).map((s) => area(s.poly));
+  ok(D + `cabins: ${one.length} singles (${Math.min(...one).toFixed(0)}-${Math.max(...one).toFixed(0)} m²), ${two.length} doubles (${Math.min(...two).toFixed(0)}-${Math.max(...two).toFixed(0)} m²)`,
+    Math.min(...one) >= 18 && (!two.length || Math.min(...two) >= 20), 'a single under 18 m² or a double under 20 m²');
+}
+// the saucer's top stays below Deck 2's floor (depth 7.0) under Deck 2's rooms, so its skin never shows inside them
+{ let worst = 99, at = ''; for (let m = 54.5; m <= 95; m += 0.5) for (let x = 0; x <= 7.5; x += 0.5) { const H = G.shipHull(m); if (x < H.w) { const t = G.shipTopAt(m, x); if (t < worst) { worst = t; at = `m ${m}, x ${x}`; } } }
+  ok(`saucer top below Deck 2's floor (highest point depth ${worst.toFixed(2)} at ${at})`, worst >= 7.05, 'raise saucer.top.up less'); }
+process.stdout.write(JSON.stringify(res));

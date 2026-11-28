@@ -117,10 +117,13 @@ button:focus-visible, li:focus-visible { outline: 2px solid var(--cream); outlin
 // (top, bottom, halfBeam) are worked out from the saucer and engineering parameters below, after the object.
 const SHIPGEO = {
   // the saucer: a lens centred mc m from the bow (half-length L, half-beam W) with its mid-plane at depth dc; up and dn
-  // are its half-thickness above and below at the centre; pn shapes the plan, n the cross-section
-  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15 },
+  // are its half-thickness above and below at the centre; pn shapes the plan, n the cross-section. The top half has its own
+  // shape (top): a broad, nearly flat back so Deck 3 has full headroom out to about 30 m from the centre (Nov 27): half-
+  // thickness up, cross-section exponent n, and along the length (1 - q^qa)^ge (q = 0 at the centre, 1 at the bow or the
+  // aft edge). Its centre stays below Deck 2's floor (depth 7.0), so the spine still sits on it.
+  saucer: { mc: 58, L: 58, W: 50, up: 6.9, dn: 7.0, pn: 2.3, n: 2.25, dc: 15, top: { up: 7.45, n: 4, qa: 5, ge: 0.35 } },
   // the engineering body: half-beam, top depth and bottom depth along the ship (smooth curves); n shapes its section
-  eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.9], [200, 8.4]], t: [[90, 15], [100, 10.5], [112, 8.6], [150, 8.6], [200, 15.5]],
+  eng: { w: [[90, 0], [94, 6.8], [102, 10.6], [128, 13], [170, 12.2], [194, 9.9], [200, 8.4]], t: [[90, 15], [95, 10.2], [100, 7.6], [104, 6.8], [150, 6.8], [200, 15.5]],
     b: [[90, 15], [94.5, 23.5], [100.5, 29.5], [112, 33.2], [182, 34.5], [194, 33.4], [200, 30.5]], n: 2.4 },
   // the officers' spine on the saucer's back, faired round the rooms of Decks 1 and 2: a rounded body over Deck 2 and a
   // broad, low bridge module over Deck 1. Each is a superellipse across the beam about the centreline: half-width w and
@@ -146,7 +149,7 @@ const SHIPGEO = {
   rooms: [
     [[58, 70.2, 'Main bridge', 'w', 'w', '', 'Command chair, flight, ops, tactical, science, engineering and comms stations, the situation table and the viewscreen.'], [70.2, 72.5, 'Turbolift 1', 'w', 's', '', 'Forward lift. Runs Decks 1 to 6.'], [72.5, 77, 'Conference room', 'w', 'w', '', 'Senior staff briefings and battle honors, aft of the bridge.'], [77, 80, 'Ready room and head', 'w', 'w', '', 'The captain’s office off the bridge’s starboard aft corner; the head is to port.']],
     [[54.5, 58.8, 'Forward sensor and comms arrays', 'p', 's', '', 'Long-range sensor pallet and subspace antenna at the front of the spine.'], [58.8, 66.8, 'Captain’s quarters', 'w', 'l', '', 'Day cabin, sleeping cabin and a small galley, directly under the bridge.'], [66.8, 70.2, 'Lift 1 lobby', 'w', 'w', 'p', 'Where the lift doors open, with the deck directory.'], [70.2, 72.5, 'Lift 1', 'w', 's', 'p', ''], [72.5, 79, 'First officer’s quarters', 'w', 'l', 'p', 'Port viewport, desk, galley niche and a sleeping cabin aft.'], [79, 84.5, 'Officers’ passage', 'w', 'l', 'p', 'Runs aft along the wardroom’s port side to the lounge.'], [84.5, 88.5, 'Pod capacitors', 'p', 'x', 'p', 'Sealed, red-tagged bank that feeds the weapons pod.'], [66.8, 80.4, 'Senior officers’ cabins', 'w', 'l', 's', 'Two department heads’ cabins off the officers’ corridor, each with a desk and a galley.'], [81, 88.5, 'Officers’ wardroom', 'w', 'w', 's', 'Where the officers dine; double doors aft open into the observation lounge.'], [88.5, 95, 'Observation lounge', 'w', 'l', '', 'The officers’ lounge and bar at the aft end of the spine: a 10 m window looking back over the ship’s back to the rollbar and its weapons pod, with a nacelle out to either side.']],
-    [[30, 46, 'Officers’ quarters', 'p', 'l', '', ''], [46, 58, 'Forward shield generator', 'p', 's', '', 'Feeds the forward shield arc.'], [58, 70.2, 'Sickbay', 'p', 'l', '', 'Eight beds, surgery and an isolation ward, right by Lift 1 so casualties reach it fast.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 84, 'Medical lab and morgue', 'p', 'l', '', ''], [84, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110, 124, 'Computer core, upper', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', 'Aft lift. Runs Decks 3 to 10.'], [129, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140, 150, 'Crew quarters', 'p', 'l', '', '']],
+    [[24.7, 39, 'Officers’ quarters', 'p', 'l', '', 'Junior officers’ cabins (singles about 4 x 5 m, some doubles) round the ring and along the spokes.'], [41.4, 56.8, 'Forward shield generator', 'p', 's', '', 'Twin generator bays either side of the forward spoke; feeds the forward shield arc.'], [59.2, 66.2, 'Sickbay', 'p', 'l', 'p', 'Eight beds, surgery and an isolation ward, under the captain’s quarters; its doors open off the Lift 1 lobby so casualties reach it fast.'], [66.3, 70.2, 'Lift 1 lobby', 'p', 'w', 'p', 'Where Lift 1 opens, on the aft spoke, between sickbay and the medical lab.'], [70.2, 72.5, 'Lift 1', 'p', 's', 'p', ''], [59.2, 74.6, 'Medical lab and morgue', 'p', 'l', 's', 'Across the lift lobby from sickbay: the lab, medical stores and the morgue.'], [77, 90.5, 'Officers’ quarters', 'p', 'l', '', ''], [100.2, 110, 'Officers’ quarters', 'p', 'l', '', ''], [110.1, 124, 'Computer core, upper', 'p', 's', '', ''], [124.1, 129, 'Damage control station', 'p', 's', 'p', 'Repair crews’ lockers and the deck’s damage control panel, opposite Lift 2.'], [124.6, 128.4, 'Lift 2', 'p', 's', 's', 'Aft lift. Runs Decks 3 to 10.'], [129.1, 140, 'Pod feeds and torpedo magazine', 'p', 'x', '', 'Torpedoes and power ride up the rollbar to the weapons pod from here.'], [140.1, 150, 'Crew quarters', 'p', 'l', '', '']],
     [[10, 34, 'Auxiliary control', 'p', 'w', '', 'Back-up bridge in the saucer’s forward edge.'], [34, 52, 'Crew quarters', 'p', 'l', '', ''], [52, 70.2, 'Mess hall and galley', 'p', 'l', '', 'The one room everyone on the ship passes through every day.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 86, 'Crew lounge and gym', 'p', 'l', '', ''], [86, 92, 'Docking port, port', 'p', 's', 'p', 'Airlock and docking ring in the saucer rim, with a guide-light array round it.'], [86, 92, 'Docking port, starboard', 'p', 's', 's', 'The starboard twin of the port docking ring, joined to it by a cross corridor.'], [92, 106, 'Training simulators', 'p', 'l', '', 'Combat and flight simulator bays for drills.'], [106, 124, 'Computer core', 'p', 's', '', 'Main computer core, two decks tall.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 152, 'Main shield generators', 'p', 's', '', 'Port, starboard and aft arcs.'], [152, 176, 'Life support, air and water', 'p', 's', '', 'Environmental plant and water reclamation.']],
     [[6, 22, 'Torpedo bays 1 and 2', 'p', 'x', '', 'Twin launchers in the saucer’s forward edge.'], [22, 34, 'Torpedo magazine', 'p', 'x', '', '24 torpedoes for the forward bays; the weapons pod carries its own.'], [34, 48, 'Armory and security', 'p', 'x', '', 'Next to the transporters, for boarding and away teams.'], [48, 62, 'Transporter rooms 1 and 2', 'p', 's', '', ''], [62, 70.2, 'Science labs', 'p', 'l', '', ''], [70.2, 72.5, 'Lift 1', 'p', 's', '', ''], [72.5, 96, 'Crew quarters', 'p', 'l', '', ''], [96, 106, 'Cargo bay and cargo transporter', 'p', 's', '', 'The main cargo hold (moved up from Deck 6 when the fighter hangar took its space), with the cargo transporter.'], [106, 124, 'Computer core', 'p', 's', '', 'Lower half of the core.'], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 138, 'Engineering offices', 'p', 'e', '', ''], [138, 156, 'Main engineering, upper gallery', 'p', 'e', '', 'Catwalk ring around the top of the warp core.'], [156, 186, 'Nacelle coil workshop', 'p', 'e', '', ''], [186, 197, 'Impulse engines', 'p', 'e', '', 'Twin impulse engines at the stern.']],
     [[12, 28, 'Lower sensor array', 'p', 's', '', 'Under the saucer’s forward edge.'], [28, 48, 'Torpedo loading', 'p', 'x', '', 'Feeds the magazine above.'], [48, 70.2, 'Fighter hangar', 'p', 'x', '', 'Four tactical fighters on launch cradles. They drop clear through doors in the saucer’s belly.'], [70.2, 72.5, 'Lift 1', 'p', 's', '', 'Forward lift. Lowest stop.'], [72.5, 90, 'Crew quarters', 'p', 'l', '', ''], [90, 104, 'Hydroponics and stores', 'p', 'l', '', ''], [104, 124, 'Escape pods and EVA prep', 'p', 's', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 166, 'Main engineering', 'p', 'e', '', 'Control room and the top of the warp core.'], [166, 199, 'Auxiliary power', 'p', 'e', '', 'Fusion generators for when the core is down.']],
@@ -155,6 +158,57 @@ const SHIPGEO = {
     [[112, 124, 'Brig and security cells', 'p', 'x', '', ''], [124, 129, 'Lift 2', 'p', 's', '', ''], [129, 140, 'Deuterium tanks', 'p', 'e', '', ''], [140, 152, 'Warp core', 'p', 'e', '', ''], [152, 174, 'Engineering workshops and spares', 'p', 'e', '', ''], [174, 192, 'Shuttle maintenance', 'p', 's', '', 'Under the shuttlebay, with a cargo lift up to its floor.']],
     [[118, 124, 'Docking collar and fuel transfer', 'p', 's', '', 'The ventral docking collar under the keel, beside Lift 2. Supply ships dock here to pass fuel and stores.'], [124, 129, 'Lift 2', 'p', 's', '', 'Lowest stop.'], [129, 140, 'Tractor beam and keel sensors', 'p', 's', '', ''], [140, 152, 'Warp core base', 'p', 'e', '', 'Where the antimatter feed enters the core.'], [152, 182, 'Antimatter storage pods', 'p', 'e', '', 'Magnetic containment pods, with the ejection system beneath.']]
   ],
+  // Floor plans, top down (roadmap B1): plans[n] for each deck drawn so far. Positions are [m, x]: m from the bow as above,
+  // x across the beam, starboard positive (the 3D x). Saucer decks are rings and spokes round c; angles in degrees about c,
+  // 0 aft, 90 starboard, 180 forward, 270 port. Headroom: a room needs the hull's top skin (or the spine) at least
+  // room + clear metres above the floor (corridors: corr + clear), so its ceiling, ducts and plating fit (room and corr
+  // match STD in js/core.js). w = corridor clear width.
+  // Corridors: ring [radius, width] (centreline radius); spokes [angle, outer end radius]: each runs from the centre out.
+  // Spaces: { n name, k kind (as rooms above), t type ('c' corridor-like, 'lift', 'v' void), s shape, d door [m, x], b berths }
+  //   shapes: { box: [m0, m1, x0, x1] }; { arc: [r0, r1, b0, b1] } a band between radii r0 and r1, bounded by b0 and b1,
+  //   each a radial line (an angle) or a line beside a spoke ([spoke angle, offset], offset positive toward larger angles);
+  //   { poly: [points] }, a point being [m, x] or { r, a: [from, to] } (an arc about c). Rows of cabins:
+  //   { ring: [r0, r1, quadrant angle, offset from the spokes, [widths]] } along a ring's outer wall (doors onto the ring);
+  //   { spoke: [angle, offset0, offset1, [radii]] } along a spoke (doors onto the spoke); b: berths per cabin.
+  plans: {
+    3: { c: [58, 0], room: 2.75, corr: 2.6, clear: 0.35, w: 2.2, ring: [18, 2.2], spokes: [[0, 92.2], [90, 29.4], [180, 33.6], [270, 29.4]],
+      spaces: [
+        { n: 'Lift 1 lobby', k: 'w', t: 'c', s: { box: [66.3, 70.2, -4.7, -1.1] } },
+        { n: 'Lift 1', k: 's', t: 'lift', s: { box: [70.2, 72.5, -4.7, -1.2] }, d: [70.2, -2.6] },
+        { n: 'Lift 1 machinery', k: 's', t: 'v', s: { poly: [[72.6, -1.2], [72.6, -4.7], [74.13, -4.7], { r: 16.8, a: [343.7, 355.9] }] } },
+        { n: 'Sickbay', k: 'l', s: { poly: [[59.2, -1.2], [66.2, -1.2], [66.2, -4.8], [74.1, -4.8], { r: 16.8, a: [343.4, 274.1] }] }, d: [66.2, -2.9] },
+        { n: 'Medical lab and morgue', k: 'l', s: { arc: [0, 16.8, [0, 1.2], [90, -1.2]] }, d: [68.2, 1.2] },
+        { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [90, 1.2], [180, -1.2]] }, d: [56.8, 8] },
+        { n: 'Forward shield generator', k: 's', s: { arc: [0, 16.8, [180, 1.2], [270, -1.2]] }, d: [56.8, -8] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 0, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 90, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 180, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { ring: [19.2, 24.2, 270, 6.3, [1, 1, 1, 1]] }, b: [1, 1, 1, 1] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, 1.2, 6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [0, -1.2, -6.2, [19.2, 23.6, 28, 32.6]] }, b: [1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, 1.2, 6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [90, -1.2, -6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, 1.2, 6.2, [19.2, 23.6, 28, 33.4]] }, b: [1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [180, -1.2, -6.2, [19.2, 23.6, 28, 33.4]] }, b: [1, 1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, 1.2, 6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
+        { n: 'Officers’ quarters', k: 'l', s: { spoke: [270, -1.2, -6.2, [19.2, 23.6, 29.2]] }, b: [1, 2] },
+        // aft of the saucer the aft spoke carries on as the fore-aft corridor, with rooms either side
+        { n: 'Officers’ quarters', k: 'l', s: { box: [100.2, 105, 1.2, 5.4] }, d: [102.6, 1.2], b: 1 },
+        { n: 'Officers’ quarters', k: 'l', s: { box: [105.1, 110, 1.2, 5.4] }, d: [107.5, 1.2], b: 1 },
+        { n: 'Officers’ quarters', k: 'l', s: { box: [100.2, 105, -5.4, -1.2] }, d: [102.6, -1.2], b: 1 },
+        { n: 'Officers’ quarters', k: 'l', s: { box: [105.1, 110, -5.4, -1.2] }, d: [107.5, -1.2], b: 1 },
+        { n: 'Computer core, upper', k: 's', s: { box: [110.1, 124, 1.2, 5.4] }, d: [117, 1.2] },
+        { n: 'Computer core, upper', k: 's', s: { box: [110.1, 124, -5.4, -1.2] }, d: [117, -1.2] },
+        { n: 'Lift 2', k: 's', t: 'lift', s: { box: [124.6, 128.4, 1.2, 4.0] }, d: [126.5, 1.2] },
+        { n: 'Damage control station', k: 's', s: { box: [124.1, 129, -5.4, -1.2] }, d: [126.5, -1.2] },
+        { n: 'Pod feeds and torpedo magazine', k: 'x', s: { box: [129.1, 140, 1.2, 5.4] }, d: [134.5, 1.2] },
+        { n: 'Pod feeds and torpedo magazine', k: 'x', s: { box: [129.1, 140, -5.4, -1.2] }, d: [134.5, -1.2] },
+        { n: 'Crew quarters', k: 'l', s: { box: [140.1, 145, 1.2, 5.4] }, d: [142.5, 1.2], b: 2 },
+        { n: 'Crew quarters', k: 'l', s: { box: [145.1, 150, 1.2, 5.4] }, d: [147.5, 1.2], b: 2 },
+        { n: 'Crew quarters', k: 'l', s: { box: [140.1, 145, -5.4, -1.2] }, d: [142.5, -1.2], b: 2 },
+        { n: 'Crew quarters', k: 'l', s: { box: [145.1, 150, -5.4, -1.2] }, d: [147.5, -1.2], b: 2 },
+      ] },
+  },
 };
 // a smooth curve through points (Catmull-Rom as cubic Béziers), as SVG path commands after a starting point
 function shipCurve(pts, X, Y) {
@@ -175,10 +229,10 @@ function shipAt(pts, m) {
 // about the saucer's mid-plane. r(a) = distance from (0, dc) to the outline at angle a (0 to starboard, positive down);
 // t, b = top and bottom depths on the centreline; w = half-beam.
 function shipHull(m) {
-  const G = SHIPGEO, S = G.saucer, E = G.eng, q = Math.min(1, Math.abs(m - S.mc) / S.L), f = Math.pow(Math.max(0, 1 - Math.pow(q, S.pn)), 1 / S.pn), gq = Math.pow(Math.max(0, 1 - q * q), 0.45);
-  const sa = [S.W * f, S.up * gq + 0.4 * f, S.dn * gq + 0.4 * f], ew = Math.max(0, shipAt(E.w, m)), eb = [ew, ew > 0.01 ? Math.max(0.01, S.dc - shipAt(E.t, m)) : 0, ew > 0.01 ? Math.max(0.01, shipAt(E.b, m) - S.dc) : 0];
+  const G = SHIPGEO, S = G.saucer, U = S.top, E = G.eng, q = Math.min(1, Math.abs(m - S.mc) / S.L), f = Math.pow(Math.max(0, 1 - Math.pow(q, S.pn)), 1 / S.pn), gq = Math.pow(Math.max(0, 1 - q * q), 0.45);
+  const gu = Math.pow(Math.max(0, 1 - Math.pow(q, U.qa)), U.ge), sa = [S.W * f, U.up * gu + 0.4 * f, S.dn * gq + 0.4 * f], ew = Math.max(0, shipAt(E.w, m)), eb = [ew, ew > 0.01 ? Math.max(0.01, S.dc - shipAt(E.t, m)) : 0, ew > 0.01 ? Math.max(0.01, shipAt(E.b, m) - S.dc) : 0];
   const se = (a, h, n, c, s) => (a < 1e-4 || h < 1e-4) ? 0 : 1 / Math.pow(Math.pow(Math.abs(c) / a, n) + Math.pow(Math.abs(s) / h, n), 1 / n);
-  const r = (an) => { const c = Math.cos(an), s = Math.sin(an), k = s < 0 ? 1 : 2; return Math.pow(Math.pow(se(sa[0], sa[k], S.n, c, s), 10) + Math.pow(se(eb[0], eb[k], E.n, c, s), 10), 0.1); };
+  const r = (an) => { const c = Math.cos(an), s = Math.sin(an), k = s < 0 ? 1 : 2; return Math.pow(Math.pow(se(sa[0], sa[k], k === 1 ? U.n : S.n, c, s), 10) + Math.pow(se(eb[0], eb[k], E.n, c, s), 10), 0.1); };
   let w = 0; for (let k = -8; k <= 8; k++) { const an = k * 0.05; w = Math.max(w, r(an) * Math.cos(an)); }
   return { m, r, t: S.dc - r(-Math.PI / 2), b: S.dc + r(Math.PI / 2), w, dc: S.dc };
 }
@@ -268,6 +322,58 @@ function shipPlan(X, Z) {
     rails: [-1, 1].map((sd) => { const p = []; for (let i = 0; i <= 12; i++) { const r = shipRoll(sd * (1 - i / 12)); p.push([r.m, -r.out]); } return 'M' + X(p[0][0]).toFixed(1) + ' ' + Z(p[0][1]).toFixed(1) + shipCurve(p, X, Z); }),
     wpod: 'M' + X(pu[0][0]) + ' ' + Z(pu[0][1]) + shipCurve(pu, X, Z) + shipCurve(pd.reverse(), X, Z) + ' Z',
   };
+}
+// the depth of the outer skin's top at m, x metres across: the hull's top, or the spine's where it covers the hull
+function shipSkinTop(m, x) {
+  const H = shipHull(m), ax = Math.abs(x); let t = ax < H.w ? shipTopAt(m, ax) : 99;
+  if (m > 49 && m < 102.5) { const f = shipSpineField(m), d0 = Math.min(t, 12) - 0.02;
+    if (f(ax, d0) < 1) { let lo = -3, hi = d0; for (let k = 0; k < 22; k++) { const md = (lo + hi) / 2; if (f(ax, md) < 1) hi = md; else lo = md; } t = Math.min(t, hi); } }
+  return t;
+}
+// Deck n's floor plan (SHIPGEO.plans[n]) worked out: every space as a polygon [[m, x], ...] with its door, the corridors
+// (ring, straight runs), and the deck's outlines as half-widths along the ship: floor (where the hull reaches the deck's
+// floor) and fit (where a room has full headroom). Worked out on first use (the page, the checks and the deck's builder).
+const SHIPPLAN = {};
+function shipFloorPlan(n) {
+  if (SHIPPLAN[n]) return SHIPPLAN[n];
+  const P = SHIPGEO.plans[n]; if (!P) return null;
+  const [cm, cx] = P.c, rad = Math.PI / 180, floorD = 3.5 * n, out = [], cab = { n: 0 };
+  const pt = (r, a) => [cm + r * Math.cos(a * rad), cx + r * Math.sin(a * rad)];
+  const bA = (b, r) => Array.isArray(b) ? b[0] + Math.asin(Math.max(-1, Math.min(1, b[1] / r))) / rad : b;
+  const bLine = (b) => { const a = Array.isArray(b) ? b[0] : b, o = Array.isArray(b) ? b[1] : 0; return [Math.cos((a + 90) * rad), Math.sin((a + 90) * rad), o]; };
+  const arcPts = (r, a0, a1) => { const k = Math.max(2, Math.ceil(Math.abs(a1 - a0) / 3)), o = []; for (let i = 0; i <= k; i++) o.push(pt(r, a0 + (a1 - a0) * i / k)); return o; };
+  const arcShape = ([r0, r1, b0, b1]) => {
+    let p = arcPts(r1, bA(b0, r1), bA(b1, r1));
+    if (r0 > 0.5) p = p.concat(arcPts(r0, bA(b1, r0), bA(b0, r0)));
+    else { const [a1, c1, o1] = bLine(b0), [a2, c2, o2] = bLine(b1), det = a1 * c2 - a2 * c1; p.push([cm + (o1 * c2 - o2 * c1) / det, cx + (a1 * o2 - a2 * o1) / det]); }
+    return p;
+  };
+  const shape = (s) => s.box ? [[s.box[0], s.box[2]], [s.box[1], s.box[2]], [s.box[1], s.box[3]], [s.box[0], s.box[3]]]
+    : s.arc ? arcShape(s.arc) : s.poly.flatMap((q) => Array.isArray(q) ? [q] : arcPts(q.r, q.a[0], q.a[1]));
+  const add = (sp, poly, door, b) => out.push({ n: sp.n, k: sp.k, t: sp.t || '', poly, door: door || null, b: b || 0, id: sp.t ? '' : n + '-' + String(++cab.n).padStart(2, '0') });
+  for (const sp of P.spaces) {
+    const s = sp.s;
+    if (s.ring) { const [r0, r1, q, o, ws] = s.ring, rm = (r0 + r1) / 2, A0 = bA([q, o], rm), A1 = bA([q + 90, -o], rm), tot = ws.reduce((x, y) => x + y, 0);
+      let c = 0; ws.forEach((w, i) => { const a0 = A0 + (A1 - A0) * c / tot; c += w; const a1 = A0 + (A1 - A0) * c / tot;
+        const b0 = i ? a0 + 0.15 : [q, o], b1 = i < ws.length - 1 ? a1 - 0.15 : [q + 90, -o];
+        add(sp, arcShape([r0, r1, b0, b1]), pt(r0, (bA(b0, r0) + bA(b1, r0)) / 2), (sp.b || [])[i]); });
+    } else if (s.spoke) { const [a, o0, o1, rs] = s.spoke, lo = o0 < 0 ? [a, o1] : [a, o0], hi = o0 < 0 ? [a, o0] : [a, o1];
+      for (let i = 0; i < rs.length - 1; i++) { const r0 = rs[i] + (i ? 0.05 : 0), r1 = rs[i + 1] - (i < rs.length - 2 ? 0.05 : 0), rm = (r0 + r1) / 2, along = Math.sqrt(rm * rm - o0 * o0);
+        const u = [Math.cos(a * rad), Math.sin(a * rad)], v = [Math.cos((a + 90) * rad), Math.sin((a + 90) * rad)];
+        add(sp, arcShape([r0, r1, lo, hi]), [cm + u[0] * along + v[0] * o0, cx + u[1] * along + v[1] * o0], (sp.b || [])[i]); }
+    } else add(sp, shape(s), sp.d, sp.b);
+  }
+  // corridors: the ring (an annulus), and each spoke as a straight run from the centre
+  const [Rr, Rw] = P.ring, h = P.w / 2, corr = { ring: [Rr - Rw / 2, Rr + Rw / 2], runs: P.spokes.map(([a, r]) => {
+    const u = [Math.cos(a * rad), Math.sin(a * rad)], v = [-u[1], u[0]], e = [cm + u[0] * r, cx + u[1] * r];
+    return [[cm + v[0] * h, cx + v[1] * h], [e[0] + v[0] * h, e[1] + v[1] * h], [e[0] - v[0] * h, e[1] - v[1] * h], [cm - v[0] * h, cx - v[1] * h]]; }) };
+  // outlines: half-widths every metre where the hull reaches the floor, and where a room has its full headroom
+  const lim = floorD - P.room - P.clear, floor = [], fit = [];
+  const halfAt = (m, ok) => { if (!ok(0)) return 0; let lo = 0, hi = 60; for (let k = 0; k < 18; k++) { const md = (lo + hi) / 2; if (ok(md)) lo = md; else hi = md; } return lo; };
+  for (let m = 0; m <= 200; m += 1) { const H = shipHull(m);
+    floor.push([m, halfAt(m, (x) => { const an = Math.atan2(floorD - H.dc, x); return Math.hypot(x, floorD - H.dc) <= H.r(an); })]);
+    fit.push([m, halfAt(m, (x) => shipSkinTop(m, x) <= lim)]); }
+  return (SHIPPLAN[n] = { n, P, spaces: out, corr, floor, fit, lim, limCorr: floorD - P.corr - P.clear });
 }
 // SHIPGEO-END
 

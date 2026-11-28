@@ -3,6 +3,10 @@
 # 1. the SHIPGEO block is identical in docs/master-systems-display.html and js/shipgeo.js
 # 2. every compartment sits inside the hull (Decks 1-2 inside the spine) at its mid-deck depth, at both ends
 # 3. compartments on one deck and side don't overlap
+# 4. floor plans (SHIPGEO.plans, worked out by shipFloorPlan; tools/plan_check.js): sizes match STD in js/core.js, full
+#    headroom in every room and corridor, no overlaps, one corridor network, a door from every room onto a corridor,
+#    every room reachable from a lift, the side cutaway agrees with the plan, cabin sizes; and the saucer's top stays
+#    below Deck 2's floor
 import sys, os, json, subprocess
 root = sys.argv[1] if len(sys.argv) > 1 else '.'
 def block(path):
@@ -40,5 +44,13 @@ for i, rooms in enumerate(G['rooms']):
 ok('every compartment inside the hull', not bad, '; '.join(sorted(set(bad))))
 ok('no overlapping compartments', not overlap, '; '.join(sorted(set(overlap))))
 ok('10 decks', len(G['rooms']) == 10)
+import re
+core = open(os.path.join(root, 'js/core.js'), encoding='utf-8').read()
+num = lambda pat: float(re.search(pat, core).group(1))
+std = {'room': num(r"room: \{ h: ([\d.]+)"), 'corr': num(r"corridor: \{ w: [\d.]+, h: ([\d.]+)"), 'w': num(r"corridor: \{ w: ([\d.]+)")}
+r = subprocess.run(['node', os.path.join(root, 'tools/plan_check.js'), json.dumps(std)], input=page, capture_output=True, text=True)
+if r.returncode: print(r.stderr); fails.append('plan_check.js')
+else:
+  for c in json.loads(r.stdout): ok(c['name'], c['ok'], c['info'])
 print('ALL OK' if not fails else f'{len(fails)} FAILED')
 sys.exit(1 if fails else 0)
