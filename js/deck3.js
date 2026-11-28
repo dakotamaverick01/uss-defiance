@@ -255,6 +255,8 @@ function d3Light() {
   // fitted rooms: their own lights, which light only their own room (space k: a room's light doesn't reach the
   // corridor or the next room, and the corridor's doesn't reach in)
   const rooms = (D3.fitted || D3.cabins || []); rooms.forEach((c, i) => c.lights.forEach(([x, y, z, k]) => lights.push([x, D3Y + y, z, k, i + 1])));
+  // light from each fitted room's open doorway falls on the corridor floor outside it (corridor space 0)
+  rooms.forEach((c) => { const d = D3.doors.find((q) => q.s === c.s); if (!d) return; const n = [Math.sin(d.rot), Math.cos(d.rot)]; lights.push([d.x + n[0] * 0.45, D3Y + 2.2, d.z + n[1] * 0.45, 0.35, 0]); });
   const inP = (P, x, z) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [ax, az] = P[i], [bx, bz] = P[j]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) c = !c; } return c; };
   const spaceAt = (x, z) => { for (let i = 0; i < rooms.length; i++) { const b = rooms[i].bb; if (x > b[0] && x < b[1] && z > b[2] && z < b[3] && inP(rooms[i].wpoly, x, z)) return i + 1; } return 0; };
   const xs = Lt.mods.map((d) => d.x), zs = Lt.mods.map((d) => d.z), x0 = Math.min(...xs) - 3, z0 = Math.min(...zs) - 3;
@@ -386,6 +388,9 @@ function d3Cabins(Lt) {
   };
   Object.assign(KIT, extra);
   D3.cabinProps = {}; Object.entries(props).forEach(([k, list]) => { if (!KIT[k]) { console.warn('Deck 3: no kit for', k); return; } D3.cabinProps[k] = kitProps(D3, KIT[k], list, 'Deck 3 ' + k); });
+  // a little variety from cabin to cabin: each bed's blanket in one of a few colours
+  { const pal = [[1, 1, 1], [1.5, 0.75, 0.6], [0.7, 0.8, 1.35], [1.25, 1.1, 0.7], [0.85, 1.25, 0.9], [1.3, 0.8, 1.2]], c = new THREE.Color(), r = mulberry(83);
+    ['bed', 'bunk'].forEach((k) => (D3.cabinProps[k] || []).filter((m) => m.material === FABRIC).forEach((m) => { for (let i = 0; i < m.count; i++) { c.setRGB(...pal[(r() * pal.length) | 0]); m.setColorAt(i, c); } m.instanceColor.needsUpdate = true; })); }
 }
 
 // ---------- standard rooms (roadmap C2): the deck's other ordinary rooms ----------
