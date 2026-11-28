@@ -842,6 +842,18 @@ void main() {
   const root = new THREE.Group(); root.name = 'Exterior';
   const ship = new THREE.Mesh(shipGeo, paint); ship.name = 'Exterior hull'; root.add(ship);
   const lettering = new THREE.Mesh(letterGeo, decalPaint); lettering.name = 'Exterior lettering'; lettering.renderOrder = 1; root.add(lettering);
+  // Deck 3's window nooks (exterior stage 3's first windows from a floor plan): each nook's window in the saucer's top
+  // skin, a dark frame and the glass just above the hull (one mesh, vertex colours); most glow warm (cabins in use),
+  // a few cool or dark
+  { const F = typeof shipFloorPlan === 'function' && shipFloorPlan(3); if (F) { const pos = [], col = [], r = mulberry(303);
+    F.spaces.forEach((s) => { const W = s.nookAt && s.nookAt.win; if (!W) return; const c = W.q.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]), t = r();
+      const glow = t < 0.15 ? [0.05, 0.07, 0.09] : t < 0.27 ? [0.62, 0.74, 0.88] : [1.0, 0.7, 0.42];
+      const quad = (k, lift, rgb) => { const P = W.q.map(([m, x]) => { const pm = c[0] + (m - c[0]) * k, px = c[1] + (x - c[1]) * k; return [px, Y(shipSkinTop(pm, px) - lift), Z(pm)]; });
+        [0, 1, 2, 0, 2, 3].forEach((i) => { pos.push(...P[i]); col.push(...rgb); }); };
+      quad(1.18, 0.03, [0.04, 0.045, 0.05]); quad(1.0, 0.045, glow); });
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    m.name = 'Deck 3 nook windows'; root.add(m); root.userData.nookWindows = pos.length / 36; } }
   // floods go dark at red alert (the lounge board says so)
   ship.onBeforeRender = () => { uniforms.flood.value = typeof state !== 'undefined' && state.alert === 'red' ? 0 : 1; };
   // running lights: red to port and green to starboard at the widest beam and on each nacelle's outboard side

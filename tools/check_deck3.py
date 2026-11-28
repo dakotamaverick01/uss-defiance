@@ -153,6 +153,8 @@ CHECK_JS = r"""() => {
   { const cp = D3.cabins.map((c) => c.personal || {}), n = (f) => cp.filter(f).length, c = (k) => D3.cabinProps[k] ? D3.cabinProps[k][0].count : 0;
     const books = n((p) => p.books), plants = n((p) => p.plant), mugs = n((p) => p.mug), info = `books ${books}, plants ${plants}, mugs ${mugs} of ${cp.length}`;
     ok('personal props on cabin desks, varied by cabin', books > 8 && books < 34 && plants > 8 && plants < 34 && mugs > 15 && mugs < 38 && c('books') + c('books2') === books && c('dplant') === plants, info); }
+  // the nook windows on the exterior (built with Deck 2): one in the saucer's top for each nook
+  { const nw = EXTSET && EXTSET.getObjectByName('Deck 3 nook windows'); ok('exterior: a lit window in the saucer’s top for each nook', nw && EXTSET.userData.nookWindows === D3.cabins.filter((c) => c.s.nookAt && c.s.nookAt.win).length, nw ? EXTSET.userData.nookWindows : 'none'); }
   // the location readout knows the corridors
   { const was = [player.x, player.z]; const at = (x, z) => { player.x = x; player.z = z; return liftLocation(); };
     const r = [at(LIFT_DX, LIFT_DZ - 1.5), at(...[Math.sin(0.5) * Lt.dc, Math.cos(0.5) * Lt.dc - 6]), at(0, 60)]; [player.x, player.z] = was;
